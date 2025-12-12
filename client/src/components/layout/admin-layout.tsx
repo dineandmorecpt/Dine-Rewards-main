@@ -24,7 +24,6 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const navigation = [
     { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
     { name: "Diners", href: "/admin/diners", icon: Users },
-    { name: "Menu Management", href: "/admin/menu", icon: UtensilsCrossed },
     { name: "Vouchers", href: "/admin/vouchers", icon: Ticket },
     { name: "Settings", href: "/admin/settings", icon: Settings },
   ];

@@ -61,6 +61,17 @@ export interface IStorage {
   // Campaign Management
   createCampaign(campaign: InsertCampaign): Promise<Campaign>;
   getCampaignsByRestaurant(restaurantId: string): Promise<Campaign[]>;
+  
+  // Restaurant Settings
+  updateRestaurantSettings(
+    id: string, 
+    settings: { 
+      voucherValue?: string; 
+      voucherValidityDays?: number; 
+      pointsPerCurrency?: number; 
+      pointsThreshold?: number 
+    }
+  ): Promise<Restaurant>;
 }
 
 export class DbStorage implements IStorage {
@@ -205,6 +216,22 @@ export class DbStorage implements IStorage {
     return await db.select().from(campaigns)
       .where(eq(campaigns.restaurantId, restaurantId))
       .orderBy(desc(campaigns.createdAt));
+  }
+
+  async updateRestaurantSettings(
+    id: string, 
+    settings: { 
+      voucherValue?: string; 
+      voucherValidityDays?: number; 
+      pointsPerCurrency?: number; 
+      pointsThreshold?: number 
+    }
+  ): Promise<Restaurant> {
+    const result = await db.update(restaurants)
+      .set(settings)
+      .where(eq(restaurants.id, id))
+      .returning();
+    return result[0];
   }
 }
 

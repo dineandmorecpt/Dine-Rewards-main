@@ -171,6 +171,46 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to fetch restaurants" });
     }
   });
+
+  // GET /api/restaurants/:restaurantId - Get a single restaurant
+  app.get("/api/restaurants/:restaurantId", async (req, res) => {
+    try {
+      const { restaurantId } = req.params;
+      const restaurant = await storage.getRestaurant(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+      res.json(restaurant);
+    } catch (error) {
+      console.error("Get restaurant error:", error);
+      res.status(500).json({ error: "Failed to fetch restaurant" });
+    }
+  });
+
+  // PATCH /api/restaurants/:restaurantId/settings - Update restaurant settings
+  app.patch("/api/restaurants/:restaurantId/settings", async (req, res) => {
+    try {
+      const { restaurantId } = req.params;
+      const { voucherValue, voucherValidityDays, pointsPerCurrency, pointsThreshold } = req.body;
+      
+      const restaurant = await storage.getRestaurant(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+      
+      const updatedRestaurant = await storage.updateRestaurantSettings(restaurantId, {
+        voucherValue,
+        voucherValidityDays,
+        pointsPerCurrency,
+        pointsThreshold
+      });
+      
+      res.json(updatedRestaurant);
+    } catch (error) {
+      console.error("Update restaurant settings error:", error);
+      res.status(500).json({ error: "Failed to update settings" });
+    }
+  });
   
   // GET /api/restaurants/:restaurantId/stats - Get restaurant dashboard stats
   app.get("/api/restaurants/:restaurantId/stats", async (req, res) => {

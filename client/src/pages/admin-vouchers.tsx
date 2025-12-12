@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,8 +10,9 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Ticket, Megaphone, Plus, Calendar, Users, Percent, DollarSign, Gift, Clock, Send } from "lucide-react";
+import { Ticket, Megaphone, Plus, Calendar, Users, Percent, DollarSign, Gift, Clock, Send, Settings, Save } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 // Mock Data
 const initialVouchers = [
@@ -27,9 +28,63 @@ const initialCampaigns = [
   { id: 3, name: "VIP Gala Invite", status: "Completed", voucher: "Welcome Drink", audience: "VIP", sent: 150, openRate: "82%" },
 ];
 
+const RESTAURANT_ID = "c57c7d9c-1084-45b1-abce-c850caa6e875";
+
 export default function AdminVouchers() {
   const [vouchers, setVouchers] = useState(initialVouchers);
   const [campaigns, setCampaigns] = useState(initialCampaigns);
+  const [voucherValue, setVoucherValue] = useState("R100 Loyalty Voucher");
+  const [voucherValidityDays, setVoucherValidityDays] = useState(30);
+  const [pointsPerCurrency, setPointsPerCurrency] = useState(1);
+  const [pointsThreshold, setPointsThreshold] = useState(1000);
+  const [isSaving, setIsSaving] = useState(false);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    fetch(`/api/restaurants/${RESTAURANT_ID}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data) {
+          setVoucherValue(data.voucherValue || "R100 Loyalty Voucher");
+          setVoucherValidityDays(data.voucherValidityDays || 30);
+          setPointsPerCurrency(data.pointsPerCurrency || 1);
+          setPointsThreshold(data.pointsThreshold || 1000);
+        }
+      })
+      .catch(err => console.error("Failed to load settings:", err));
+  }, []);
+
+  const handleSaveSettings = async () => {
+    setIsSaving(true);
+    try {
+      const response = await fetch(`/api/restaurants/${RESTAURANT_ID}/settings`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          voucherValue,
+          voucherValidityDays,
+          pointsPerCurrency,
+          pointsThreshold
+        })
+      });
+      if (response.ok) {
+        toast({
+          title: "Settings saved",
+          description: "Your reward settings have been updated successfully."
+        });
+      } else {
+        throw new Error("Failed to save");
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to save settings. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <AdminLayout>
@@ -42,9 +97,10 @@ export default function AdminVouchers() {
         </div>
 
         <Tabs defaultValue="vouchers" className="w-full space-y-6">
-          <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
+          <TabsList className="grid w-full grid-cols-3 max-w-[500px]">
             <TabsTrigger value="vouchers">Vouchers</TabsTrigger>
             <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
+            <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
 
           {/* VOUCHERS TAB */}
@@ -253,6 +309,111 @@ export default function AdminVouchers() {
                   </div>
                 ))}
               </div>
+            </div>
+          </TabsContent>
+
+          {/* SETTINGS TAB */}
+          <TabsContent value="settings" className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-medium font-serif">Reward Settings</h2>
+            </div>
+
+            <div className="grid gap-6 max-w-2xl">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Gift className="h-5 w-5" />
+                    Loyalty Voucher Configuration
+                  </CardTitle>
+                  <CardDescription>
+                    Configure the voucher that diners receive when they reach the points threshold.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="voucher-value">Voucher Value / Title</Label>
+                    <Input
+                      id="voucher-value"
+                      data-testid="input-voucher-value"
+                      value={voucherValue}
+                      onChange={(e) => setVoucherValue(e.target.value)}
+                      placeholder="e.g., R100 Loyalty Voucher"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      This is what diners will see on their voucher (e.g., "R100 Off Your Bill")
+                    </p>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="validity-days">Voucher Validity (Days)</Label>
+                    <Input
+                      id="validity-days"
+                      data-testid="input-validity-days"
+                      type="number"
+                      min={1}
+                      max={365}
+                      value={voucherValidityDays}
+                      onChange={(e) => setVoucherValidityDays(parseInt(e.target.value) || 30)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      How many days the voucher is valid after being generated
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Settings className="h-5 w-5" />
+                    Points Calculation Rules
+                  </CardTitle>
+                  <CardDescription>
+                    Configure how diners earn points and when vouchers are generated.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="points-per-currency">Points per R1 Spent</Label>
+                    <Input
+                      id="points-per-currency"
+                      data-testid="input-points-per-currency"
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={pointsPerCurrency}
+                      onChange={(e) => setPointsPerCurrency(parseInt(e.target.value) || 1)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Number of points diners earn for each R1 spent
+                    </p>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="points-threshold">Points Threshold for Voucher</Label>
+                    <Input
+                      id="points-threshold"
+                      data-testid="input-points-threshold"
+                      type="number"
+                      min={100}
+                      max={10000}
+                      value={pointsThreshold}
+                      onChange={(e) => setPointsThreshold(parseInt(e.target.value) || 1000)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Points required to automatically generate a voucher
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Button
+                data-testid="button-save-settings"
+                onClick={handleSaveSettings}
+                disabled={isSaving}
+                className="w-full gap-2"
+              >
+                <Save className="h-4 w-4" />
+                {isSaving ? "Saving..." : "Save Settings"}
+              </Button>
             </div>
           </TabsContent>
         </Tabs>

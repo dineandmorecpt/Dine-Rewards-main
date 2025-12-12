@@ -1,19 +1,22 @@
 import type { IStorage } from "../../storage";
 import type { Voucher } from "@shared/schema";
 
+export type VoucherStatus = "active" | "redeemed" | "expired";
+
+export interface EnrichedVoucher extends Voucher {
+  restaurantName: string;
+  status: VoucherStatus;
+}
+
 export interface VoucherSelectionResult {
   code: string;
-  voucher: Voucher;
+  voucher: EnrichedVoucher;
 }
 
 export interface VoucherRedemptionResult {
   success: boolean;
-  voucher: Voucher;
+  voucher: EnrichedVoucher;
   message: string;
-}
-
-export interface EnrichedVoucher extends Voucher {
-  restaurantName: string;
 }
 
 export interface IVoucherService {
@@ -22,10 +25,21 @@ export interface IVoucherService {
   redeemVoucherByCode(restaurantId: string, code: string): Promise<VoucherRedemptionResult>;
   isVoucherValid(voucher: Voucher): { valid: boolean; reason?: string };
   isVoucherExpired(voucher: Voucher): boolean;
+  getVoucherStatus(voucher: Voucher): VoucherStatus;
 }
 
 export class VoucherService implements IVoucherService {
   constructor(private storage: IStorage) {}
+
+  getVoucherStatus(voucher: Voucher): VoucherStatus {
+    if (voucher.isRedeemed) {
+      return "redeemed";
+    }
+    if (this.isVoucherExpired(voucher)) {
+      return "expired";
+    }
+    return "active";
+  }
 
   async getDinerVouchers(dinerId: string): Promise<EnrichedVoucher[]> {
     const vouchers = await this.storage.getVouchersByDiner(dinerId);
@@ -35,7 +49,8 @@ export class VoucherService implements IVoucherService {
         const restaurant = await this.storage.getRestaurant(voucher.restaurantId);
         return {
           ...voucher,
-          restaurantName: restaurant?.name || "Unknown"
+          restaurantName: restaurant?.name || "Unknown",
+          status: this.getVoucherStatus(voucher)
         };
       })
     );
@@ -73,7 +88,14 @@ export class VoucherService implements IVoucherService {
 
     await this.storage.updateUserActiveVoucherCode(dinerId, voucher.code);
 
-    return { code: voucher.code, voucher };
+    const restaurant = await this.storage.getRestaurant(voucher.restaurantId);
+    const enrichedVoucher: EnrichedVoucher = {
+      ...voucher,
+      restaurantName: restaurant?.name || "Unknown",
+      status: this.getVoucherStatus(voucher)
+    };
+
+    return { code: voucher.code, voucher: enrichedVoucher };
   }
 
   async redeemVoucherByCode(
@@ -102,10 +124,17 @@ export class VoucherService implements IVoucherService {
     const redeemedVoucher = await this.storage.redeemVoucher(voucher.id);
     await this.storage.updateUserActiveVoucherCode(voucher.dinerId, null);
 
+    const restaurant = await this.storage.getRestaurant(redeemedVoucher.restaurantId);
+    const enrichedVoucher: EnrichedVoucher = {
+      ...redeemedVoucher,
+      restaurantName: restaurant?.name || "Unknown",
+      status: this.getVoucherStatus(redeemedVoucher)
+    };
+
     return {
       success: true,
-      voucher: redeemedVoucher,
-      message: `Voucher "${redeemedVoucher.title}" redeemed successfully!`
+      voucher: enrichedVoucher,
+      message: `Voucher "${enrichedVoucher.title}" redeemed successfully!`
     };
   }
 }

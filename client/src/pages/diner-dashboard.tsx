@@ -25,6 +25,8 @@ interface PointsBalance {
   pointsThreshold: number;
 }
 
+type VoucherStatus = "active" | "redeemed" | "expired";
+
 interface Voucher {
   id: string;
   restaurantId: string;
@@ -33,6 +35,7 @@ interface Voucher {
   expiryDate: string;
   code: string;
   isRedeemed: boolean;
+  status: VoucherStatus;
 }
 
 export default function DinerDashboard() {
@@ -242,8 +245,18 @@ export default function DinerDashboard() {
                           <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">{voucher.restaurantName}</p>
                           <CardTitle className="mt-1 text-lg font-serif">{voucher.title}</CardTitle>
                         </div>
-                        <Badge variant={voucher.isRedeemed ? "secondary" : "outline"} className="bg-secondary/50">
-                          {voucher.isRedeemed ? "Used" : "Active"}
+                        <Badge 
+                          variant={voucher.status === "active" ? "default" : "secondary"} 
+                          className={
+                            voucher.status === "active" 
+                              ? "bg-green-500/90 text-white hover:bg-green-500" 
+                              : voucher.status === "expired" 
+                                ? "bg-orange-500/90 text-white hover:bg-orange-500" 
+                                : "bg-secondary/50"
+                          }
+                          data-testid={`badge-status-${voucher.code}`}
+                        >
+                          {voucher.status === "active" ? "Active" : voucher.status === "redeemed" ? "Redeemed" : "Expired"}
                         </Badge>
                       </div>
                     </CardHeader>
@@ -260,12 +273,12 @@ export default function DinerDashboard() {
                       <Button 
                         className="w-full gap-2" 
                         size="sm"
-                        disabled={voucher.isRedeemed || selectVoucher.isPending}
+                        disabled={voucher.status !== "active" || selectVoucher.isPending}
                         onClick={() => selectVoucher.mutate({ voucherId: voucher.id, title: voucher.title })}
                         data-testid={`button-present-${voucher.code}`}
                       >
                         <QrCode className="h-4 w-4" />
-                        {voucher.isRedeemed ? "Already Redeemed" : "Present Code"}
+                        {voucher.status === "active" ? "Present Code" : voucher.status === "redeemed" ? "Already Redeemed" : "Expired"}
                       </Button>
                     </CardFooter>
                   </Card>

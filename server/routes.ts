@@ -1,245 +1,82 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { createLoyaltyServices } from "./services/loyalty";
 import { insertTransactionSchema } from "@shared/schema";
-import { z } from "zod";
+
+const services = createLoyaltyServices(storage);
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
   
-  // POINTS CALCULATION ENGINE
-  // POST /api/transactions - Record a transaction and auto-calculate points
+  // TRANSACTIONS - Record a transaction and calculate points
   app.post("/api/transactions", async (req, res) => {
     try {
       const { dinerId, restaurantId, amountSpent } = insertTransactionSchema.parse(req.body);
-      
-      // Get restaurant config for points calculation rules
-      const restaurant = await storage.getRestaurant(restaurantId);
-      if (!restaurant) {
-        return res.status(404).json({ error: "Restaurant not found" });
-      }
-      
-      // Configurable Rule: Points per currency unit (default: 1 point per R1)
-      const pointsEarned = Math.floor(Number(amountSpent) * restaurant.pointsPerCurrency);
-      
-      // Create transaction record
-      const transaction = await storage.createTransaction({
-        dinerId,
-        restaurantId,
-        amountSpent: amountSpent.toString(),
-        pointsEarned
-      });
-      
-      // Get or create points balance
-      let balance = await storage.getPointsBalance(dinerId, restaurantId);
-      if (!balance) {
-        balance = await storage.createPointsBalance({
-          dinerId,
-          restaurantId,
-          currentPoints: 0,
-          totalPointsEarned: 0,
-          totalVouchersGenerated: 0
-        });
-      }
-      
-      // Calculate new points (Rule 5: Points do not fall away, but accumulate)
-      let newCurrentPoints = balance.currentPoints + pointsEarned;
-      const newTotalPointsEarned = balance.totalPointsEarned + pointsEarned;
-      let newVouchersGenerated = balance.totalVouchersGenerated;
-      
-      const vouchersToGenerate = [];
-      
-      // Configurable Rule: Points threshold for voucher generation (default: 1000)
-      const threshold = restaurant.pointsThreshold;
-      
-      while (newCurrentPoints >= threshold) {
-        newCurrentPoints -= threshold;
-        newVouchersGenerated += 1;
-        
-        // Generate voucher code
-        const voucherCode = `${restaurant.name.substring(0, 4).toUpperCase()}-${Math.floor(Math.random() * 10000)}`;
-        
-        // Calculate expiry date
-        const expiryDate = new Date();
-        expiryDate.setDate(expiryDate.getDate() + restaurant.voucherValidityDays);
-        
-        // Create voucher
-        const voucher = await storage.createVoucher({
-          dinerId,
-          restaurantId,
-          title: restaurant.voucherValue,
-          code: voucherCode,
-          expiryDate,
-          isRedeemed: false,
-          redeemedAt: null
-        });
-        
-        vouchersToGenerate.push(voucher);
-      }
-      
-      // Update points balance
-      const updatedBalance = await storage.updatePointsBalance(
-        balance.id,
-        newCurrentPoints,
-        newTotalPointsEarned,
-        newVouchersGenerated
+      const result = await services.loyalty.recordTransaction(
+        dinerId, 
+        restaurantId, 
+        Number(amountSpent)
       );
-      
-      res.json({
-        transaction,
-        balance: updatedBalance,
-        vouchersGenerated: vouchersToGenerate
-      });
-    } catch (error) {
+      res.json(result);
+    } catch (error: any) {
       console.error("Transaction error:", error);
-      res.status(400).json({ error: "Invalid transaction data" });
+      res.status(400).json({ error: error.message || "Invalid transaction data" });
     }
   });
   
-  // GET /api/diners/:dinerId/points - Get all points balances for a diner
+  // DINER POINTS - Get all points balances for a diner
   app.get("/api/diners/:dinerId/points", async (req, res) => {
     try {
       const { dinerId } = req.params;
-      const balances = await storage.getPointsBalancesByDiner(dinerId);
-      
-      // Enrich with restaurant data including points config
-      const enrichedBalances = await Promise.all(
-        balances.map(async (balance) => {
-          const restaurant = await storage.getRestaurant(balance.restaurantId);
-          return {
-            ...balance,
-            restaurantName: restaurant?.name || "Unknown",
-            restaurantColor: restaurant?.color || "bg-primary",
-            pointsPerCurrency: restaurant?.pointsPerCurrency || 1,
-            pointsThreshold: restaurant?.pointsThreshold || 1000
-          };
-        })
-      );
-      
-      res.json(enrichedBalances);
+      const balances = await services.loyalty.getBalancesForDiner(dinerId);
+      res.json(balances);
     } catch (error) {
       console.error("Get points error:", error);
       res.status(500).json({ error: "Failed to fetch points" });
     }
   });
   
-  // GET /api/diners/:dinerId/vouchers - Get all vouchers for a diner
+  // DINER VOUCHERS - Get all vouchers for a diner
   app.get("/api/diners/:dinerId/vouchers", async (req, res) => {
     try {
       const { dinerId } = req.params;
-      const dinerVouchers = await storage.getVouchersByDiner(dinerId);
-      
-      // Enrich with restaurant data
-      const enrichedVouchers = await Promise.all(
-        dinerVouchers.map(async (voucher) => {
-          const restaurant = await storage.getRestaurant(voucher.restaurantId);
-          return {
-            ...voucher,
-            restaurantName: restaurant?.name || "Unknown"
-          };
-        })
-      );
-      
-      res.json(enrichedVouchers);
+      const vouchers = await services.voucher.getDinerVouchers(dinerId);
+      res.json(vouchers);
     } catch (error) {
       console.error("Get vouchers error:", error);
       res.status(500).json({ error: "Failed to fetch vouchers" });
     }
   });
   
-  // POST /api/vouchers/:voucherId/redeem - Redeem a voucher (Rule 3: Only redeemable once)
-  app.post("/api/vouchers/:voucherId/redeem", async (req, res) => {
-    try {
-      const { voucherId } = req.params;
-      const redeemedVoucher = await storage.redeemVoucher(voucherId);
-      res.json(redeemedVoucher);
-    } catch (error) {
-      console.error("Redeem voucher error:", error);
-      res.status(400).json({ error: "Failed to redeem voucher" });
-    }
-  });
-
-  // POST /api/diners/:dinerId/vouchers/:voucherId/select - Diner selects a voucher to present
+  // DINER SELECT VOUCHER - Select a voucher to present to restaurant
   app.post("/api/diners/:dinerId/vouchers/:voucherId/select", async (req, res) => {
     try {
       const { dinerId, voucherId } = req.params;
-      
-      // Get the voucher
-      const dinerVouchers = await storage.getVouchersByDiner(dinerId);
-      const voucher = dinerVouchers.find(v => v.id === voucherId);
-      
-      if (!voucher) {
-        return res.status(404).json({ error: "Voucher not found" });
-      }
-      
-      if (voucher.isRedeemed) {
-        return res.status(400).json({ error: "Voucher already redeemed" });
-      }
-      
-      if (new Date(voucher.expiryDate) < new Date()) {
-        return res.status(400).json({ error: "Voucher has expired" });
-      }
-      
-      // Set the active voucher code on the user
-      await storage.updateUserActiveVoucherCode(dinerId, voucher.code);
-      
-      res.json({ code: voucher.code, voucher });
-    } catch (error) {
+      const result = await services.voucher.selectVoucherForPresentation(dinerId, voucherId);
+      res.json(result);
+    } catch (error: any) {
       console.error("Select voucher error:", error);
-      res.status(500).json({ error: "Failed to select voucher" });
+      res.status(400).json({ error: error.message || "Failed to select voucher" });
     }
   });
 
-  // POST /api/restaurants/:restaurantId/vouchers/redeem - Restaurant redeems a voucher by code
+  // RESTAURANT REDEEM VOUCHER - Restaurant redeems voucher by code
   app.post("/api/restaurants/:restaurantId/vouchers/redeem", async (req, res) => {
     try {
       const { restaurantId } = req.params;
       const { code } = req.body;
-      
-      if (!code) {
-        return res.status(400).json({ error: "Voucher code is required" });
-      }
-      
-      // Find voucher by code
-      const voucher = await storage.getVoucherByCode(code);
-      
-      if (!voucher) {
-        return res.status(404).json({ error: "Invalid voucher code" });
-      }
-      
-      // Verify voucher belongs to this restaurant
-      if (voucher.restaurantId !== restaurantId) {
-        return res.status(400).json({ error: "This voucher is not valid at this restaurant" });
-      }
-      
-      if (voucher.isRedeemed) {
-        return res.status(400).json({ error: "Voucher has already been redeemed" });
-      }
-      
-      if (new Date(voucher.expiryDate) < new Date()) {
-        return res.status(400).json({ error: "Voucher has expired" });
-      }
-      
-      // Redeem the voucher
-      const redeemedVoucher = await storage.redeemVoucher(voucher.id);
-      
-      // Clear the user's active voucher code
-      await storage.updateUserActiveVoucherCode(voucher.dinerId, null);
-      
-      res.json({ 
-        success: true, 
-        voucher: redeemedVoucher,
-        message: `Voucher "${redeemedVoucher.title}" redeemed successfully!`
-      });
-    } catch (error) {
+      const result = await services.voucher.redeemVoucherByCode(restaurantId, code);
+      res.json(result);
+    } catch (error: any) {
       console.error("Restaurant redeem voucher error:", error);
-      res.status(500).json({ error: "Failed to redeem voucher" });
+      res.status(400).json({ error: error.message || "Failed to redeem voucher" });
     }
   });
   
-  // GET /api/restaurants - Get all restaurants
+  // RESTAURANTS - Get all restaurants
   app.get("/api/restaurants", async (req, res) => {
     try {
       const allRestaurants = await storage.getAllRestaurants();
@@ -250,7 +87,7 @@ export async function registerRoutes(
     }
   });
 
-  // GET /api/restaurants/:restaurantId - Get a single restaurant
+  // RESTAURANT - Get a single restaurant
   app.get("/api/restaurants/:restaurantId", async (req, res) => {
     try {
       const { restaurantId } = req.params;
@@ -265,55 +102,25 @@ export async function registerRoutes(
     }
   });
 
-  // PATCH /api/restaurants/:restaurantId/settings - Update restaurant settings
+  // RESTAURANT SETTINGS - Update restaurant configuration
   app.patch("/api/restaurants/:restaurantId/settings", async (req, res) => {
     try {
       const { restaurantId } = req.params;
-      const { voucherValue, voucherValidityDays, pointsPerCurrency, pointsThreshold } = req.body;
-      
-      const restaurant = await storage.getRestaurant(restaurantId);
-      if (!restaurant) {
-        return res.status(404).json({ error: "Restaurant not found" });
-      }
-      
-      const updatedRestaurant = await storage.updateRestaurantSettings(restaurantId, {
-        voucherValue,
-        voucherValidityDays,
-        pointsPerCurrency,
-        pointsThreshold
-      });
-      
+      const settings = req.body;
+      const updatedRestaurant = await services.config.updateRestaurantSettings(restaurantId, settings);
       res.json(updatedRestaurant);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Update restaurant settings error:", error);
-      res.status(500).json({ error: "Failed to update settings" });
+      res.status(400).json({ error: error.message || "Failed to update settings" });
     }
   });
   
-  // GET /api/restaurants/:restaurantId/stats - Get restaurant dashboard stats
+  // RESTAURANT STATS - Get restaurant dashboard statistics
   app.get("/api/restaurants/:restaurantId/stats", async (req, res) => {
     try {
       const { restaurantId } = req.params;
-      
-      // Get transactions from last 30 days
-      const recentTransactions = await storage.getTransactionsByRestaurant(restaurantId, true);
-      
-      // Count unique diners in last 30 days
-      const uniqueDiners = new Set(recentTransactions.map(t => t.dinerId)).size;
-      
-      // Calculate total spent
-      const totalSpent = recentTransactions.reduce((sum, t) => sum + Number(t.amountSpent), 0);
-      
-      // Get vouchers for this restaurant
-      const restaurantVouchers = await storage.getVouchersByRestaurant(restaurantId);
-      const redeemedCount = restaurantVouchers.filter(v => v.isRedeemed).length;
-      
-      res.json({
-        dinersLast30Days: uniqueDiners,
-        totalSpent,
-        vouchersRedeemed: redeemedCount,
-        transactions: recentTransactions
-      });
+      const stats = await services.stats.getRestaurantStats(restaurantId);
+      res.json(stats);
     } catch (error) {
       console.error("Get restaurant stats error:", error);
       res.status(500).json({ error: "Failed to fetch restaurant stats" });

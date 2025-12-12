@@ -28,6 +28,9 @@ export const restaurants = pgTable("restaurants", {
   voucherValue: text("voucher_value").notNull(), // e.g., "R100 Loyalty Voucher"
   voucherValidityDays: integer("voucher_validity_days").notNull().default(30),
   color: text("color").notNull().default("bg-primary"),
+  // Configurable points calculation rules per restaurant
+  pointsPerCurrency: integer("points_per_currency").notNull().default(1), // Points earned per R1 spent
+  pointsThreshold: integer("points_threshold").notNull().default(1000), // Points needed to generate a voucher
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

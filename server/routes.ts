@@ -15,8 +15,14 @@ export async function registerRoutes(
     try {
       const { dinerId, restaurantId, amountSpent } = insertTransactionSchema.parse(req.body);
       
-      // Rule 1: Every R1 spent = 1 point
-      const pointsEarned = Math.floor(Number(amountSpent));
+      // Get restaurant config for points calculation rules
+      const restaurant = await storage.getRestaurant(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+      
+      // Configurable Rule: Points per currency unit (default: 1 point per R1)
+      const pointsEarned = Math.floor(Number(amountSpent) * restaurant.pointsPerCurrency);
       
       // Create transaction record
       const transaction = await storage.createTransaction({
@@ -45,34 +51,32 @@ export async function registerRoutes(
       
       const vouchersToGenerate = [];
       
-      // Rule 2 & 4: Every 1000 points generates a voucher, then count resets
-      while (newCurrentPoints >= 1000) {
-        newCurrentPoints -= 1000;
+      // Configurable Rule: Points threshold for voucher generation (default: 1000)
+      const threshold = restaurant.pointsThreshold;
+      
+      while (newCurrentPoints >= threshold) {
+        newCurrentPoints -= threshold;
         newVouchersGenerated += 1;
         
-        // Get restaurant info to determine voucher value
-        const restaurant = await storage.getRestaurant(restaurantId);
-        if (restaurant) {
-          // Generate voucher code
-          const voucherCode = `${restaurant.name.substring(0, 4).toUpperCase()}-${Math.floor(Math.random() * 10000)}`;
-          
-          // Calculate expiry date
-          const expiryDate = new Date();
-          expiryDate.setDate(expiryDate.getDate() + restaurant.voucherValidityDays);
-          
-          // Create voucher
-          const voucher = await storage.createVoucher({
-            dinerId,
-            restaurantId,
-            title: restaurant.voucherValue,
-            code: voucherCode,
-            expiryDate,
-            isRedeemed: false,
-            redeemedAt: null
-          });
-          
-          vouchersToGenerate.push(voucher);
-        }
+        // Generate voucher code
+        const voucherCode = `${restaurant.name.substring(0, 4).toUpperCase()}-${Math.floor(Math.random() * 10000)}`;
+        
+        // Calculate expiry date
+        const expiryDate = new Date();
+        expiryDate.setDate(expiryDate.getDate() + restaurant.voucherValidityDays);
+        
+        // Create voucher
+        const voucher = await storage.createVoucher({
+          dinerId,
+          restaurantId,
+          title: restaurant.voucherValue,
+          code: voucherCode,
+          expiryDate,
+          isRedeemed: false,
+          redeemedAt: null
+        });
+        
+        vouchersToGenerate.push(voucher);
       }
       
       // Update points balance
@@ -100,14 +104,16 @@ export async function registerRoutes(
       const { dinerId } = req.params;
       const balances = await storage.getPointsBalancesByDiner(dinerId);
       
-      // Enrich with restaurant data
+      // Enrich with restaurant data including points config
       const enrichedBalances = await Promise.all(
         balances.map(async (balance) => {
           const restaurant = await storage.getRestaurant(balance.restaurantId);
           return {
             ...balance,
             restaurantName: restaurant?.name || "Unknown",
-            restaurantColor: restaurant?.color || "bg-primary"
+            restaurantColor: restaurant?.color || "bg-primary",
+            pointsPerCurrency: restaurant?.pointsPerCurrency || 1,
+            pointsThreshold: restaurant?.pointsThreshold || 1000
           };
         })
       );

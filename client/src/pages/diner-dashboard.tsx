@@ -19,6 +19,8 @@ interface PointsBalance {
   restaurantName: string;
   restaurantColor: string;
   restaurantId: string;
+  pointsPerCurrency: number;
+  pointsThreshold: number;
 }
 
 interface Voucher {
@@ -179,13 +181,13 @@ export default function DinerDashboard() {
                           </span>
                           <span className="text-muted-foreground ml-1">pts</span>
                         </div>
-                        <span className="text-xs font-medium text-muted-foreground uppercase">Target: 1000</span>
+                        <span className="text-xs font-medium text-muted-foreground uppercase">Target: {rest.pointsThreshold}</span>
                       </div>
                       
                       <div className="space-y-1">
-                        <Progress value={(rest.currentPoints / 1000) * 100} className="h-2" />
+                        <Progress value={(rest.currentPoints / rest.pointsThreshold) * 100} className="h-2" />
                         <p className="text-xs text-right text-muted-foreground">
-                          {1000 - rest.currentPoints} points to next voucher
+                          {rest.pointsThreshold - rest.currentPoints} points to next voucher
                         </p>
                       </div>
                     </div>

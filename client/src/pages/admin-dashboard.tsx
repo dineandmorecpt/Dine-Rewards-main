@@ -1,7 +1,8 @@
+import { useQuery } from "@tanstack/react-query";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { StatsCard } from "@/components/dashboard/stats-card";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
-import { Users, DollarSign, TicketPercent, TrendingUp } from "lucide-react";
+import { Users, DollarSign, TicketPercent } from "lucide-react";
 import { 
   Bar, 
   BarChart, 
@@ -14,19 +15,10 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
-// Mock data for charts
-const monthlyDinersData = [
-  { value: 45 }, { value: 52 }, { value: 38 }, { value: 65 }, { value: 48 }, { value: 60 }, { value: 78 }
-];
+// Hardcoded restaurant ID from seed data (La Trattoria)
+const RESTAURANT_ID = "c57c7d9c-1084-45b1-abce-c850caa6e875";
 
-const revenueData = [
-  { value: 2400 }, { value: 1398 }, { value: 9800 }, { value: 3908 }, { value: 4800 }, { value: 3800 }, { value: 4300 }
-];
-
-const voucherData = [
-  { value: 12 }, { value: 15 }, { value: 8 }, { value: 24 }, { value: 18 }, { value: 10 }, { value: 28 }
-];
-
+// Mock data for weekly trends (would come from backend in real app)
 const weeklyVisitsData = [
   { name: "Mon", visits: 24 },
   { name: "Tue", visits: 35 },
@@ -37,7 +29,36 @@ const weeklyVisitsData = [
   { name: "Sun", visits: 95 },
 ];
 
+interface RestaurantStats {
+  dinersLast30Days: number;
+  totalSpent: number;
+  vouchersRedeemed: number;
+}
+
 export default function AdminDashboard() {
+  // Fetch restaurant stats from API
+  const { data: stats, isLoading } = useQuery<RestaurantStats>({
+    queryKey: ["/api/restaurants", RESTAURANT_ID, "stats"],
+    queryFn: async () => {
+      const res = await fetch(`/api/restaurants/${RESTAURANT_ID}/stats`);
+      if (!res.ok) throw new Error("Failed to fetch stats");
+      return res.json();
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading dashboard...</p>
+          </div>
+        </div>
+      </AdminLayout>
+    );
+  }
+
   return (
     <AdminLayout>
       <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -58,27 +79,21 @@ export default function AdminDashboard() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <StatsCard 
             title="Diners (30 Days)" 
-            value="1,284" 
+            value={stats?.dinersLast30Days || 0}
             icon={Users}
             trend={{ value: 12, label: "vs last month", positive: true }}
-            chartData={monthlyDinersData}
-            chartColor="hsl(var(--primary))"
           />
           <StatsCard 
             title="Total Revenue" 
-            value="$42,593" 
+            value={`R${stats?.totalSpent?.toFixed(2) || "0.00"}`}
             icon={DollarSign}
             trend={{ value: 8, label: "vs last month", positive: true }}
-            chartData={revenueData}
-            chartColor="hsl(var(--chart-1))" // Gold
           />
           <StatsCard 
             title="Vouchers Redeemed" 
-            value="342" 
+            value={stats?.vouchersRedeemed || 0}
             icon={TicketPercent}
-            trend={{ value: 2, label: "vs last month", positive: false }}
-            chartData={voucherData}
-            chartColor="hsl(var(--chart-4))" // Terracotta
+            description="In last 30 days"
           />
         </div>
 
@@ -129,7 +144,7 @@ export default function AdminDashboard() {
 
           {/* Recent Activity Feed */}
           <div className="lg:col-span-1">
-             <RecentActivity />
+            <RecentActivity />
           </div>
         </div>
       </div>

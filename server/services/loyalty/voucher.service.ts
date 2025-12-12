@@ -23,7 +23,7 @@ export interface VoucherRedemptionResult {
 export interface IVoucherService {
   getDinerVouchers(dinerId: string): Promise<EnrichedVoucher[]>;
   selectVoucherForPresentation(dinerId: string, voucherId: string): Promise<VoucherSelectionResult>;
-  redeemVoucherByCode(restaurantId: string, code: string): Promise<VoucherRedemptionResult>;
+  redeemVoucherByCode(restaurantId: string, code: string, billId?: string): Promise<VoucherRedemptionResult>;
   isVoucherValid(voucher: Voucher): { valid: boolean; reason?: string };
   isVoucherExpired(voucher: Voucher): boolean;
   getVoucherStatus(voucher: Voucher): VoucherStatus;
@@ -114,7 +114,8 @@ export class VoucherService implements IVoucherService {
 
   async redeemVoucherByCode(
     restaurantId: string, 
-    code: string
+    code: string,
+    billId?: string
   ): Promise<VoucherRedemptionResult> {
     if (!code || !code.trim()) {
       throw new Error("Voucher code is required");
@@ -145,7 +146,7 @@ export class VoucherService implements IVoucherService {
       throw new Error("This voucher code has expired. Please ask the customer to present the code again.");
     }
 
-    const redeemedVoucher = await this.storage.redeemVoucher(voucher.id);
+    const redeemedVoucher = await this.storage.redeemVoucher(voucher.id, billId);
     await this.storage.updateUserActiveVoucherCode(voucher.dinerId, null);
 
     const restaurant = await this.storage.getRestaurant(redeemedVoucher.restaurantId);

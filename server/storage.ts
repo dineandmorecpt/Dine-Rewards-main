@@ -11,12 +11,18 @@ import {
   type InsertVoucher,
   type Campaign,
   type InsertCampaign,
+  type ReconciliationBatch,
+  type InsertReconciliationBatch,
+  type ReconciliationRecord,
+  type InsertReconciliationRecord,
   users,
   restaurants,
   pointsBalances,
   transactions,
   vouchers,
-  campaigns
+  campaigns,
+  reconciliationBatches,
+  reconciliationRecords
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/node-postgres";
 import pkg from "pg";
@@ -56,7 +62,8 @@ export interface IStorage {
   createVoucher(voucher: InsertVoucher): Promise<Voucher>;
   getVouchersByDiner(dinerId: string): Promise<Voucher[]>;
   getVouchersByRestaurant(restaurantId: string): Promise<Voucher[]>;
-  redeemVoucher(voucherId: string): Promise<Voucher>;
+  redeemVoucher(voucherId: string, billId?: string): Promise<Voucher>;
+  getVoucherByBillId(restaurantId: string, billId: string): Promise<Voucher | undefined>;
   
   // Campaign Management
   createCampaign(campaign: InsertCampaign): Promise<Campaign>;
@@ -75,8 +82,18 @@ export interface IStorage {
   
   // Voucher Code Management
   getVoucherByCode(code: string): Promise<Voucher | undefined>;
+  getVoucherById(id: string): Promise<Voucher | undefined>;
   updateUserActiveVoucherCode(userId: string, code: string | null): Promise<User>;
   getUserByActiveVoucherCode(code: string): Promise<User | undefined>;
+  
+  // Reconciliation Management
+  createReconciliationBatch(batch: InsertReconciliationBatch): Promise<ReconciliationBatch>;
+  getReconciliationBatchesByRestaurant(restaurantId: string): Promise<ReconciliationBatch[]>;
+  getReconciliationBatch(batchId: string): Promise<ReconciliationBatch | undefined>;
+  updateReconciliationBatch(batchId: string, updates: Partial<ReconciliationBatch>): Promise<ReconciliationBatch>;
+  createReconciliationRecord(record: InsertReconciliationRecord): Promise<ReconciliationRecord>;
+  getReconciliationRecordsByBatch(batchId: string): Promise<ReconciliationRecord[]>;
+  updateReconciliationRecord(recordId: string, updates: Partial<ReconciliationRecord>): Promise<ReconciliationRecord>;
 }
 
 export class DbStorage implements IStorage {
@@ -200,14 +217,24 @@ export class DbStorage implements IStorage {
       .orderBy(desc(vouchers.generatedAt));
   }
 
-  async redeemVoucher(voucherId: string): Promise<Voucher> {
+  async redeemVoucher(voucherId: string, billId?: string): Promise<Voucher> {
     const result = await db.update(vouchers)
       .set({ 
         isRedeemed: true,
-        redeemedAt: new Date()
+        redeemedAt: new Date(),
+        billId: billId || null
       })
       .where(eq(vouchers.id, voucherId))
       .returning();
+    return result[0];
+  }
+
+  async getVoucherByBillId(restaurantId: string, billId: string): Promise<Voucher | undefined> {
+    const result = await db.select().from(vouchers)
+      .where(and(
+        eq(vouchers.restaurantId, restaurantId),
+        eq(vouchers.billId, billId)
+      ));
     return result[0];
   }
 
@@ -244,6 +271,11 @@ export class DbStorage implements IStorage {
     return result[0];
   }
 
+  async getVoucherById(id: string): Promise<Voucher | undefined> {
+    const result = await db.select().from(vouchers).where(eq(vouchers.id, id));
+    return result[0];
+  }
+
   async updateUserActiveVoucherCode(userId: string, code: string | null): Promise<User> {
     const result = await db.update(users)
       .set({ 
@@ -257,6 +289,51 @@ export class DbStorage implements IStorage {
 
   async getUserByActiveVoucherCode(code: string): Promise<User | undefined> {
     const result = await db.select().from(users).where(eq(users.activeVoucherCode, code));
+    return result[0];
+  }
+
+  // Reconciliation Methods
+  async createReconciliationBatch(batch: InsertReconciliationBatch): Promise<ReconciliationBatch> {
+    const result = await db.insert(reconciliationBatches).values(batch).returning();
+    return result[0];
+  }
+
+  async getReconciliationBatchesByRestaurant(restaurantId: string): Promise<ReconciliationBatch[]> {
+    return await db.select().from(reconciliationBatches)
+      .where(eq(reconciliationBatches.restaurantId, restaurantId))
+      .orderBy(desc(reconciliationBatches.uploadedAt));
+  }
+
+  async getReconciliationBatch(batchId: string): Promise<ReconciliationBatch | undefined> {
+    const result = await db.select().from(reconciliationBatches)
+      .where(eq(reconciliationBatches.id, batchId));
+    return result[0];
+  }
+
+  async updateReconciliationBatch(batchId: string, updates: Partial<ReconciliationBatch>): Promise<ReconciliationBatch> {
+    const result = await db.update(reconciliationBatches)
+      .set(updates)
+      .where(eq(reconciliationBatches.id, batchId))
+      .returning();
+    return result[0];
+  }
+
+  async createReconciliationRecord(record: InsertReconciliationRecord): Promise<ReconciliationRecord> {
+    const result = await db.insert(reconciliationRecords).values(record).returning();
+    return result[0];
+  }
+
+  async getReconciliationRecordsByBatch(batchId: string): Promise<ReconciliationRecord[]> {
+    return await db.select().from(reconciliationRecords)
+      .where(eq(reconciliationRecords.batchId, batchId))
+      .orderBy(desc(reconciliationRecords.createdAt));
+  }
+
+  async updateReconciliationRecord(recordId: string, updates: Partial<ReconciliationRecord>): Promise<ReconciliationRecord> {
+    const result = await db.update(reconciliationRecords)
+      .set(updates)
+      .where(eq(reconciliationRecords.id, recordId))
+      .returning();
     return result[0];
   }
 }

@@ -10,10 +10,10 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Ticket, Megaphone, Plus, Calendar, Users, Percent, DollarSign, Gift, Clock, Send, Settings, Save, ScanLine, Check } from "lucide-react";
+import { Ticket, Megaphone, Plus, Calendar, Users, Percent, DollarSign, Gift, Clock, Send, Settings, Save, ScanLine, Check, FileUp, FileCheck, FileX, ChevronRight, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 
 // Mock Data
 const initialVouchers = [
@@ -40,15 +40,69 @@ export default function AdminVouchers() {
   const [pointsThreshold, setPointsThreshold] = useState(1000);
   const [isSaving, setIsSaving] = useState(false);
   const [redeemCode, setRedeemCode] = useState("");
+  const [billId, setBillId] = useState("");
   const [redemptionSuccess, setRedemptionSuccess] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
   const { toast } = useToast();
 
+  const reconciliationBatches = useQuery({
+    queryKey: ['reconciliation-batches', RESTAURANT_ID],
+    queryFn: async () => {
+      const res = await fetch(`/api/restaurants/${RESTAURANT_ID}/reconciliation/batches`);
+      if (!res.ok) throw new Error('Failed to fetch batches');
+      return res.json();
+    }
+  });
+
+  const batchDetails = useQuery({
+    queryKey: ['batch-details', selectedBatchId],
+    queryFn: async () => {
+      if (!selectedBatchId) return null;
+      const res = await fetch(`/api/restaurants/${RESTAURANT_ID}/reconciliation/batches/${selectedBatchId}`);
+      if (!res.ok) throw new Error('Failed to fetch batch details');
+      return res.json();
+    },
+    enabled: !!selectedBatchId
+  });
+
+  const uploadCSV = useMutation({
+    mutationFn: async (file: File) => {
+      const content = await file.text();
+      const res = await fetch(`/api/restaurants/${RESTAURANT_ID}/reconciliation/upload`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileName: file.name, csvContent: content })
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to upload CSV');
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setSelectedFile(null);
+      reconciliationBatches.refetch();
+      toast({
+        title: 'CSV Processed',
+        description: `Found ${data.summary.matched} matches out of ${data.summary.total} records.`
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Upload Failed',
+        description: error.message,
+        variant: 'destructive'
+      });
+    }
+  });
+
   const redeemVoucher = useMutation({
-    mutationFn: async (code: string) => {
+    mutationFn: async ({ code, billId }: { code: string; billId?: string }) => {
       const res = await fetch(`/api/restaurants/${RESTAURANT_ID}/vouchers/redeem`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code })
+        body: JSON.stringify({ code, billId: billId || undefined })
       });
       if (!res.ok) {
         const data = await res.json();
@@ -59,6 +113,7 @@ export default function AdminVouchers() {
     onSuccess: (data) => {
       setRedemptionSuccess(data.message);
       setRedeemCode("");
+      setBillId("");
       toast({
         title: "Voucher Redeemed!",
         description: data.message
@@ -130,8 +185,9 @@ export default function AdminVouchers() {
         </div>
 
         <Tabs defaultValue="vouchers" className="w-full space-y-6">
-          <TabsList className="grid w-full grid-cols-3 max-w-[500px]">
+          <TabsList className="grid w-full grid-cols-4 max-w-[600px]">
             <TabsTrigger value="vouchers">Vouchers</TabsTrigger>
+            <TabsTrigger value="reconciliation">Reconciliation</TabsTrigger>
             <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
@@ -150,32 +206,43 @@ export default function AdminVouchers() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="flex gap-3 max-w-md">
-                  <Input
-                    placeholder="Enter voucher code (e.g., LATR-1234)"
-                    value={redeemCode}
-                    onChange={(e) => {
-                      setRedeemCode(e.target.value.toUpperCase());
-                      setRedemptionSuccess(null);
-                    }}
-                    className="font-mono tracking-wider uppercase"
-                    data-testid="input-redeem-code"
-                  />
-                  <Button
-                    onClick={() => redeemVoucher.mutate(redeemCode)}
-                    disabled={!redeemCode.trim() || redeemVoucher.isPending}
-                    className="gap-2"
-                    data-testid="button-redeem-voucher"
-                  >
-                    {redeemVoucher.isPending ? (
-                      "Processing..."
-                    ) : (
-                      <>
-                        <Check className="h-4 w-4" />
-                        Redeem
-                      </>
-                    )}
-                  </Button>
+                <div className="space-y-3 max-w-md">
+                  <div className="flex gap-3">
+                    <Input
+                      placeholder="Enter voucher code (e.g., LATR-1234)"
+                      value={redeemCode}
+                      onChange={(e) => {
+                        setRedeemCode(e.target.value.toUpperCase());
+                        setRedemptionSuccess(null);
+                      }}
+                      className="font-mono tracking-wider uppercase"
+                      data-testid="input-redeem-code"
+                    />
+                    <Button
+                      onClick={() => redeemVoucher.mutate({ code: redeemCode, billId: billId || undefined })}
+                      disabled={!redeemCode.trim() || redeemVoucher.isPending}
+                      className="gap-2"
+                      data-testid="button-redeem-voucher"
+                    >
+                      {redeemVoucher.isPending ? (
+                        "Processing..."
+                      ) : (
+                        <>
+                          <Check className="h-4 w-4" />
+                          Redeem
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  <div className="flex gap-3 items-center">
+                    <Input
+                      placeholder="Bill/Invoice ID (optional, for reconciliation)"
+                      value={billId}
+                      onChange={(e) => setBillId(e.target.value)}
+                      className="font-mono"
+                      data-testid="input-bill-id"
+                    />
+                  </div>
                 </div>
                 {redemptionSuccess && (
                   <div className="mt-3 p-3 bg-green-50 dark:bg-green-950/30 rounded-md border border-green-200 dark:border-green-800">
@@ -280,6 +347,139 @@ export default function AdminVouchers() {
                 </Card>
               ))}
             </div>
+          </TabsContent>
+
+          {/* RECONCILIATION TAB */}
+          <TabsContent value="reconciliation" className="space-y-6">
+            <div className="grid gap-6 lg:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Upload className="h-5 w-5" />
+                    Upload POS Export
+                  </CardTitle>
+                  <CardDescription>
+                    Upload a CSV file from your POS system to match redeemed vouchers with bills.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="border-2 border-dashed rounded-lg p-6 text-center">
+                    <input
+                      type="file"
+                      accept=".csv"
+                      className="hidden"
+                      id="csv-upload"
+                      data-testid="input-csv-upload"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) setSelectedFile(file);
+                      }}
+                    />
+                    <label htmlFor="csv-upload" className="cursor-pointer">
+                      <FileUp className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
+                      <p className="text-sm text-muted-foreground">
+                        {selectedFile ? selectedFile.name : "Click to select CSV file"}
+                      </p>
+                    </label>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    CSV must contain a column with Bill IDs (bill_id, invoice_id, etc.)
+                  </p>
+                  <Button
+                    onClick={() => selectedFile && uploadCSV.mutate(selectedFile)}
+                    disabled={!selectedFile || uploadCSV.isPending}
+                    className="w-full gap-2"
+                    data-testid="button-upload-csv"
+                  >
+                    {uploadCSV.isPending ? "Processing..." : "Upload & Process"}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Recent Batches</CardTitle>
+                  <CardDescription>View previous reconciliation results</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {reconciliationBatches.isLoading ? (
+                    <p className="text-sm text-muted-foreground">Loading...</p>
+                  ) : reconciliationBatches.data?.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No batches yet</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {reconciliationBatches.data?.slice(0, 5).map((batch: any) => (
+                        <div
+                          key={batch.id}
+                          className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer"
+                          onClick={() => setSelectedBatchId(batch.id)}
+                          data-testid={`batch-${batch.id}`}
+                        >
+                          <div>
+                            <p className="text-sm font-medium">{batch.fileName}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(batch.uploadedAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant={batch.matchedRecords > 0 ? "default" : "secondary"}>
+                              {batch.matchedRecords}/{batch.totalRecords} matched
+                            </Badge>
+                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {selectedBatchId && batchDetails.data && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <span>Batch Details: {batchDetails.data.batch.fileName}</span>
+                    <Button variant="ghost" size="sm" onClick={() => setSelectedBatchId(null)}>Close</Button>
+                  </CardTitle>
+                  <CardDescription>
+                    {batchDetails.data.summary.matched} matched, {batchDetails.data.summary.unmatched} unmatched
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="rounded-md border">
+                    <div className="grid grid-cols-4 border-b bg-muted/40 p-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      <div>Bill ID</div>
+                      <div>Amount</div>
+                      <div>Status</div>
+                      <div>Voucher</div>
+                    </div>
+                    <div className="divide-y max-h-[300px] overflow-y-auto">
+                      {batchDetails.data.records.map((record: any) => (
+                        <div key={record.id} className="grid grid-cols-4 items-center p-3 text-sm">
+                          <div className="font-mono">{record.billId}</div>
+                          <div>{record.csvAmount || '-'}</div>
+                          <div>
+                            {record.isMatched ? (
+                              <Badge variant="default" className="gap-1">
+                                <FileCheck className="h-3 w-3" /> Matched
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary" className="gap-1">
+                                <FileX className="h-3 w-3" /> Unmatched
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="text-muted-foreground">
+                            {record.voucherCode || '-'}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* CAMPAIGNS TAB */}

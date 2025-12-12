@@ -67,8 +67,8 @@ export async function registerRoutes(
   app.post("/api/restaurants/:restaurantId/vouchers/redeem", async (req, res) => {
     try {
       const { restaurantId } = req.params;
-      const { code } = req.body;
-      const result = await services.voucher.redeemVoucherByCode(restaurantId, code);
+      const { code, billId } = req.body;
+      const result = await services.voucher.redeemVoucherByCode(restaurantId, code, billId);
       res.json(result);
     } catch (error: any) {
       console.error("Restaurant redeem voucher error:", error);
@@ -124,6 +124,51 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Get restaurant stats error:", error);
       res.status(500).json({ error: "Failed to fetch restaurant stats" });
+    }
+  });
+
+  // RECONCILIATION - Upload CSV for bill matching
+  app.post("/api/restaurants/:restaurantId/reconciliation/upload", async (req, res) => {
+    try {
+      const { restaurantId } = req.params;
+      const { fileName, csvContent } = req.body;
+      
+      if (!fileName || !csvContent) {
+        return res.status(400).json({ error: "fileName and csvContent are required" });
+      }
+      
+      const result = await services.reconciliation.processCSV(restaurantId, fileName, csvContent);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Reconciliation upload error:", error);
+      res.status(400).json({ error: error.message || "Failed to process CSV" });
+    }
+  });
+
+  // RECONCILIATION - Get all batches for a restaurant
+  app.get("/api/restaurants/:restaurantId/reconciliation/batches", async (req, res) => {
+    try {
+      const { restaurantId } = req.params;
+      const batches = await services.reconciliation.getBatches(restaurantId);
+      res.json(batches);
+    } catch (error) {
+      console.error("Get reconciliation batches error:", error);
+      res.status(500).json({ error: "Failed to fetch reconciliation batches" });
+    }
+  });
+
+  // RECONCILIATION - Get batch details
+  app.get("/api/restaurants/:restaurantId/reconciliation/batches/:batchId", async (req, res) => {
+    try {
+      const { batchId } = req.params;
+      const result = await services.reconciliation.getBatchDetails(batchId);
+      if (!result) {
+        return res.status(404).json({ error: "Batch not found" });
+      }
+      res.json(result);
+    } catch (error) {
+      console.error("Get reconciliation batch details error:", error);
+      res.status(500).json({ error: "Failed to fetch batch details" });
     }
   });
 

@@ -7,7 +7,8 @@ import {
   Ticket, 
   Settings, 
   LogOut,
-  Menu
+  Menu,
+  FileCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -29,6 +30,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
     { name: "Diners", href: "/admin/diners", icon: Users },
     { name: "Vouchers", href: "/admin/vouchers", icon: Ticket },
+    { name: "Reconciliation", href: "/admin/vouchers?tab=reconciliation", icon: FileCheck },
     { name: "Settings", href: "/admin/settings", icon: Settings },
   ];
 
@@ -43,7 +45,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
       <nav className="flex-1 px-4 space-y-1">
         {navigation.map((item) => {
-          const isActive = location === item.href;
+          const isActive = item.href.includes('?') 
+            ? window.location.pathname + window.location.search === item.href
+            : location === item.href && !window.location.search.includes('tab=reconciliation');
           return (
             <Link key={item.name} href={item.href}>
               <a

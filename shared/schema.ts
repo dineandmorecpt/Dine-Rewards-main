@@ -89,6 +89,7 @@ export const vouchers = pgTable("vouchers", {
   expiryDate: timestamp("expiry_date").notNull(),
   isRedeemed: boolean("is_redeemed").notNull().default(false),
   redeemedAt: timestamp("redeemed_at"),
+  billId: text("bill_id"), // Bill ID from POS system for reconciliation
   generatedAt: timestamp("generated_at").defaultNow().notNull(),
 });
 
@@ -118,3 +119,42 @@ export const insertCampaignSchema = createInsertSchema(campaigns).omit({
 });
 export type InsertCampaign = z.infer<typeof insertCampaignSchema>;
 export type Campaign = typeof campaigns.$inferSelect;
+
+// Reconciliation batch - represents a single CSV upload
+export const reconciliationBatches = pgTable("reconciliation_batches", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id),
+  fileName: text("file_name").notNull(),
+  totalRecords: integer("total_records").notNull().default(0),
+  matchedRecords: integer("matched_records").notNull().default(0),
+  unmatchedRecords: integer("unmatched_records").notNull().default(0),
+  status: text("status").notNull().default("pending"), // 'pending' | 'processing' | 'completed' | 'failed'
+  uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
+  processedAt: timestamp("processed_at"),
+});
+
+export const insertReconciliationBatchSchema = createInsertSchema(reconciliationBatches).omit({
+  id: true,
+  uploadedAt: true,
+});
+export type InsertReconciliationBatch = z.infer<typeof insertReconciliationBatchSchema>;
+export type ReconciliationBatch = typeof reconciliationBatches.$inferSelect;
+
+// Reconciliation records - individual rows from CSV with match status
+export const reconciliationRecords = pgTable("reconciliation_records", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  batchId: varchar("batch_id").notNull().references(() => reconciliationBatches.id),
+  billId: text("bill_id").notNull(),
+  csvAmount: text("csv_amount"), // Amount from CSV (optional)
+  csvDate: text("csv_date"), // Date from CSV (optional)
+  isMatched: boolean("is_matched").notNull().default(false),
+  matchedVoucherId: varchar("matched_voucher_id").references(() => vouchers.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertReconciliationRecordSchema = createInsertSchema(reconciliationRecords).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertReconciliationRecord = z.infer<typeof insertReconciliationRecordSchema>;
+export type ReconciliationRecord = typeof reconciliationRecords.$inferSelect;

@@ -72,6 +72,10 @@ export interface IStorage {
       pointsThreshold?: number 
     }
   ): Promise<Restaurant>;
+  
+  // Voucher Code Management
+  getVoucherByCode(code: string): Promise<Voucher | undefined>;
+  updateUserActiveVoucherCode(userId: string, code: string | null): Promise<User>;
 }
 
 export class DbStorage implements IStorage {
@@ -230,6 +234,19 @@ export class DbStorage implements IStorage {
     const result = await db.update(restaurants)
       .set(settings)
       .where(eq(restaurants.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async getVoucherByCode(code: string): Promise<Voucher | undefined> {
+    const result = await db.select().from(vouchers).where(eq(vouchers.code, code));
+    return result[0];
+  }
+
+  async updateUserActiveVoucherCode(userId: string, code: string | null): Promise<User> {
+    const result = await db.update(users)
+      .set({ activeVoucherCode: code })
+      .where(eq(users.id, userId))
       .returning();
     return result[0];
   }

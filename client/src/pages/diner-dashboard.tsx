@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DinerLayout } from "@/components/layout/diner-layout";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -5,7 +6,8 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Utensils, Gift, ChevronRight, Clock, AlertCircle } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Utensils, Gift, ChevronRight, Clock, AlertCircle, QrCode } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 
@@ -35,6 +37,9 @@ interface Voucher {
 
 export default function DinerDashboard() {
   const queryClient = useQueryClient();
+  const [presentCodeOpen, setPresentCodeOpen] = useState(false);
+  const [activeCode, setActiveCode] = useState<string | null>(null);
+  const [activeVoucherTitle, setActiveVoucherTitle] = useState<string>("");
 
   // Fetch points balances
   const { data: balances = [], isLoading: loadingBalances } = useQuery<PointsBalance[]>({
@@ -90,20 +95,28 @@ export default function DinerDashboard() {
     },
   });
 
-  // Redeem voucher mutation
-  const redeemVoucher = useMutation({
-    mutationFn: async (voucherId: string) => {
-      const res = await fetch(`/api/vouchers/${voucherId}/redeem`, {
+  // Select voucher to present mutation
+  const selectVoucher = useMutation({
+    mutationFn: async ({ voucherId, title }: { voucherId: string; title: string }) => {
+      const res = await fetch(`/api/diners/${DINER_ID}/vouchers/${voucherId}/select`, {
         method: "POST",
       });
-      if (!res.ok) throw new Error("Redemption failed");
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to select voucher");
+      }
       return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/diners", DINER_ID, "vouchers"] });
+    onSuccess: (data, variables) => {
+      setActiveCode(data.code);
+      setActiveVoucherTitle(variables.title);
+      setPresentCodeOpen(true);
+    },
+    onError: (error: Error) => {
       toast({
-        title: "✅ Voucher Redeemed",
-        description: "Show this voucher to your server!",
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
       });
     },
   });
@@ -245,13 +258,14 @@ export default function DinerDashboard() {
                     </CardContent>
                     <CardFooter className="pt-2">
                       <Button 
-                        className="w-full" 
+                        className="w-full gap-2" 
                         size="sm"
-                        disabled={voucher.isRedeemed || redeemVoucher.isPending}
-                        onClick={() => redeemVoucher.mutate(voucher.id)}
-                        data-testid={`button-redeem-${voucher.code}`}
+                        disabled={voucher.isRedeemed || selectVoucher.isPending}
+                        onClick={() => selectVoucher.mutate({ voucherId: voucher.id, title: voucher.title })}
+                        data-testid={`button-present-${voucher.code}`}
                       >
-                        {voucher.isRedeemed ? "Already Redeemed" : "Redeem Now"}
+                        <QrCode className="h-4 w-4" />
+                        {voucher.isRedeemed ? "Already Redeemed" : "Present Code"}
                       </Button>
                     </CardFooter>
                   </Card>
@@ -260,6 +274,34 @@ export default function DinerDashboard() {
             )}
           </TabsContent>
         </Tabs>
+
+        {/* Present Code Dialog */}
+        <Dialog open={presentCodeOpen} onOpenChange={setPresentCodeOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-center font-serif text-2xl">Present to Staff</DialogTitle>
+              <DialogDescription className="text-center">
+                Show this code to redeem your voucher
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-6 py-4">
+              <div className="text-center">
+                <p className="text-sm text-muted-foreground mb-2">{activeVoucherTitle}</p>
+              </div>
+              <div className="p-6 bg-gradient-to-br from-primary/10 to-secondary/30 rounded-xl border-2 border-dashed border-primary/30">
+                <div className="text-center">
+                  <QrCode className="h-16 w-16 mx-auto text-primary/50 mb-4" />
+                  <p className="text-4xl font-mono font-bold tracking-widest text-primary" data-testid="text-active-code">
+                    {activeCode}
+                  </p>
+                </div>
+              </div>
+              <p className="text-xs text-center text-muted-foreground">
+                The restaurant staff will enter this code to mark your voucher as redeemed
+              </p>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </DinerLayout>
   );

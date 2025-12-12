@@ -10,9 +10,10 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Ticket, Megaphone, Plus, Calendar, Users, Percent, DollarSign, Gift, Clock, Send, Settings, Save } from "lucide-react";
+import { Ticket, Megaphone, Plus, Calendar, Users, Percent, DollarSign, Gift, Clock, Send, Settings, Save, ScanLine, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { useMutation } from "@tanstack/react-query";
 
 // Mock Data
 const initialVouchers = [
@@ -38,7 +39,39 @@ export default function AdminVouchers() {
   const [pointsPerCurrency, setPointsPerCurrency] = useState(1);
   const [pointsThreshold, setPointsThreshold] = useState(1000);
   const [isSaving, setIsSaving] = useState(false);
+  const [redeemCode, setRedeemCode] = useState("");
+  const [redemptionSuccess, setRedemptionSuccess] = useState<string | null>(null);
   const { toast } = useToast();
+
+  const redeemVoucher = useMutation({
+    mutationFn: async (code: string) => {
+      const res = await fetch(`/api/restaurants/${RESTAURANT_ID}/vouchers/redeem`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code })
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to redeem voucher");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setRedemptionSuccess(data.message);
+      setRedeemCode("");
+      toast({
+        title: "Voucher Redeemed!",
+        description: data.message
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Redemption Failed",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
 
   useEffect(() => {
     fetch(`/api/restaurants/${RESTAURANT_ID}`)
@@ -105,6 +138,58 @@ export default function AdminVouchers() {
 
           {/* VOUCHERS TAB */}
           <TabsContent value="vouchers" className="space-y-6">
+            {/* Redeem Voucher Card */}
+            <Card className="border-primary/30 bg-gradient-to-r from-primary/5 to-secondary/10">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ScanLine className="h-5 w-5 text-primary" />
+                  Redeem Customer Voucher
+                </CardTitle>
+                <CardDescription>
+                  Enter the voucher code shown on the customer's phone to redeem their voucher.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-3 max-w-md">
+                  <Input
+                    placeholder="Enter voucher code (e.g., LATR-1234)"
+                    value={redeemCode}
+                    onChange={(e) => {
+                      setRedeemCode(e.target.value.toUpperCase());
+                      setRedemptionSuccess(null);
+                    }}
+                    className="font-mono tracking-wider uppercase"
+                    data-testid="input-redeem-code"
+                  />
+                  <Button
+                    onClick={() => redeemVoucher.mutate(redeemCode)}
+                    disabled={!redeemCode.trim() || redeemVoucher.isPending}
+                    className="gap-2"
+                    data-testid="button-redeem-voucher"
+                  >
+                    {redeemVoucher.isPending ? (
+                      "Processing..."
+                    ) : (
+                      <>
+                        <Check className="h-4 w-4" />
+                        Redeem
+                      </>
+                    )}
+                  </Button>
+                </div>
+                {redemptionSuccess && (
+                  <div className="mt-3 p-3 bg-green-50 dark:bg-green-950/30 rounded-md border border-green-200 dark:border-green-800">
+                    <p className="text-sm text-green-700 dark:text-green-400 flex items-center gap-2">
+                      <Check className="h-4 w-4" />
+                      {redemptionSuccess}
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Separator />
+
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-medium font-serif">Active Vouchers</h2>
               <Dialog>

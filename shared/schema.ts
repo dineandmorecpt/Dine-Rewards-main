@@ -10,6 +10,7 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   name: text("name").notNull(),
   userType: text("user_type").notNull(), // 'diner' | 'restaurant_admin'
+  activeVoucherCode: text("active_voucher_code"), // Currently selected voucher code for redemption
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

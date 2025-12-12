@@ -160,6 +160,84 @@ export async function registerRoutes(
       res.status(400).json({ error: "Failed to redeem voucher" });
     }
   });
+
+  // POST /api/diners/:dinerId/vouchers/:voucherId/select - Diner selects a voucher to present
+  app.post("/api/diners/:dinerId/vouchers/:voucherId/select", async (req, res) => {
+    try {
+      const { dinerId, voucherId } = req.params;
+      
+      // Get the voucher
+      const dinerVouchers = await storage.getVouchersByDiner(dinerId);
+      const voucher = dinerVouchers.find(v => v.id === voucherId);
+      
+      if (!voucher) {
+        return res.status(404).json({ error: "Voucher not found" });
+      }
+      
+      if (voucher.isRedeemed) {
+        return res.status(400).json({ error: "Voucher already redeemed" });
+      }
+      
+      if (new Date(voucher.expiryDate) < new Date()) {
+        return res.status(400).json({ error: "Voucher has expired" });
+      }
+      
+      // Set the active voucher code on the user
+      await storage.updateUserActiveVoucherCode(dinerId, voucher.code);
+      
+      res.json({ code: voucher.code, voucher });
+    } catch (error) {
+      console.error("Select voucher error:", error);
+      res.status(500).json({ error: "Failed to select voucher" });
+    }
+  });
+
+  // POST /api/restaurants/:restaurantId/vouchers/redeem - Restaurant redeems a voucher by code
+  app.post("/api/restaurants/:restaurantId/vouchers/redeem", async (req, res) => {
+    try {
+      const { restaurantId } = req.params;
+      const { code } = req.body;
+      
+      if (!code) {
+        return res.status(400).json({ error: "Voucher code is required" });
+      }
+      
+      // Find voucher by code
+      const voucher = await storage.getVoucherByCode(code);
+      
+      if (!voucher) {
+        return res.status(404).json({ error: "Invalid voucher code" });
+      }
+      
+      // Verify voucher belongs to this restaurant
+      if (voucher.restaurantId !== restaurantId) {
+        return res.status(400).json({ error: "This voucher is not valid at this restaurant" });
+      }
+      
+      if (voucher.isRedeemed) {
+        return res.status(400).json({ error: "Voucher has already been redeemed" });
+      }
+      
+      if (new Date(voucher.expiryDate) < new Date()) {
+        return res.status(400).json({ error: "Voucher has expired" });
+      }
+      
+      // Redeem the voucher
+      const redeemedVoucher = await storage.redeemVoucher(voucher.id);
+      
+      // Clear the user's active voucher code
+      await storage.updateUserActiveVoucherCode(voucher.dinerId, null);
+      
+      res.json({ 
+        success: true, 
+        voucher: redeemedVoucher,
+        message: `Voucher "${redeemedVoucher.title}" redeemed successfully!`
+      });
+    } catch (error) {
+      console.error("Restaurant redeem voucher error:", error);
+      res.status(500).json({ error: "Failed to redeem voucher" });
+    }
+  });
   
   // GET /api/restaurants - Get all restaurants
   app.get("/api/restaurants", async (req, res) => {

@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useRoute } from "wouter";
 import { 
   LayoutDashboard, 
   Users, 
@@ -12,6 +12,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useState } from "react";
+
+const handleSignOut = () => {
+  window.location.href = "/";
+};
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -59,7 +63,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       </nav>
 
       <div className="p-4 border-t border-sidebar-border">
-        <Button variant="ghost" className="w-full justify-start text-sidebar-foreground/70 hover:text-destructive hover:bg-destructive/10 pl-4">
+        <Button 
+          variant="ghost" 
+          className="w-full justify-start text-sidebar-foreground/70 hover:text-destructive hover:bg-destructive/10 pl-4"
+          onClick={handleSignOut}
+          data-testid="button-signout"
+        >
           <LogOut className="mr-3 h-5 w-5" />
           Sign Out
         </Button>

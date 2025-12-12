@@ -76,6 +76,7 @@ export interface IStorage {
   // Voucher Code Management
   getVoucherByCode(code: string): Promise<Voucher | undefined>;
   updateUserActiveVoucherCode(userId: string, code: string | null): Promise<User>;
+  getUserByActiveVoucherCode(code: string): Promise<User | undefined>;
 }
 
 export class DbStorage implements IStorage {
@@ -245,9 +246,17 @@ export class DbStorage implements IStorage {
 
   async updateUserActiveVoucherCode(userId: string, code: string | null): Promise<User> {
     const result = await db.update(users)
-      .set({ activeVoucherCode: code })
+      .set({ 
+        activeVoucherCode: code,
+        activeVoucherCodeSetAt: code ? new Date() : null
+      })
       .where(eq(users.id, userId))
       .returning();
+    return result[0];
+  }
+
+  async getUserByActiveVoucherCode(code: string): Promise<User | undefined> {
+    const result = await db.select().from(users).where(eq(users.activeVoucherCode, code));
     return result[0];
   }
 }

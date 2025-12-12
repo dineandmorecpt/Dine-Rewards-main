@@ -11,6 +11,7 @@ export interface EnrichedVoucher extends Voucher {
 export interface VoucherSelectionResult {
   code: string;
   voucher: EnrichedVoucher;
+  codeExpiresAt: string;
 }
 
 export interface VoucherRedemptionResult {
@@ -26,10 +27,13 @@ export interface IVoucherService {
   isVoucherValid(voucher: Voucher): { valid: boolean; reason?: string };
   isVoucherExpired(voucher: Voucher): boolean;
   getVoucherStatus(voucher: Voucher): VoucherStatus;
+  isCodeExpired(codeSetAt: Date | string | null): boolean;
 }
 
 export class VoucherService implements IVoucherService {
   constructor(private storage: IStorage) {}
+
+  private static CODE_VALIDITY_MINUTES = 15;
 
   getVoucherStatus(voucher: Voucher): VoucherStatus {
     if (voucher.isRedeemed) {
@@ -39,6 +43,14 @@ export class VoucherService implements IVoucherService {
       return "expired";
     }
     return "active";
+  }
+
+  isCodeExpired(codeSetAt: Date | string | null): boolean {
+    if (!codeSetAt) return true;
+    const setAtDate = typeof codeSetAt === 'string' ? new Date(codeSetAt) : codeSetAt;
+    const now = new Date();
+    const expiresAt = new Date(setAtDate.getTime() + VoucherService.CODE_VALIDITY_MINUTES * 60 * 1000);
+    return now > expiresAt;
   }
 
   async getDinerVouchers(dinerId: string): Promise<EnrichedVoucher[]> {
@@ -95,7 +107,9 @@ export class VoucherService implements IVoucherService {
       status: this.getVoucherStatus(voucher)
     };
 
-    return { code: voucher.code, voucher: enrichedVoucher };
+    const codeExpiresAt = new Date(Date.now() + VoucherService.CODE_VALIDITY_MINUTES * 60 * 1000);
+
+    return { code: voucher.code, voucher: enrichedVoucher, codeExpiresAt: codeExpiresAt.toISOString() };
   }
 
   async redeemVoucherByCode(
@@ -119,6 +133,16 @@ export class VoucherService implements IVoucherService {
     const validation = this.isVoucherValid(voucher);
     if (!validation.valid) {
       throw new Error(validation.reason);
+    }
+
+    const user = await this.storage.getUserByActiveVoucherCode(code);
+    if (!user) {
+      throw new Error("This voucher code has not been presented by the customer");
+    }
+
+    if (this.isCodeExpired(user.activeVoucherCodeSetAt)) {
+      await this.storage.updateUserActiveVoucherCode(voucher.dinerId, null);
+      throw new Error("This voucher code has expired. Please ask the customer to present the code again.");
     }
 
     const redeemedVoucher = await this.storage.redeemVoucher(voucher.id);

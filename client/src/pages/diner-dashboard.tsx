@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DinerLayout } from "@/components/layout/diner-layout";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,6 +43,36 @@ export default function DinerDashboard() {
   const [presentCodeOpen, setPresentCodeOpen] = useState(false);
   const [activeCode, setActiveCode] = useState<string | null>(null);
   const [activeVoucherTitle, setActiveVoucherTitle] = useState<string>("");
+  const [codeExpiresAt, setCodeExpiresAt] = useState<Date | null>(null);
+  const [timeRemaining, setTimeRemaining] = useState<string>("");
+
+  useEffect(() => {
+    if (!codeExpiresAt || !presentCodeOpen) return;
+    
+    const updateTimer = () => {
+      const now = new Date();
+      const diff = codeExpiresAt.getTime() - now.getTime();
+      
+      if (diff <= 0) {
+        setTimeRemaining("Expired");
+        setPresentCodeOpen(false);
+        toast({
+          title: "Code Expired",
+          description: "Your voucher code has expired. Please present it again.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      const minutes = Math.floor(diff / 60000);
+      const seconds = Math.floor((diff % 60000) / 1000);
+      setTimeRemaining(`${minutes}:${seconds.toString().padStart(2, '0')}`);
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [codeExpiresAt, presentCodeOpen]);
 
   // Fetch points balances
   const { data: balances = [], isLoading: loadingBalances } = useQuery<PointsBalance[]>({
@@ -113,6 +143,7 @@ export default function DinerDashboard() {
     onSuccess: (data, variables) => {
       setActiveCode(data.code);
       setActiveVoucherTitle(variables.title);
+      setCodeExpiresAt(new Date(data.codeExpiresAt));
       setPresentCodeOpen(true);
     },
     onError: (error: Error) => {
@@ -309,9 +340,15 @@ export default function DinerDashboard() {
                   </p>
                 </div>
               </div>
-              <p className="text-xs text-center text-muted-foreground">
-                The restaurant staff will enter this code to mark your voucher as redeemed
-              </p>
+              <div className="text-center space-y-2">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-orange-100 text-orange-700 text-sm font-medium">
+                  <Clock className="h-4 w-4" />
+                  Code expires in: {timeRemaining}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  The restaurant staff will enter this code to mark your voucher as redeemed
+                </p>
+              </div>
             </div>
           </DialogContent>
         </Dialog>

@@ -11,6 +11,7 @@ export const users = pgTable("users", {
   name: text("name").notNull(),
   userType: text("user_type").notNull(), // 'diner' | 'restaurant_admin'
   activeVoucherCode: text("active_voucher_code"), // Currently selected voucher code for redemption
+  activeVoucherCodeSetAt: timestamp("active_voucher_code_set_at"), // When the code was presented (valid for 15 mins)
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

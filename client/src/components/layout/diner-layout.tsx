@@ -25,7 +25,7 @@ export function DinerLayout({ children }: DinerLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const navigation = [
-    { name: "My Wallet", href: "/diner/dashboard", icon: Wallet },
+    { name: "My Rewards", href: "/diner/dashboard", icon: Wallet },
     { name: "History", href: "/diner/history", icon: History },
     { name: "Profile", href: "/diner/profile", icon: User },
   ];

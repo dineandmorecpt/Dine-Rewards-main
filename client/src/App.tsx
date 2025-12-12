@@ -7,6 +7,7 @@ import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import AdminDashboard from "@/pages/admin-dashboard";
 import AdminVouchers from "@/pages/admin-vouchers";
+import DinerDashboard from "@/pages/diner-dashboard";
 
 function Router() {
   return (
@@ -14,6 +15,12 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/admin/dashboard" component={AdminDashboard} />
       <Route path="/admin/vouchers" component={AdminVouchers} />
+      
+      {/* Diner Routes */}
+      <Route path="/diner/dashboard" component={DinerDashboard} />
+      <Route path="/diner/history" component={DinerDashboard} />
+      <Route path="/diner/profile" component={DinerDashboard} />
+
       {/* Placeholder routes for navigation items to avoid 404s during demo */}
       <Route path="/admin/diners" component={AdminDashboard} />
       <Route path="/admin/menu" component={AdminDashboard} />

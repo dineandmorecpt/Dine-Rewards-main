@@ -127,8 +127,11 @@ export class VoucherService implements IVoucherService {
       throw new Error("Invalid voucher code");
     }
 
+    const voucherRestaurant = await this.storage.getRestaurant(voucher.restaurantId);
+    
     if (voucher.restaurantId !== restaurantId) {
-      throw new Error("This voucher is not valid at this restaurant");
+      const voucherRestaurantName = voucherRestaurant?.name || "another restaurant";
+      throw new Error(`This voucher belongs to ${voucherRestaurantName}. It cannot be redeemed here.`);
     }
 
     const validation = this.isVoucherValid(voucher);
@@ -138,7 +141,7 @@ export class VoucherService implements IVoucherService {
 
     const user = await this.storage.getUserByActiveVoucherCode(code);
     if (!user) {
-      throw new Error("This voucher code has not been presented by the customer");
+      throw new Error("This voucher code has not been presented by the customer. Ask them to tap on the voucher first.");
     }
 
     if (this.isCodeExpired(user.activeVoucherCodeSetAt)) {
@@ -149,10 +152,9 @@ export class VoucherService implements IVoucherService {
     const redeemedVoucher = await this.storage.redeemVoucher(voucher.id, billId);
     await this.storage.updateUserActiveVoucherCode(voucher.dinerId, null);
 
-    const restaurant = await this.storage.getRestaurant(redeemedVoucher.restaurantId);
     const enrichedVoucher: EnrichedVoucher = {
       ...redeemedVoucher,
-      restaurantName: restaurant?.name || "Unknown",
+      restaurantName: voucherRestaurant?.name || "Unknown",
       status: this.getVoucherStatus(redeemedVoucher)
     };
 

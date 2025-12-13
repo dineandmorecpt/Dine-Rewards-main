@@ -161,7 +161,7 @@ export default function Home() {
         throw new Error(data.error || "Login failed");
       }
 
-      if (data.user.userType !== 'admin') {
+      if (data.user.userType !== 'admin' && data.user.userType !== 'restaurant_admin') {
         throw new Error("This account is not registered as a restaurant admin.");
       }
 

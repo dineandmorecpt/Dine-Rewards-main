@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { createLoyaltyServices } from "./services/loyalty";
 import { insertTransactionSchema } from "@shared/schema";
 import { z } from "zod";
+import crypto from "crypto";
 
 const recordTransactionSchema = z.object({
   phone: z.string()
@@ -225,6 +226,222 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Get reconciliation batch details error:", error);
       res.status(500).json({ error: "Failed to fetch batch details" });
+    }
+  });
+
+  // DINER INVITATION - Create invitation and optionally send SMS
+  const inviteDinerSchema = z.object({
+    phone: z.string()
+      .transform(val => val.trim().replace(/[\s\-()]/g, ''))
+      .refine(val => val.length >= 7, { message: "Phone number must be at least 7 digits" })
+      .refine(val => /^[0-9+]+$/.test(val), { message: "Phone number contains invalid characters" }),
+  });
+
+  app.post("/api/restaurants/:restaurantId/diners/invite", async (req, res) => {
+    try {
+      const { restaurantId } = req.params;
+      
+      // Validate input
+      const parseResult = inviteDinerSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(422).json({ 
+          error: parseResult.error.errors[0]?.message || "Invalid input data" 
+        });
+      }
+      
+      const { phone } = parseResult.data;
+      
+      // Check if restaurant exists
+      const restaurant = await storage.getRestaurant(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+      
+      // Check if user already exists with this phone
+      const existingUser = await storage.getUserByPhone(phone);
+      if (existingUser) {
+        return res.status(400).json({ error: "A customer with this phone number is already registered" });
+      }
+      
+      // Generate unique token
+      const token = crypto.randomBytes(32).toString('hex');
+      
+      // Set expiry to 7 days from now
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+      
+      // Create invitation
+      const invitation = await storage.createDinerInvitation({
+        restaurantId,
+        phone,
+        token,
+        status: "pending",
+        expiresAt,
+      });
+      
+      // Generate registration link
+      const registrationLink = `/register?token=${token}`;
+      
+      // TODO: Send SMS via Twilio when configured
+      // For now, return the link for manual sharing
+      
+      res.json({
+        success: true,
+        invitation: {
+          id: invitation.id,
+          phone: invitation.phone,
+          token: invitation.token,
+          expiresAt: invitation.expiresAt,
+          registrationLink,
+        },
+        message: "Invitation created. Share the registration link with the customer."
+      });
+    } catch (error: any) {
+      console.error("Create invitation error:", error);
+      res.status(500).json({ error: error.message || "Failed to create invitation" });
+    }
+  });
+
+  // INVITATION VALIDATION - Get invitation by token
+  app.get("/api/invitations/:token", async (req, res) => {
+    try {
+      const { token } = req.params;
+      
+      const invitation = await storage.getDinerInvitationByToken(token);
+      if (!invitation) {
+        return res.status(404).json({ error: "Invalid invitation link" });
+      }
+      
+      // Check if expired
+      if (new Date() > invitation.expiresAt) {
+        return res.status(400).json({ error: "This invitation link has expired" });
+      }
+      
+      // Check if already used
+      if (invitation.status === 'registered') {
+        return res.status(400).json({ error: "This invitation has already been used" });
+      }
+      
+      // Get restaurant details
+      const restaurant = await storage.getRestaurant(invitation.restaurantId);
+      
+      res.json({
+        valid: true,
+        phone: invitation.phone,
+        restaurantId: invitation.restaurantId,
+        restaurantName: restaurant?.name || "Restaurant",
+        expiresAt: invitation.expiresAt,
+      });
+    } catch (error) {
+      console.error("Get invitation error:", error);
+      res.status(500).json({ error: "Failed to validate invitation" });
+    }
+  });
+
+  // DINER REGISTRATION - Register from invitation
+  const registerDinerSchema = z.object({
+    token: z.string().min(1, "Token is required"),
+    email: z.string().email("Invalid email address"),
+    name: z.string().min(1, "Name is required"),
+    lastName: z.string().min(1, "Surname is required"),
+    termsAccepted: z.boolean().refine(val => val === true, { message: "You must accept the Terms & Conditions" }),
+    privacyAccepted: z.boolean().refine(val => val === true, { message: "You must accept the Privacy Policy" }),
+  });
+
+  app.post("/api/diners/register", async (req, res) => {
+    try {
+      // Validate input
+      const parseResult = registerDinerSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(422).json({ 
+          error: parseResult.error.errors[0]?.message || "Invalid input data" 
+        });
+      }
+      
+      const { token, email, name, lastName, termsAccepted, privacyAccepted } = parseResult.data;
+      
+      // Get and validate invitation
+      const invitation = await storage.getDinerInvitationByToken(token);
+      if (!invitation) {
+        return res.status(404).json({ error: "Invalid invitation link" });
+      }
+      
+      if (new Date() > invitation.expiresAt) {
+        return res.status(400).json({ error: "This invitation link has expired" });
+      }
+      
+      if (invitation.status === 'registered') {
+        return res.status(400).json({ error: "This invitation has already been used" });
+      }
+      
+      // Check if email already exists
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(400).json({ error: "An account with this email already exists" });
+      }
+      
+      // Check if phone already exists (shouldn't happen but double-check)
+      const existingPhone = await storage.getUserByPhone(invitation.phone);
+      if (existingPhone) {
+        return res.status(400).json({ error: "This phone number is already registered" });
+      }
+      
+      const now = new Date();
+      
+      // Create the diner user
+      const user = await storage.createUser({
+        email,
+        password: crypto.randomBytes(16).toString('hex'), // Random password (they'll use phone/token to login)
+        name,
+        lastName,
+        phone: invitation.phone,
+        userType: 'diner',
+        termsAcceptedAt: termsAccepted ? now : null,
+        privacyAcceptedAt: privacyAccepted ? now : null,
+      });
+      
+      // Update invitation status
+      await storage.updateDinerInvitation(invitation.id, {
+        status: 'registered',
+        dinerId: user.id,
+        consumedAt: now,
+      });
+      
+      // Create initial points balance for the restaurant
+      await storage.createPointsBalance({
+        dinerId: user.id,
+        restaurantId: invitation.restaurantId,
+        currentPoints: 0,
+        totalPointsEarned: 0,
+        totalVouchersGenerated: 0,
+      });
+      
+      res.json({
+        success: true,
+        user: {
+          id: user.id,
+          name: user.name,
+          lastName: user.lastName,
+          email: user.email,
+          phone: user.phone,
+        },
+        message: "Registration successful! Welcome to the rewards program."
+      });
+    } catch (error: any) {
+      console.error("Register diner error:", error);
+      res.status(500).json({ error: error.message || "Failed to complete registration" });
+    }
+  });
+
+  // GET RESTAURANT INVITATIONS - List all invitations for a restaurant
+  app.get("/api/restaurants/:restaurantId/invitations", async (req, res) => {
+    try {
+      const { restaurantId } = req.params;
+      const invitations = await storage.getDinerInvitationsByRestaurant(restaurantId);
+      res.json(invitations);
+    } catch (error) {
+      console.error("Get restaurant invitations error:", error);
+      res.status(500).json({ error: "Failed to fetch invitations" });
     }
   });
 

@@ -9,11 +9,13 @@ import AdminDashboard from "@/pages/admin-dashboard";
 import AdminVouchers from "@/pages/admin-vouchers";
 import AdminReconciliation from "@/pages/admin-reconciliation";
 import DinerDashboard from "@/pages/diner-dashboard";
+import Register from "@/pages/register";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/register" component={Register} />
       <Route path="/admin/dashboard" component={AdminDashboard} />
       <Route path="/admin/vouchers" component={AdminVouchers} />
       <Route path="/admin/reconciliation" component={AdminReconciliation} />

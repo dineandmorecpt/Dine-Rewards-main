@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 export default function Home() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [isLoading, setIsLoading] = useState(false);
   
   const [dinerPhone, setDinerPhone] = useState("");
@@ -47,6 +49,8 @@ export default function Home() {
 
       // If user has valid token, they're already logged in
       if (checkData.hasValidToken && checkData.user) {
+        // Invalidate auth cache so DinerGuard gets fresh session
+        await queryClient.invalidateQueries({ queryKey: ["auth"] });
         toast({
           title: "Welcome back!",
           description: `Logged in as ${checkData.user.name}`,
@@ -112,6 +116,9 @@ export default function Home() {
         throw new Error(data.error || "Verification failed");
       }
 
+      // Invalidate auth cache so DinerGuard gets fresh session
+      await queryClient.invalidateQueries({ queryKey: ["auth"] });
+      
       toast({
         title: "Welcome back!",
         description: `Logged in as ${data.user.name}`,
@@ -158,6 +165,9 @@ export default function Home() {
         throw new Error("This account is not registered as a restaurant admin.");
       }
 
+      // Invalidate auth cache so AdminGuard gets fresh session
+      await queryClient.invalidateQueries({ queryKey: ["auth"] });
+      
       toast({
         title: "Welcome back!",
         description: `Logged in as ${data.user.name}`,

@@ -9,10 +9,13 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
   name: text("name").notNull(),
+  lastName: text("last_name"), // Surname for diners
   phone: text("phone").unique(), // Phone number for diner identification
   userType: text("user_type").notNull(), // 'diner' | 'restaurant_admin'
   activeVoucherCode: text("active_voucher_code"), // Currently selected voucher code for redemption
   activeVoucherCodeSetAt: timestamp("active_voucher_code_set_at"), // When the code was presented (valid for 15 mins)
+  termsAcceptedAt: timestamp("terms_accepted_at"), // When T&Cs were accepted
+  privacyAcceptedAt: timestamp("privacy_accepted_at"), // When privacy policy was accepted
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -160,3 +163,24 @@ export const insertReconciliationRecordSchema = createInsertSchema(reconciliatio
 });
 export type InsertReconciliationRecord = z.infer<typeof insertReconciliationRecordSchema>;
 export type ReconciliationRecord = typeof reconciliationRecords.$inferSelect;
+
+// Diner invitations - tracks SMS registration links sent to potential diners
+export const dinerInvitations = pgTable("diner_invitations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id),
+  phone: text("phone").notNull(), // Phone number the SMS was sent to
+  token: text("token").notNull().unique(), // Unique token for registration link
+  status: text("status").notNull().default("pending"), // 'pending' | 'registered' | 'expired'
+  invitedBy: varchar("invited_by").references(() => users.id), // Admin who sent the invite
+  dinerId: varchar("diner_id").references(() => users.id), // User created after registration
+  expiresAt: timestamp("expires_at").notNull(), // Link expiration
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  consumedAt: timestamp("consumed_at"), // When the user completed registration
+});
+
+export const insertDinerInvitationSchema = createInsertSchema(dinerInvitations).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertDinerInvitation = z.infer<typeof insertDinerInvitationSchema>;
+export type DinerInvitation = typeof dinerInvitations.$inferSelect;

@@ -15,6 +15,8 @@ import {
   type InsertReconciliationBatch,
   type ReconciliationRecord,
   type InsertReconciliationRecord,
+  type DinerInvitation,
+  type InsertDinerInvitation,
   users,
   restaurants,
   pointsBalances,
@@ -22,7 +24,8 @@ import {
   vouchers,
   campaigns,
   reconciliationBatches,
-  reconciliationRecords
+  reconciliationRecords,
+  dinerInvitations
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/node-postgres";
 import pkg from "pg";
@@ -95,6 +98,12 @@ export interface IStorage {
   createReconciliationRecord(record: InsertReconciliationRecord): Promise<ReconciliationRecord>;
   getReconciliationRecordsByBatch(batchId: string): Promise<ReconciliationRecord[]>;
   updateReconciliationRecord(recordId: string, updates: Partial<ReconciliationRecord>): Promise<ReconciliationRecord>;
+  
+  // Diner Invitation Management
+  createDinerInvitation(invitation: InsertDinerInvitation): Promise<DinerInvitation>;
+  getDinerInvitationByToken(token: string): Promise<DinerInvitation | undefined>;
+  updateDinerInvitation(id: string, updates: Partial<DinerInvitation>): Promise<DinerInvitation>;
+  getDinerInvitationsByRestaurant(restaurantId: string): Promise<DinerInvitation[]>;
 }
 
 export class DbStorage implements IStorage {
@@ -341,6 +350,31 @@ export class DbStorage implements IStorage {
       .where(eq(reconciliationRecords.id, recordId))
       .returning();
     return result[0];
+  }
+
+  // Diner Invitation Methods
+  async createDinerInvitation(invitation: InsertDinerInvitation): Promise<DinerInvitation> {
+    const result = await db.insert(dinerInvitations).values(invitation).returning();
+    return result[0];
+  }
+
+  async getDinerInvitationByToken(token: string): Promise<DinerInvitation | undefined> {
+    const result = await db.select().from(dinerInvitations).where(eq(dinerInvitations.token, token));
+    return result[0];
+  }
+
+  async updateDinerInvitation(id: string, updates: Partial<DinerInvitation>): Promise<DinerInvitation> {
+    const result = await db.update(dinerInvitations)
+      .set(updates)
+      .where(eq(dinerInvitations.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async getDinerInvitationsByRestaurant(restaurantId: string): Promise<DinerInvitation[]> {
+    return await db.select().from(dinerInvitations)
+      .where(eq(dinerInvitations.restaurantId, restaurantId))
+      .orderBy(desc(dinerInvitations.createdAt));
   }
 }
 

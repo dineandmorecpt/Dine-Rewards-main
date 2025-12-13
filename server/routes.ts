@@ -233,18 +233,26 @@ export async function registerRoutes(
         req.session.userId = user.id;
         req.session.userType = user.userType;
 
-        return res.json({
-          hasValidToken: true,
-          requiresOtp: false,
-          user: {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            lastName: user.lastName,
-            phone: user.phone,
-            userType: user.userType,
-          },
+        // Explicitly save session before responding
+        req.session.save((err) => {
+          if (err) {
+            console.error("Session save error:", err);
+            return res.status(500).json({ error: "Login failed" });
+          }
+          return res.json({
+            hasValidToken: true,
+            requiresOtp: false,
+            user: {
+              id: user.id,
+              email: user.email,
+              name: user.name,
+              lastName: user.lastName,
+              phone: user.phone,
+              userType: user.userType,
+            },
+          });
         });
+        return;
       }
 
       // No valid token, requires OTP

@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Ticket, Megaphone, Plus, Calendar, Users, Percent, DollarSign, Gift, Clock, Send, Settings, Save, ScanLine, Check, FileUp, FileCheck, FileX, ChevronRight, Upload, Camera, X } from "lucide-react";
+import { Ticket, Megaphone, Plus, Calendar, Users, Percent, DollarSign, Gift, Clock, Send, Settings, Save, ScanLine, Check, FileUp, FileCheck, FileX, ChevronRight, Upload, Camera, X, Phone, Receipt, Coins } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -49,6 +49,15 @@ export default function AdminVouchers() {
   const [isScanning, setIsScanning] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const { toast } = useToast();
+  
+  // Transaction capture state
+  const [capturePhone, setCapturePhone] = useState("");
+  const [captureBillId, setCaptureBillId] = useState("");
+  const [captureAmount, setCaptureAmount] = useState("");
+  const [captureScannerOpen, setCaptureScannerOpen] = useState(false);
+  const [captureIsScanning, setCaptureIsScanning] = useState(false);
+  const captureScannerRef = useRef<Html5Qrcode | null>(null);
+  const [captureSuccess, setCaptureSuccess] = useState<{dinerName: string; pointsEarned: number; currentPoints: number} | null>(null);
 
   const startScanner = async () => {
     try {
@@ -98,8 +107,91 @@ export default function AdminVouchers() {
       if (scannerRef.current) {
         scannerRef.current.stop().catch(() => {});
       }
+      if (captureScannerRef.current) {
+        captureScannerRef.current.stop().catch(() => {});
+      }
     };
   }, []);
+
+  const startCaptureScanner = async () => {
+    try {
+      setCaptureIsScanning(true);
+      const scanner = new Html5Qrcode("capture-qr-reader");
+      captureScannerRef.current = scanner;
+      
+      await scanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        (decodedText) => {
+          setCaptureBillId(decodedText);
+          stopCaptureScanner();
+          toast({
+            title: "Bill QR Scanned",
+            description: `Bill ID: ${decodedText}`
+          });
+        },
+        () => {}
+      );
+    } catch (err) {
+      console.error("Capture scanner error:", err);
+      setCaptureIsScanning(false);
+      setCaptureScannerOpen(false);
+      toast({
+        title: "Camera Error",
+        description: "Could not access camera. Please enter bill ID manually.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const stopCaptureScanner = async () => {
+    if (captureScannerRef.current) {
+      try {
+        await captureScannerRef.current.stop();
+        captureScannerRef.current = null;
+      } catch (err) {
+        console.error("Error stopping capture scanner:", err);
+      }
+    }
+    setCaptureIsScanning(false);
+    setCaptureScannerOpen(false);
+  };
+
+  const recordTransaction = useMutation({
+    mutationFn: async ({ phone, billId, amountSpent }: { phone: string; billId?: string; amountSpent: number }) => {
+      const res = await fetch(`/api/restaurants/${RESTAURANT_ID}/transactions/record`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone, billId: billId || undefined, amountSpent })
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to record transaction");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setCaptureSuccess({
+        dinerName: data.dinerName,
+        pointsEarned: data.transaction.pointsEarned,
+        currentPoints: data.balance.currentPoints
+      });
+      setCapturePhone("");
+      setCaptureBillId("");
+      setCaptureAmount("");
+      toast({
+        title: "Transaction Recorded!",
+        description: `${data.dinerName} earned ${data.transaction.pointsEarned} points`
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to Record Transaction",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
 
   const reconciliationBatches = useQuery({
     queryKey: ['reconciliation-batches', RESTAURANT_ID],
@@ -239,13 +331,167 @@ export default function AdminVouchers() {
           </div>
         </div>
 
-        <Tabs defaultValue="vouchers" className="w-full space-y-6">
-          <TabsList className="grid w-full grid-cols-4 max-w-[600px]">
+        <Tabs defaultValue="capture" className="w-full space-y-6">
+          <TabsList className="grid w-full grid-cols-5 max-w-[700px]">
+            <TabsTrigger value="capture">Capture</TabsTrigger>
             <TabsTrigger value="vouchers">Vouchers</TabsTrigger>
             <TabsTrigger value="reconciliation">Reconciliation</TabsTrigger>
             <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
+
+          {/* CAPTURE TRANSACTION TAB */}
+          <TabsContent value="capture" className="space-y-6">
+            <Card className="border-primary/30 bg-gradient-to-r from-primary/5 to-emerald-500/10">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Receipt className="h-5 w-5 text-primary" />
+                  Record Customer Transaction
+                </CardTitle>
+                <CardDescription>
+                  Enter customer phone number and bill details to award loyalty points.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4 max-w-md">
+                  {/* Phone Number Input */}
+                  <div className="space-y-2">
+                    <Label htmlFor="capture-phone" className="flex items-center gap-2">
+                      <Phone className="h-4 w-4" />
+                      Customer Phone Number
+                    </Label>
+                    <Input
+                      id="capture-phone"
+                      placeholder="e.g., 0821234567"
+                      value={capturePhone}
+                      onChange={(e) => {
+                        setCapturePhone(e.target.value);
+                        setCaptureSuccess(null);
+                      }}
+                      className="font-mono"
+                      data-testid="input-capture-phone"
+                    />
+                  </div>
+
+                  {/* Bill ID Scanner */}
+                  {captureScannerOpen ? (
+                    <div className="space-y-3">
+                      <Label className="flex items-center gap-2">
+                        <ScanLine className="h-4 w-4" />
+                        Scan Bill QR Code
+                      </Label>
+                      <div className="relative">
+                        <div id="capture-qr-reader" className="w-full rounded-lg overflow-hidden"></div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="absolute top-2 right-2 gap-1"
+                          onClick={stopCaptureScanner}
+                          data-testid="button-capture-close-scanner"
+                        >
+                          <X className="h-4 w-4" /> Close
+                        </Button>
+                      </div>
+                      {!captureIsScanning && (
+                        <Button 
+                          onClick={startCaptureScanner} 
+                          className="w-full gap-2"
+                          data-testid="button-capture-start-camera"
+                        >
+                          <Camera className="h-4 w-4" /> Start Camera
+                        </Button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-2">
+                        <ScanLine className="h-4 w-4" />
+                        Bill / Invoice ID
+                      </Label>
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Enter or scan bill ID"
+                          value={captureBillId}
+                          onChange={(e) => setCaptureBillId(e.target.value)}
+                          className="font-mono"
+                          data-testid="input-capture-bill-id"
+                        />
+                        <Button
+                          variant="outline"
+                          onClick={() => setCaptureScannerOpen(true)}
+                          className="gap-2 shrink-0"
+                          data-testid="button-capture-scan"
+                        >
+                          <Camera className="h-4 w-4" />
+                          Scan
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Amount Input */}
+                  <div className="space-y-2">
+                    <Label htmlFor="capture-amount" className="flex items-center gap-2">
+                      <Coins className="h-4 w-4" />
+                      Amount Spent (R)
+                    </Label>
+                    <Input
+                      id="capture-amount"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="e.g., 250.00"
+                      value={captureAmount}
+                      onChange={(e) => setCaptureAmount(e.target.value)}
+                      className="font-mono"
+                      data-testid="input-capture-amount"
+                    />
+                  </div>
+
+                  {/* Submit Button */}
+                  <Button
+                    onClick={() => recordTransaction.mutate({
+                      phone: capturePhone,
+                      billId: captureBillId || undefined,
+                      amountSpent: parseFloat(captureAmount)
+                    })}
+                    disabled={!capturePhone.trim() || !captureAmount || recordTransaction.isPending}
+                    className="w-full gap-2"
+                    data-testid="button-record-transaction"
+                  >
+                    {recordTransaction.isPending ? (
+                      "Recording..."
+                    ) : (
+                      <>
+                        <Check className="h-4 w-4" />
+                        Record Transaction
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                {/* Success Message */}
+                {captureSuccess && (
+                  <div className="mt-4 p-4 bg-green-50 dark:bg-green-950/30 rounded-md border border-green-200 dark:border-green-800">
+                    <p className="text-sm text-green-700 dark:text-green-400 font-medium flex items-center gap-2">
+                      <Check className="h-4 w-4" />
+                      Transaction recorded for {captureSuccess.dinerName}
+                    </p>
+                    <div className="mt-2 grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="text-muted-foreground">Points Earned</p>
+                        <p className="font-semibold text-green-600 dark:text-green-400">+{captureSuccess.pointsEarned}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">New Balance</p>
+                        <p className="font-semibold">{captureSuccess.currentPoints} points</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           {/* VOUCHERS TAB */}
           <TabsContent value="vouchers" className="space-y-6">

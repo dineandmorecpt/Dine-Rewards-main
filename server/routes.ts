@@ -3,6 +3,18 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { createLoyaltyServices } from "./services/loyalty";
 import { insertTransactionSchema } from "@shared/schema";
+import { z } from "zod";
+
+const recordTransactionSchema = z.object({
+  phone: z.string()
+    .transform(val => val.trim().replace(/[\s\-()]/g, ''))
+    .refine(val => val.length >= 7, { message: "Phone number must be at least 7 digits" })
+    .refine(val => /^[0-9+]+$/.test(val), { message: "Phone number contains invalid characters" }),
+  billId: z.string().optional(),
+  amountSpent: z.coerce.number()
+    .refine(val => !isNaN(val), { message: "Amount must be a valid number" })
+    .refine(val => val > 0, { message: "Amount must be greater than zero" })
+});
 
 const services = createLoyaltyServices(storage);
 
@@ -124,6 +136,50 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Get restaurant stats error:", error);
       res.status(500).json({ error: "Failed to fetch restaurant stats" });
+    }
+  });
+
+  // RESTAURANT RECORD TRANSACTION - Record transaction by phone lookup
+  app.post("/api/restaurants/:restaurantId/transactions/record", async (req, res) => {
+    try {
+      const { restaurantId } = req.params;
+      
+      // Validate input with Zod
+      const parseResult = recordTransactionSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(422).json({ 
+          error: parseResult.error.errors[0]?.message || "Invalid input data" 
+        });
+      }
+      
+      const { phone, billId, amountSpent } = parseResult.data;
+      
+      // Look up diner by phone
+      const diner = await storage.getUserByPhone(phone);
+      if (!diner) {
+        return res.status(404).json({ error: "No customer found with that phone number" });
+      }
+      
+      if (diner.userType !== 'diner') {
+        return res.status(400).json({ error: "Phone number is not registered as a diner" });
+      }
+      
+      // Record the transaction
+      const result = await services.loyalty.recordTransaction(
+        diner.id,
+        restaurantId,
+        amountSpent,
+        billId || undefined
+      );
+      
+      res.json({
+        ...result,
+        dinerName: diner.name,
+        dinerPhone: phone
+      });
+    } catch (error: any) {
+      console.error("Record transaction error:", error);
+      res.status(500).json({ error: error.message || "Failed to record transaction" });
     }
   });
 

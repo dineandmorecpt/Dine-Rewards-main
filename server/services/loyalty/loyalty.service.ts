@@ -21,7 +21,7 @@ export interface EnrichedPointsBalance {
 }
 
 export interface ILoyaltyService {
-  recordTransaction(dinerId: string, restaurantId: string, amountSpent: number): Promise<TransactionResult>;
+  recordTransaction(dinerId: string, restaurantId: string, amountSpent: number, billId?: string): Promise<TransactionResult>;
   getBalancesForDiner(dinerId: string): Promise<EnrichedPointsBalance[]>;
   calculatePointsEarned(amountSpent: number, restaurant: Restaurant): number;
   shouldGenerateVoucher(currentPoints: number, threshold: number): boolean;
@@ -80,7 +80,8 @@ export class LoyaltyService implements ILoyaltyService {
   async recordTransaction(
     dinerId: string, 
     restaurantId: string, 
-    amountSpent: number
+    amountSpent: number,
+    billId?: string
   ): Promise<TransactionResult> {
     const restaurant = await this.storage.getRestaurant(restaurantId);
     if (!restaurant) {
@@ -93,7 +94,8 @@ export class LoyaltyService implements ILoyaltyService {
       dinerId,
       restaurantId,
       amountSpent: amountSpent.toString(),
-      pointsEarned
+      pointsEarned,
+      billId: billId || null
     });
 
     let balance = await this.storage.getPointsBalance(dinerId, restaurantId);

@@ -49,8 +49,8 @@ export default function Home() {
 
       // If user has valid token, they're already logged in
       if (checkData.hasValidToken && checkData.user) {
-        // Invalidate auth cache so DinerGuard gets fresh session
-        await queryClient.invalidateQueries({ queryKey: ["auth"] });
+        // Refetch auth cache and wait for it to complete before navigating
+        await queryClient.refetchQueries({ queryKey: ["auth"] });
         toast({
           title: "Welcome back!",
           description: `Logged in as ${checkData.user.name}`,
@@ -116,8 +116,8 @@ export default function Home() {
         throw new Error(data.error || "Verification failed");
       }
 
-      // Invalidate auth cache so DinerGuard gets fresh session
-      await queryClient.invalidateQueries({ queryKey: ["auth"] });
+      // Refetch auth cache and wait for it to complete before navigating
+      await queryClient.refetchQueries({ queryKey: ["auth"] });
       
       toast({
         title: "Welcome back!",
@@ -165,8 +165,8 @@ export default function Home() {
         throw new Error("This account is not registered as a restaurant admin.");
       }
 
-      // Invalidate auth cache so AdminGuard gets fresh session
-      await queryClient.invalidateQueries({ queryKey: ["auth"] });
+      // Refetch auth cache and wait for it to complete before navigating
+      await queryClient.refetchQueries({ queryKey: ["auth"] });
       
       toast({
         title: "Welcome back!",

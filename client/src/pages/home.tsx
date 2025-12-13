@@ -14,18 +14,17 @@ export default function Home() {
   const queryClient = useQueryClient();
   const [isLoading, setIsLoading] = useState(false);
   
-  const [dinerPhone, setDinerPhone] = useState("");
-  const [dinerOtp, setDinerOtp] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
+  const [dinerEmail, setDinerEmail] = useState("");
+  const [dinerPassword, setDinerPassword] = useState("");
   
   const [adminEmail, setAdminEmail] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
 
   const handleDinerLogin = async () => {
-    if (!dinerPhone) {
+    if (!dinerEmail || !dinerPassword) {
       toast({
         title: "Missing information",
-        description: "Please enter your phone number.",
+        description: "Please enter your email and password.",
         variant: "destructive",
       });
       return;
@@ -33,87 +32,21 @@ export default function Home() {
 
     setIsLoading(true);
     try {
-      // First check if user has a valid access token
-      const checkResponse = await fetch("/api/auth/check-token", {
+      const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ phone: dinerPhone }),
-      });
-
-      const checkData = await checkResponse.json();
-
-      if (!checkResponse.ok) {
-        throw new Error(checkData.error || "Login check failed");
-      }
-
-      // If user has valid token, they're already logged in
-      if (checkData.hasValidToken && checkData.user) {
-        // Refetch auth cache and wait for it to complete before navigating
-        await queryClient.refetchQueries({ queryKey: ["auth"] });
-        toast({
-          title: "Welcome back!",
-          description: `Logged in as ${checkData.user.name}`,
-        });
-        navigate("/diner/dashboard");
-        return;
-      }
-
-      // No valid token, need to request OTP
-      const response = await fetch("/api/auth/request-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ phone: dinerPhone }),
+        body: JSON.stringify({ email: dinerEmail, password: dinerPassword }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to send OTP");
+        throw new Error(data.error || "Login failed");
       }
 
-      setOtpSent(true);
-      toast({
-        title: "OTP Sent",
-        description: data.smsSent 
-          ? "Check your phone for the login code." 
-          : "Could not send SMS. Please try again.",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleVerifyOtp = async () => {
-    if (!dinerOtp) {
-      toast({
-        title: "Missing information",
-        description: "Please enter the OTP code.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const response = await fetch("/api/auth/verify-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ phone: dinerPhone, otp: dinerOtp }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Verification failed");
+      if (data.user.userType !== 'diner') {
+        throw new Error("This account is not registered as a diner.");
       }
 
       // Refetch auth cache and wait for it to complete before navigating
@@ -217,74 +150,38 @@ export default function Home() {
             
             <TabsContent value="diner" className="mt-6">
               <div className="rounded-xl border bg-card p-6 space-y-4 text-left">
-                {!otpSent ? (
-                  <>
-                    <div className="space-y-2">
-                      <Label htmlFor="diner-phone">Phone Number</Label>
-                      <Input
-                        id="diner-phone"
-                        type="tel"
-                        placeholder="Enter your phone number"
-                        value={dinerPhone}
-                        onChange={(e) => setDinerPhone(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleDinerLogin()}
-                        data-testid="input-diner-phone"
-                      />
-                    </div>
-                    <Button 
-                      className="w-full" 
-                      onClick={handleDinerLogin}
-                      disabled={isLoading}
-                      data-testid="button-diner-login"
-                    >
-                      {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                      Continue
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <div className="text-center pb-2">
-                      <p className="text-sm text-muted-foreground">
-                        Enter the 6-digit code sent to <strong>{dinerPhone}</strong>
-                      </p>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="diner-otp">Login Code</Label>
-                      <Input
-                        id="diner-otp"
-                        type="text"
-                        inputMode="numeric"
-                        maxLength={6}
-                        placeholder="Enter 6-digit code"
-                        value={dinerOtp}
-                        onChange={(e) => setDinerOtp(e.target.value.replace(/\D/g, ''))}
-                        onKeyDown={(e) => e.key === 'Enter' && handleVerifyOtp()}
-                        data-testid="input-diner-otp"
-                        className="text-center text-2xl tracking-widest"
-                      />
-                    </div>
-                    <Button 
-                      className="w-full" 
-                      onClick={handleVerifyOtp}
-                      disabled={isLoading}
-                      data-testid="button-verify-otp"
-                    >
-                      {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                      Sign In
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      className="w-full text-sm" 
-                      onClick={() => { setOtpSent(false); setDinerOtp(""); }}
-                      data-testid="button-change-phone"
-                    >
-                      Use a different phone number
-                    </Button>
-                  </>
-                )}
-                <p className="text-xs text-muted-foreground text-center pt-2">
-                  Received an invitation? Check your SMS for the registration link.
-                </p>
+                <div className="space-y-2">
+                  <Label htmlFor="diner-email">Email</Label>
+                  <Input
+                    id="diner-email"
+                    type="email"
+                    placeholder="diner@example.com"
+                    value={dinerEmail}
+                    onChange={(e) => setDinerEmail(e.target.value)}
+                    data-testid="input-diner-email"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="diner-password">Password</Label>
+                  <Input
+                    id="diner-password"
+                    type="password"
+                    placeholder="Enter your password"
+                    value={dinerPassword}
+                    onChange={(e) => setDinerPassword(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleDinerLogin()}
+                    data-testid="input-diner-password"
+                  />
+                </div>
+                <Button 
+                  className="w-full" 
+                  onClick={handleDinerLogin}
+                  disabled={isLoading}
+                  data-testid="button-diner-login"
+                >
+                  {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                  Sign In
+                </Button>
               </div>
             </TabsContent>
             

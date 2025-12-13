@@ -151,6 +151,128 @@ export async function registerRoutes(
     });
   });
 
+  // OTP Storage (in-memory with expiry)
+  const otpStore = new Map<string, { otp: string; expiresAt: Date }>();
+
+  // AUTH - Request OTP for diner login
+  const requestOtpSchema = z.object({
+    phone: z.string()
+      .transform(val => val.trim().replace(/[\s\-()]/g, ''))
+      .refine(val => val.length >= 7, { message: "Phone number must be at least 7 digits" })
+      .refine(val => /^[0-9+]+$/.test(val), { message: "Phone number contains invalid characters" }),
+  });
+
+  app.post("/api/auth/request-otp", async (req, res) => {
+    try {
+      const parseResult = requestOtpSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(422).json({ 
+          error: parseResult.error.errors[0]?.message || "Invalid phone number" 
+        });
+      }
+
+      const { phone } = parseResult.data;
+
+      // Check if user exists with this phone
+      const user = await storage.getUserByPhone(phone);
+      if (!user) {
+        return res.status(404).json({ error: "No account found with this phone number" });
+      }
+
+      if (user.userType !== 'diner') {
+        return res.status(400).json({ error: "This phone number is not registered as a diner" });
+      }
+
+      // Generate 6-digit OTP
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      
+      // Store OTP with 5-minute expiry
+      const expiresAt = new Date();
+      expiresAt.setMinutes(expiresAt.getMinutes() + 5);
+      otpStore.set(phone, { otp, expiresAt });
+
+      // Send OTP via SMS
+      const { sendSMS } = await import("./services/sms");
+      const smsResult = await sendSMS(phone, `Your Dine&More login code is: ${otp}. Valid for 5 minutes.`);
+
+      res.json({
+        success: true,
+        smsSent: smsResult.success,
+        smsError: smsResult.error,
+        message: smsResult.success 
+          ? "OTP sent to your phone" 
+          : "Could not send SMS. Please try again.",
+      });
+    } catch (error: any) {
+      console.error("Request OTP error:", error);
+      res.status(500).json({ error: "Failed to send OTP" });
+    }
+  });
+
+  // AUTH - Verify OTP and login diner
+  const verifyOtpSchema = z.object({
+    phone: z.string()
+      .transform(val => val.trim().replace(/[\s\-()]/g, ''))
+      .refine(val => val.length >= 7, { message: "Phone number must be at least 7 digits" }),
+    otp: z.string().length(6, "OTP must be 6 digits"),
+  });
+
+  app.post("/api/auth/verify-otp", async (req, res) => {
+    try {
+      const parseResult = verifyOtpSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(422).json({ 
+          error: parseResult.error.errors[0]?.message || "Invalid input" 
+        });
+      }
+
+      const { phone, otp } = parseResult.data;
+
+      // Check stored OTP
+      const storedOtp = otpStore.get(phone);
+      if (!storedOtp) {
+        return res.status(400).json({ error: "No OTP found. Please request a new one." });
+      }
+
+      if (new Date() > storedOtp.expiresAt) {
+        otpStore.delete(phone);
+        return res.status(400).json({ error: "OTP has expired. Please request a new one." });
+      }
+
+      if (storedOtp.otp !== otp) {
+        return res.status(401).json({ error: "Invalid OTP" });
+      }
+
+      // OTP is valid - clear it
+      otpStore.delete(phone);
+
+      // Get user and create session
+      const user = await storage.getUserByPhone(phone);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Set session
+      req.session.userId = user.id;
+      req.session.userType = user.userType;
+
+      res.json({
+        success: true,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          lastName: user.lastName,
+          phone: user.phone,
+          userType: user.userType,
+        },
+      });
+    } catch (error: any) {
+      console.error("Verify OTP error:", error);
+      res.status(500).json({ error: "Login failed" });
+    }
+  });
+
   // TRANSACTIONS - Record a transaction and calculate points
   app.post("/api/transactions", async (req, res) => {
     try {

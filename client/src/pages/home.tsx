@@ -12,14 +12,100 @@ export default function Home() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   
-  const [dinerEmail, setDinerEmail] = useState("");
-  const [dinerPassword, setDinerPassword] = useState("");
+  const [dinerPhone, setDinerPhone] = useState("");
+  const [dinerOtp, setDinerOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
   
   const [adminEmail, setAdminEmail] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
 
-  const handleLogin = async (userType: 'diner' | 'admin', email: string, password: string) => {
-    if (!email || !password) {
+  const handleRequestOtp = async () => {
+    if (!dinerPhone) {
+      toast({
+        title: "Missing information",
+        description: "Please enter your phone number.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await fetch("/api/auth/request-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ phone: dinerPhone }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to send OTP");
+      }
+
+      setOtpSent(true);
+      toast({
+        title: "OTP Sent",
+        description: data.smsSent 
+          ? "Check your phone for the login code." 
+          : "Could not send SMS. Please try again.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!dinerOtp) {
+      toast({
+        title: "Missing information",
+        description: "Please enter the OTP code.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await fetch("/api/auth/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ phone: dinerPhone, otp: dinerOtp }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Verification failed");
+      }
+
+      toast({
+        title: "Welcome back!",
+        description: `Logged in as ${data.user.name}`,
+      });
+
+      navigate("/diner/dashboard");
+    } catch (error: any) {
+      toast({
+        title: "Login failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAdminLogin = async () => {
+    if (!adminEmail || !adminPassword) {
       toast({
         title: "Missing information",
         description: "Please enter your email and password.",
@@ -33,7 +119,8 @@ export default function Home() {
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        credentials: "include",
+        body: JSON.stringify({ email: adminEmail, password: adminPassword }),
       });
 
       const data = await response.json();
@@ -42,10 +129,8 @@ export default function Home() {
         throw new Error(data.error || "Login failed");
       }
 
-      if (data.user.userType !== userType) {
-        throw new Error(userType === 'diner' 
-          ? "This account is not registered as a diner." 
-          : "This account is not registered as a restaurant admin.");
+      if (data.user.userType !== 'admin') {
+        throw new Error("This account is not registered as a restaurant admin.");
       }
 
       toast({
@@ -53,11 +138,7 @@ export default function Home() {
         description: `Logged in as ${data.user.name}`,
       });
 
-      if (userType === 'diner') {
-        navigate("/diner/dashboard");
-      } else {
-        navigate("/admin/dashboard");
-      }
+      navigate("/admin/dashboard");
     } catch (error: any) {
       toast({
         title: "Login failed",
@@ -101,38 +182,71 @@ export default function Home() {
             
             <TabsContent value="diner" className="mt-6">
               <div className="rounded-xl border bg-card p-6 space-y-4 text-left">
-                <div className="space-y-2">
-                  <Label htmlFor="diner-email">Email</Label>
-                  <Input
-                    id="diner-email"
-                    type="email"
-                    placeholder="your@email.com"
-                    value={dinerEmail}
-                    onChange={(e) => setDinerEmail(e.target.value)}
-                    data-testid="input-diner-email"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="diner-password">Password</Label>
-                  <Input
-                    id="diner-password"
-                    type="password"
-                    placeholder="Enter your password"
-                    value={dinerPassword}
-                    onChange={(e) => setDinerPassword(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleLogin('diner', dinerEmail, dinerPassword)}
-                    data-testid="input-diner-password"
-                  />
-                </div>
-                <Button 
-                  className="w-full" 
-                  onClick={() => handleLogin('diner', dinerEmail, dinerPassword)}
-                  disabled={isLoading}
-                  data-testid="button-diner-login"
-                >
-                  {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                  Sign In as Diner
-                </Button>
+                {!otpSent ? (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="diner-phone">Phone Number</Label>
+                      <Input
+                        id="diner-phone"
+                        type="tel"
+                        placeholder="Enter your phone number"
+                        value={dinerPhone}
+                        onChange={(e) => setDinerPhone(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleRequestOtp()}
+                        data-testid="input-diner-phone"
+                      />
+                    </div>
+                    <Button 
+                      className="w-full" 
+                      onClick={handleRequestOtp}
+                      disabled={isLoading}
+                      data-testid="button-request-otp"
+                    >
+                      {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                      Send Login Code
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-center pb-2">
+                      <p className="text-sm text-muted-foreground">
+                        Enter the 6-digit code sent to <strong>{dinerPhone}</strong>
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="diner-otp">Login Code</Label>
+                      <Input
+                        id="diner-otp"
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={6}
+                        placeholder="Enter 6-digit code"
+                        value={dinerOtp}
+                        onChange={(e) => setDinerOtp(e.target.value.replace(/\D/g, ''))}
+                        onKeyDown={(e) => e.key === 'Enter' && handleVerifyOtp()}
+                        data-testid="input-diner-otp"
+                        className="text-center text-2xl tracking-widest"
+                      />
+                    </div>
+                    <Button 
+                      className="w-full" 
+                      onClick={handleVerifyOtp}
+                      disabled={isLoading}
+                      data-testid="button-verify-otp"
+                    >
+                      {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                      Sign In
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      className="w-full text-sm" 
+                      onClick={() => { setOtpSent(false); setDinerOtp(""); }}
+                      data-testid="button-change-phone"
+                    >
+                      Use a different phone number
+                    </Button>
+                  </>
+                )}
                 <p className="text-xs text-muted-foreground text-center pt-2">
                   Received an invitation? Check your SMS for the registration link.
                 </p>
@@ -160,13 +274,13 @@ export default function Home() {
                     placeholder="Enter your password"
                     value={adminPassword}
                     onChange={(e) => setAdminPassword(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleLogin('admin', adminEmail, adminPassword)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleAdminLogin()}
                     data-testid="input-admin-password"
                   />
                 </div>
                 <Button 
                   className="w-full" 
-                  onClick={() => handleLogin('admin', adminEmail, adminPassword)}
+                  onClick={handleAdminLogin}
                   disabled={isLoading}
                   data-testid="button-admin-login"
                 >

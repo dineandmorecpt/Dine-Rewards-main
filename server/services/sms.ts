@@ -1,4 +1,4 @@
-const SMS_API_URL = 'https://rest.smsportal.com/v1/BulkMessages';
+const SMS_API_URL = 'https://rest.smsportal.com/BulkMessages';
 
 interface SMSMessage {
   to: string;

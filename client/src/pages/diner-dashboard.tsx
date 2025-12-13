@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Utensils, Gift, ChevronRight, Clock, AlertCircle, QrCode } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { toast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 
@@ -337,11 +338,22 @@ export default function DinerDashboard() {
                 <p className="text-sm text-muted-foreground mb-2">{activeVoucherTitle}</p>
               </div>
               <div className="p-6 bg-gradient-to-br from-primary/10 to-secondary/30 rounded-xl border-2 border-dashed border-primary/30">
-                <div className="text-center">
-                  <QrCode className="h-16 w-16 mx-auto text-primary/50 mb-4" />
+                <div className="text-center space-y-4">
                   <p className="text-4xl font-mono font-bold tracking-widest text-primary" data-testid="text-active-code">
                     {activeCode}
                   </p>
+                  {activeCode && (
+                    <div className="flex justify-center">
+                      <div className="bg-white p-4 rounded-lg shadow-sm">
+                        <QRCodeSVG 
+                          value={activeCode} 
+                          size={160}
+                          level="H"
+                          includeMargin={false}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="text-center space-y-2">

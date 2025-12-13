@@ -300,8 +300,8 @@ export default function DinerDashboard() {
             {vouchers.length === 0 ? (
               <Card className="p-12 text-center">
                 <Gift className="h-16 w-16 mx-auto text-muted-foreground/50 mb-4" />
-                <p className="text-lg font-medium text-muted-foreground">No vouchers yet</p>
-                <p className="text-sm text-muted-foreground mt-2">Keep earning points to unlock rewards!</p>
+                <p className="text-lg font-medium text-muted-foreground">You have no active vouchers</p>
+                <p className="text-sm text-muted-foreground mt-2">Spend R1000 to receive your first voucher</p>
               </Card>
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

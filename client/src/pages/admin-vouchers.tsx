@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,10 +10,11 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Ticket, Megaphone, Plus, Calendar, Users, Percent, DollarSign, Gift, Clock, Send, Settings, Save, ScanLine, Check, FileUp, FileCheck, FileX, ChevronRight, Upload } from "lucide-react";
+import { Ticket, Megaphone, Plus, Calendar, Users, Percent, DollarSign, Gift, Clock, Send, Settings, Save, ScanLine, Check, FileUp, FileCheck, FileX, ChevronRight, Upload, Camera, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { Html5Qrcode } from "html5-qrcode";
 
 // Mock Data
 const initialVouchers = [
@@ -44,7 +45,61 @@ export default function AdminVouchers() {
   const [redemptionSuccess, setRedemptionSuccess] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+  const scannerRef = useRef<Html5Qrcode | null>(null);
   const { toast } = useToast();
+
+  const startScanner = async () => {
+    try {
+      setIsScanning(true);
+      const scanner = new Html5Qrcode("qr-reader");
+      scannerRef.current = scanner;
+      
+      await scanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        (decodedText) => {
+          setRedeemCode(decodedText.toUpperCase());
+          stopScanner();
+          toast({
+            title: "QR Code Scanned",
+            description: `Code: ${decodedText.toUpperCase()}`
+          });
+        },
+        () => {}
+      );
+    } catch (err) {
+      console.error("Scanner error:", err);
+      setIsScanning(false);
+      toast({
+        title: "Camera Error",
+        description: "Could not access camera. Please enter code manually.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const stopScanner = async () => {
+    if (scannerRef.current) {
+      try {
+        await scannerRef.current.stop();
+        scannerRef.current = null;
+      } catch (err) {
+        console.error("Error stopping scanner:", err);
+      }
+    }
+    setIsScanning(false);
+    setScannerOpen(false);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (scannerRef.current) {
+        scannerRef.current.stop().catch(() => {});
+      }
+    };
+  }, []);
 
   const reconciliationBatches = useQuery({
     queryKey: ['reconciliation-batches', RESTAURANT_ID],
@@ -206,10 +261,48 @@ export default function AdminVouchers() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3 max-w-md">
+                <div className="space-y-4 max-w-md">
+                  {/* Scanner UI */}
+                  {scannerOpen ? (
+                    <div className="space-y-3">
+                      <div className="relative">
+                        <div id="qr-reader" className="w-full rounded-lg overflow-hidden"></div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="absolute top-2 right-2 gap-1"
+                          onClick={stopScanner}
+                        >
+                          <X className="h-4 w-4" /> Close
+                        </Button>
+                      </div>
+                      {!isScanning && (
+                        <Button onClick={startScanner} className="w-full gap-2">
+                          <Camera className="h-4 w-4" /> Start Camera
+                        </Button>
+                      )}
+                    </div>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      onClick={() => setScannerOpen(true)}
+                      className="w-full gap-2 h-12 border-dashed"
+                      data-testid="button-open-scanner"
+                    >
+                      <Camera className="h-5 w-5" />
+                      Scan QR Code
+                    </Button>
+                  )}
+                  
+                  <div className="flex items-center gap-3">
+                    <Separator className="flex-1" />
+                    <span className="text-xs text-muted-foreground">or enter manually</span>
+                    <Separator className="flex-1" />
+                  </div>
+
                   <div className="flex gap-3">
                     <Input
-                      placeholder="Enter voucher code (e.g., LATR-1234)"
+                      placeholder="Enter voucher code (e.g., BURG-1234)"
                       value={redeemCode}
                       onChange={(e) => {
                         setRedeemCode(e.target.value.toUpperCase());
@@ -236,7 +329,7 @@ export default function AdminVouchers() {
                   </div>
                   <div className="flex gap-3 items-center">
                     <Input
-                      placeholder="Bill/Invoice ID (optional, for reconciliation)"
+                      placeholder="Bill/Invoice ID (for reconciliation)"
                       value={billId}
                       onChange={(e) => setBillId(e.target.value)}
                       className="font-mono"

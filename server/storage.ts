@@ -43,6 +43,7 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   getUserByPhone(phone: string): Promise<User | undefined>;
+  getUserByAccessToken(accessToken: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   
   // Restaurant Management
@@ -120,6 +121,11 @@ export class DbStorage implements IStorage {
 
   async getUserByPhone(phone: string): Promise<User | undefined> {
     const result = await db.select().from(users).where(eq(users.phone, phone));
+    return result[0];
+  }
+
+  async getUserByAccessToken(accessToken: string): Promise<User | undefined> {
+    const result = await db.select().from(users).where(eq(users.accessToken, accessToken));
     return result[0];
   }
 

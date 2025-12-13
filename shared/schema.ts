@@ -12,6 +12,8 @@ export const users = pgTable("users", {
   lastName: text("last_name"), // Surname for diners
   phone: text("phone").unique(), // Phone number for diner identification
   userType: text("user_type").notNull(), // 'diner' | 'restaurant_admin'
+  accessToken: text("access_token").unique(), // Persistent token for auto-login (valid for 90 days)
+  accessTokenExpiresAt: timestamp("access_token_expires_at"), // When the access token expires
   activeVoucherCode: text("active_voucher_code"), // Currently selected voucher code for redemption
   activeVoucherCodeSetAt: timestamp("active_voucher_code_set_at"), // When the code was presented (valid for 15 mins)
   termsAcceptedAt: timestamp("terms_accepted_at"), // When T&Cs were accepted

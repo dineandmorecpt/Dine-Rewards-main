@@ -151,6 +151,54 @@ export async function registerRoutes(
     });
   });
 
+  // AUTH - Login with access token (for diners with valid token)
+  const tokenLoginSchema = z.object({
+    accessToken: z.string().min(1, "Access token is required"),
+  });
+
+  app.post("/api/auth/login-token", async (req, res) => {
+    try {
+      const parseResult = tokenLoginSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(422).json({ 
+          error: parseResult.error.errors[0]?.message || "Invalid input" 
+        });
+      }
+
+      const { accessToken } = parseResult.data;
+
+      // Find user by access token
+      const user = await storage.getUserByAccessToken(accessToken);
+      if (!user) {
+        return res.status(401).json({ error: "Invalid or expired access token" });
+      }
+
+      // Check if token is expired
+      if (user.accessTokenExpiresAt && new Date(user.accessTokenExpiresAt) < new Date()) {
+        return res.status(401).json({ error: "Access token has expired. Please login with OTP." });
+      }
+
+      // Set session
+      req.session.userId = user.id;
+      req.session.userType = user.userType;
+
+      res.json({
+        success: true,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          lastName: user.lastName,
+          phone: user.phone,
+          userType: user.userType,
+        },
+      });
+    } catch (error: any) {
+      console.error("Token login error:", error);
+      res.status(500).json({ error: "Login failed" });
+    }
+  });
+
   // OTP Storage (in-memory with expiry)
   const otpStore = new Map<string, { otp: string; expiresAt: Date }>();
 

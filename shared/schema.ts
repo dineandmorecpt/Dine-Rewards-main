@@ -9,6 +9,7 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
   name: text("name").notNull(),
+  phone: text("phone").unique(), // Phone number for diner identification
   userType: text("user_type").notNull(), // 'diner' | 'restaurant_admin'
   activeVoucherCode: text("active_voucher_code"), // Currently selected voucher code for redemption
   activeVoucherCodeSetAt: timestamp("active_voucher_code_set_at"), // When the code was presented (valid for 15 mins)
@@ -67,6 +68,7 @@ export const transactions = pgTable("transactions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   dinerId: varchar("diner_id").notNull().references(() => users.id),
   restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id),
+  billId: text("bill_id"), // Bill/Invoice ID from POS
   amountSpent: decimal("amount_spent", { precision: 10, scale: 2 }).notNull(),
   pointsEarned: integer("points_earned").notNull(),
   transactionDate: timestamp("transaction_date").defaultNow().notNull(),

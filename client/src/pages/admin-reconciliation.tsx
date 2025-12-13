@@ -7,7 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Upload, FileUp, FileCheck, FileX, Download, ChevronRight, FileSpreadsheet } from "lucide-react";
 
-const RESTAURANT_ID = "c57c7d9c-1084-45b1-abce-c850caa6e875";
+const RESTAURANT_ID = "b563a4ad-6dcc-4b42-8c49-5da98fb8d6ad";
 
 export default function AdminReconciliation() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);

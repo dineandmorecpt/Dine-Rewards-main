@@ -29,7 +29,7 @@ const initialCampaigns = [
   { id: 3, name: "VIP Gala Invite", status: "Completed", voucher: "Welcome Drink", audience: "VIP", sent: 150, openRate: "82%" },
 ];
 
-const RESTAURANT_ID = "c57c7d9c-1084-45b1-abce-c850caa6e875";
+const RESTAURANT_ID = "b563a4ad-6dcc-4b42-8c49-5da98fb8d6ad";
 
 export default function AdminVouchers() {
   const [vouchers, setVouchers] = useState(initialVouchers);

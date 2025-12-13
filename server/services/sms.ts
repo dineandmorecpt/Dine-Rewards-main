@@ -1,33 +1,28 @@
 const SMS_API_URL = 'https://rest.smsportal.com/BulkMessages';
 
-interface SMSMessage {
-  to: string;
-  message: string;
-}
-
 export async function sendSMS(phone: string, message: string): Promise<{ success: boolean; error?: string }> {
-  const clientId = process.env.SMS_CLIENT_ID;
+  const apiKey = process.env.SMS_CLIENT_ID;
   const apiSecret = process.env.SMS_API_SECRET;
 
-  if (!clientId || !apiSecret) {
+  if (!apiKey || !apiSecret) {
     console.error('SMS credentials not configured');
     return { success: false, error: 'SMS service not configured' };
   }
 
   try {
-    const authString = Buffer.from(`${clientId}:${apiSecret}`).toString('base64');
+    const apiCredentials = Buffer.from(`${apiKey}:${apiSecret}`).toString('base64');
     
     const response = await fetch(SMS_API_URL, {
       method: 'POST',
       headers: {
-        'Authorization': `Basic ${authString}`,
+        'Authorization': `Basic ${apiCredentials}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        messages: [
+        message_template: message,
+        contacts: [
           {
-            destination: phone,
-            content: message,
+            msisdn: phone,
           }
         ]
       }),

@@ -6,6 +6,7 @@ import { sendRegistrationInvite } from "./services/sms";
 import { insertTransactionSchema } from "@shared/schema";
 import { z } from "zod";
 import crypto from "crypto";
+import bcrypt from "bcryptjs";
 
 const recordTransactionSchema = z.object({
   phone: z.string()
@@ -29,6 +30,125 @@ export async function registerRoutes(
   app.get("/r/:token", (req, res) => {
     const { token } = req.params;
     res.redirect(`/register?token=${token}`);
+  });
+
+  // AUTH - Login endpoint
+  const loginSchema = z.object({
+    email: z.string().email("Invalid email address"),
+    password: z.string().min(1, "Password is required"),
+  });
+
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const parseResult = loginSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(422).json({ 
+          error: parseResult.error.errors[0]?.message || "Invalid input" 
+        });
+      }
+
+      const { email, password } = parseResult.data;
+
+      // Find user by email
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(401).json({ error: "Invalid email or password" });
+      }
+
+      // Check password (support both hashed and plain text for migration)
+      let passwordValid = false;
+      if (user.password.startsWith('$2')) {
+        // Bcrypt hashed password
+        passwordValid = await bcrypt.compare(password, user.password);
+      } else {
+        // Plain text password (legacy)
+        passwordValid = user.password === password;
+      }
+
+      if (!passwordValid) {
+        return res.status(401).json({ error: "Invalid email or password" });
+      }
+
+      // Get restaurant if admin
+      let restaurant = null;
+      if (user.userType === 'admin') {
+        const restaurants = await storage.getRestaurantsByAdmin(user.id);
+        restaurant = restaurants[0] || null;
+      }
+
+      // Set session
+      req.session.userId = user.id;
+      req.session.userType = user.userType;
+
+      res.json({
+        success: true,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          lastName: user.lastName,
+          phone: user.phone,
+          userType: user.userType,
+        },
+        restaurant: restaurant ? {
+          id: restaurant.id,
+          name: restaurant.name,
+        } : null,
+      });
+    } catch (error: any) {
+      console.error("Login error:", error);
+      res.status(500).json({ error: "Login failed" });
+    }
+  });
+
+  // AUTH - Get current user (for session check)
+  app.get("/api/auth/me", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.json({ user: null, restaurant: null });
+      }
+
+      const user = await storage.getUser(req.session.userId);
+      if (!user) {
+        req.session.destroy(() => {});
+        return res.json({ user: null, restaurant: null });
+      }
+
+      let restaurant = null;
+      if (user.userType === 'admin') {
+        const restaurants = await storage.getRestaurantsByAdmin(user.id);
+        restaurant = restaurants[0] || null;
+      }
+
+      res.json({
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          lastName: user.lastName,
+          phone: user.phone,
+          userType: user.userType,
+        },
+        restaurant: restaurant ? {
+          id: restaurant.id,
+          name: restaurant.name,
+        } : null,
+      });
+    } catch (error) {
+      console.error("Get current user error:", error);
+      res.json({ user: null, restaurant: null });
+    }
+  });
+
+  // AUTH - Logout
+  app.post("/api/auth/logout", (req, res) => {
+    req.session.destroy((err) => {
+      if (err) {
+        return res.status(500).json({ error: "Logout failed" });
+      }
+      res.clearCookie("connect.sid");
+      res.json({ success: true });
+    });
   });
 
   // TRANSACTIONS - Record a transaction and calculate points

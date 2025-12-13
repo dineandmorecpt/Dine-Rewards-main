@@ -11,10 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useState } from "react";
-
-const handleSignOut = () => {
-  window.location.href = "/";
-};
+import { useAuth } from "@/hooks/use-auth";
 
 interface DinerLayoutProps {
   children: React.ReactNode;
@@ -23,6 +20,7 @@ interface DinerLayoutProps {
 export function DinerLayout({ children }: DinerLayoutProps) {
   const [location] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { logout } = useAuth();
 
   const navigation = [
     { name: "My Rewards", href: "/diner/dashboard", icon: Wallet },
@@ -69,7 +67,7 @@ export function DinerLayout({ children }: DinerLayoutProps) {
         <Button 
           variant="ghost" 
           className="w-full justify-start text-muted-foreground hover:text-destructive hover:bg-destructive/10 pl-4"
-          onClick={handleSignOut}
+          onClick={logout}
           data-testid="button-signout"
         >
           <LogOut className="mr-3 h-5 w-5" />

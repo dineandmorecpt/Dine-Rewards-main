@@ -13,10 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useState } from "react";
-
-const handleSignOut = () => {
-  window.location.href = "/";
-};
+import { useAuth } from "@/hooks/use-auth";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -25,6 +22,7 @@ interface AdminLayoutProps {
 export function AdminLayout({ children }: AdminLayoutProps) {
   const [location] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { logout, restaurant } = useAuth();
 
   const navigation = [
     { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
@@ -69,7 +67,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         <Button 
           variant="ghost" 
           className="w-full justify-start text-sidebar-foreground/70 hover:text-destructive hover:bg-destructive/10 pl-4"
-          onClick={handleSignOut}
+          onClick={logout}
           data-testid="button-signout"
         >
           <LogOut className="mr-3 h-5 w-5" />

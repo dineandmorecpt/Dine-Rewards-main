@@ -19,7 +19,7 @@ export default function Home() {
   const [adminEmail, setAdminEmail] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
 
-  const handleRequestOtp = async () => {
+  const handleDinerLogin = async () => {
     if (!dinerPhone) {
       toast({
         title: "Missing information",
@@ -31,6 +31,31 @@ export default function Home() {
 
     setIsLoading(true);
     try {
+      // First check if user has a valid access token
+      const checkResponse = await fetch("/api/auth/check-token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ phone: dinerPhone }),
+      });
+
+      const checkData = await checkResponse.json();
+
+      if (!checkResponse.ok) {
+        throw new Error(checkData.error || "Login check failed");
+      }
+
+      // If user has valid token, they're already logged in
+      if (checkData.hasValidToken && checkData.user) {
+        toast({
+          title: "Welcome back!",
+          description: `Logged in as ${checkData.user.name}`,
+        });
+        navigate("/diner/dashboard");
+        return;
+      }
+
+      // No valid token, need to request OTP
       const response = await fetch("/api/auth/request-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -192,18 +217,18 @@ export default function Home() {
                         placeholder="Enter your phone number"
                         value={dinerPhone}
                         onChange={(e) => setDinerPhone(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleRequestOtp()}
+                        onKeyDown={(e) => e.key === 'Enter' && handleDinerLogin()}
                         data-testid="input-diner-phone"
                       />
                     </div>
                     <Button 
                       className="w-full" 
-                      onClick={handleRequestOtp}
+                      onClick={handleDinerLogin}
                       disabled={isLoading}
-                      data-testid="button-request-otp"
+                      data-testid="button-diner-login"
                     >
                       {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                      Send Login Code
+                      Continue
                     </Button>
                   </>
                 ) : (

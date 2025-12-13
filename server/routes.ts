@@ -199,6 +199,62 @@ export async function registerRoutes(
     }
   });
 
+  // AUTH - Check if phone has valid access token and auto-login
+  const checkTokenLoginSchema = z.object({
+    phone: z.string()
+      .transform(val => val.trim().replace(/[\s\-()]/g, ''))
+      .refine(val => val.length >= 7, { message: "Phone number must be at least 7 digits" }),
+  });
+
+  app.post("/api/auth/check-token", async (req, res) => {
+    try {
+      const parseResult = checkTokenLoginSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(422).json({ 
+          error: parseResult.error.errors[0]?.message || "Invalid phone number" 
+        });
+      }
+
+      const { phone } = parseResult.data;
+
+      // Find user by phone
+      const user = await storage.getUserByPhone(phone);
+      if (!user) {
+        return res.json({ hasValidToken: false, requiresOtp: true });
+      }
+
+      if (user.userType !== 'diner') {
+        return res.json({ hasValidToken: false, requiresOtp: true });
+      }
+
+      // Check if user has a valid (non-expired) access token
+      if (user.accessToken && user.accessTokenExpiresAt && new Date(user.accessTokenExpiresAt) > new Date()) {
+        // Auto-login: set session
+        req.session.userId = user.id;
+        req.session.userType = user.userType;
+
+        return res.json({
+          hasValidToken: true,
+          requiresOtp: false,
+          user: {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            lastName: user.lastName,
+            phone: user.phone,
+            userType: user.userType,
+          },
+        });
+      }
+
+      // No valid token, requires OTP
+      return res.json({ hasValidToken: false, requiresOtp: true });
+    } catch (error: any) {
+      console.error("Check token error:", error);
+      res.status(500).json({ error: "Check failed" });
+    }
+  });
+
   // OTP Storage (in-memory with expiry)
   const otpStore = new Map<string, { otp: string; expiresAt: Date }>();
 

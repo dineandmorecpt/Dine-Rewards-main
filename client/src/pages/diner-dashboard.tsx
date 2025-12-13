@@ -265,7 +265,20 @@ export default function DinerDashboard() {
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {vouchers.map((voucher) => (
-                  <Card key={voucher.id} className="relative overflow-hidden border-dashed border-2" data-testid={`card-voucher-${voucher.code}`}>
+                  <Card 
+                    key={voucher.id} 
+                    className={`relative overflow-hidden border-dashed border-2 transition-all ${
+                      voucher.status === "active" 
+                        ? "cursor-pointer hover:shadow-lg hover:border-primary/50 hover:scale-[1.02]" 
+                        : "opacity-70"
+                    }`}
+                    onClick={() => {
+                      if (voucher.status === "active" && !selectVoucher.isPending) {
+                        selectVoucher.mutate({ voucherId: voucher.id, title: voucher.title });
+                      }
+                    }}
+                    data-testid={`card-voucher-${voucher.code}`}
+                  >
                     {/* Cutout effect circles */}
                     <div className="absolute -left-3 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full bg-background border-r-2 border-border" />
                     <div className="absolute -right-3 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full bg-background border-l-2 border-border" />
@@ -292,25 +305,16 @@ export default function DinerDashboard() {
                       </div>
                     </CardHeader>
                     <CardContent className="pb-2">
-                      <div className="p-3 bg-muted/20 rounded-md text-center border font-mono text-sm tracking-widest font-bold text-primary">
-                        {voucher.code}
-                      </div>
-                      <div className="flex items-center gap-2 mt-3 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Clock className="h-3 w-3" /> 
                         Expires {formatDistanceToNow(new Date(voucher.expiryDate), { addSuffix: true })}
                       </div>
                     </CardContent>
-                    <CardFooter className="pt-2">
-                      <Button 
-                        className="w-full gap-2" 
-                        size="sm"
-                        disabled={voucher.status !== "active" || selectVoucher.isPending}
-                        onClick={() => selectVoucher.mutate({ voucherId: voucher.id, title: voucher.title })}
-                        data-testid={`button-present-${voucher.code}`}
-                      >
+                    <CardFooter className="pt-2 border-t bg-muted/20">
+                      <div className="w-full flex items-center justify-center gap-2 py-1 text-sm font-medium">
                         <QrCode className="h-4 w-4" />
-                        {voucher.status === "active" ? "Present Code" : voucher.status === "redeemed" ? "Already Redeemed" : "Expired"}
-                      </Button>
+                        {voucher.status === "active" ? "Tap to Redeem" : voucher.status === "redeemed" ? "Already Redeemed" : "Expired"}
+                      </div>
                     </CardFooter>
                   </Card>
                 ))}

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Utensils, Gift, ChevronRight, Clock, AlertCircle, QrCode } from "lucide-react";
+import { Utensils, Gift, ChevronRight, Clock, AlertCircle, QrCode, Receipt } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
@@ -39,6 +39,14 @@ interface Voucher {
   status: VoucherStatus;
 }
 
+interface Transaction {
+  id: string;
+  amountSpent: string;
+  pointsEarned: number;
+  transactionDate: string;
+  billId?: string;
+}
+
 export default function DinerDashboard() {
   const queryClient = useQueryClient();
   const [presentCodeOpen, setPresentCodeOpen] = useState(false);
@@ -46,6 +54,8 @@ export default function DinerDashboard() {
   const [activeVoucherTitle, setActiveVoucherTitle] = useState<string>("");
   const [codeExpiresAt, setCodeExpiresAt] = useState<Date | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<string>("");
+  const [selectedRestaurant, setSelectedRestaurant] = useState<PointsBalance | null>(null);
+  const [transactionHistoryOpen, setTransactionHistoryOpen] = useState(false);
 
   useEffect(() => {
     if (!codeExpiresAt || !presentCodeOpen) return;
@@ -95,6 +105,17 @@ export default function DinerDashboard() {
     },
   });
 
+  // Fetch transactions for selected restaurant
+  const { data: transactions = [], isLoading: loadingTransactions } = useQuery<Transaction[]>({
+    queryKey: ["/api/diners", DINER_ID, "restaurants", selectedRestaurant?.restaurantId, "transactions"],
+    queryFn: async () => {
+      const res = await fetch(`/api/diners/${DINER_ID}/restaurants/${selectedRestaurant!.restaurantId}/transactions`);
+      if (!res.ok) throw new Error("Failed to fetch transactions");
+      return res.json();
+    },
+    enabled: !!selectedRestaurant,
+  });
+
   // Create transaction mutation (simulates spending)
   const createTransaction = useMutation({
     mutationFn: async ({ restaurantId, amountSpent }: { restaurantId: string; amountSpent: string }) => {
@@ -114,6 +135,7 @@ export default function DinerDashboard() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/diners", DINER_ID, "points"] });
       queryClient.invalidateQueries({ queryKey: ["/api/diners", DINER_ID, "vouchers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/diners", DINER_ID, "restaurants"] });
       
       if (data.vouchersGenerated && data.vouchersGenerated.length > 0) {
         toast({
@@ -212,7 +234,15 @@ export default function DinerDashboard() {
 
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {balances.map((rest) => (
-                <Card key={rest.id} className="overflow-hidden border-none shadow-sm hover:shadow-md transition-all" data-testid={`card-restaurant-${rest.restaurantName.toLowerCase().replace(/\s+/g, '-')}`}>
+                <Card 
+                  key={rest.id} 
+                  className="overflow-hidden border-none shadow-sm hover:shadow-md transition-all cursor-pointer" 
+                  data-testid={`card-restaurant-${rest.restaurantName.toLowerCase().replace(/\s+/g, '-')}`}
+                  onClick={() => {
+                    setSelectedRestaurant(rest);
+                    setTransactionHistoryOpen(true);
+                  }}
+                >
                   <div className={`h-2 w-full ${rest.restaurantColor}`} />
                   <CardHeader className="flex flex-row items-center justify-between pb-2">
                     <CardTitle className="text-lg font-bold font-serif">{rest.restaurantName}</CardTitle>
@@ -246,7 +276,17 @@ export default function DinerDashboard() {
                         <Gift className="h-3 w-3" />
                         {rest.totalVouchersGenerated} Generated
                       </span>
-                      <Button variant="ghost" size="sm" className="h-7 text-xs gap-1">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-7 text-xs gap-1"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedRestaurant(rest);
+                          setTransactionHistoryOpen(true);
+                        }}
+                        data-testid={`button-view-details-${rest.restaurantName.toLowerCase().replace(/\s+/g, '-')}`}
+                      >
                         View Details <ChevronRight className="h-3 w-3" />
                       </Button>
                     </div>
@@ -365,6 +405,67 @@ export default function DinerDashboard() {
                   The restaurant staff will enter this code to mark your voucher as redeemed
                 </p>
               </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Transaction History Dialog */}
+        <Dialog open={transactionHistoryOpen} onOpenChange={setTransactionHistoryOpen}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="font-serif text-xl flex items-center gap-2">
+                <Receipt className="h-5 w-5" />
+                Transaction History
+              </DialogTitle>
+              <DialogDescription>
+                {selectedRestaurant?.restaurantName} - Your spending history
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+              {loadingTransactions ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+              ) : transactions.length === 0 ? (
+                <div className="text-center py-8">
+                  <Receipt className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
+                  <p className="text-muted-foreground">No transactions yet</p>
+                  <p className="text-sm text-muted-foreground mt-1">Start spending to earn points!</p>
+                </div>
+              ) : (
+                <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                  {transactions.map((tx) => (
+                    <div 
+                      key={tx.id} 
+                      className="flex justify-between items-center p-3 rounded-lg bg-muted/30 border"
+                      data-testid={`transaction-${tx.id}`}
+                    >
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium">
+                          R{parseFloat(tx.amountSpent).toFixed(2)} spent
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(tx.transactionDate).toLocaleDateString('en-ZA', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </p>
+                        {tx.billId && (
+                          <p className="text-xs text-muted-foreground">Bill: {tx.billId}</p>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <Badge variant="secondary" className="bg-primary/10 text-primary">
+                          +{tx.pointsEarned} pts
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </DialogContent>
         </Dialog>

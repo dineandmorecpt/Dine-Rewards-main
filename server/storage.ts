@@ -61,6 +61,7 @@ export interface IStorage {
   // Transaction Management
   createTransaction(transaction: InsertTransaction): Promise<Transaction>;
   getTransactionsByDiner(dinerId: string): Promise<Transaction[]>;
+  getTransactionsByDinerAndRestaurant(dinerId: string, restaurantId: string): Promise<Transaction[]>;
   getTransactionsByRestaurant(restaurantId: string, last30Days?: boolean): Promise<Transaction[]>;
   
   // Voucher Management
@@ -199,6 +200,15 @@ export class DbStorage implements IStorage {
   async getTransactionsByDiner(dinerId: string): Promise<Transaction[]> {
     return await db.select().from(transactions)
       .where(eq(transactions.dinerId, dinerId))
+      .orderBy(desc(transactions.transactionDate));
+  }
+
+  async getTransactionsByDinerAndRestaurant(dinerId: string, restaurantId: string): Promise<Transaction[]> {
+    return await db.select().from(transactions)
+      .where(and(
+        eq(transactions.dinerId, dinerId),
+        eq(transactions.restaurantId, restaurantId)
+      ))
       .orderBy(desc(transactions.transactionDate));
   }
 

@@ -413,6 +413,18 @@ export async function registerRoutes(
     }
   });
   
+  // DINER TRANSACTION HISTORY - Get transactions for a diner at a specific restaurant
+  app.get("/api/diners/:dinerId/restaurants/:restaurantId/transactions", async (req, res) => {
+    try {
+      const { dinerId, restaurantId } = req.params;
+      const transactions = await storage.getTransactionsByDinerAndRestaurant(dinerId, restaurantId);
+      res.json(transactions);
+    } catch (error) {
+      console.error("Get transaction history error:", error);
+      res.status(500).json({ error: "Failed to fetch transaction history" });
+    }
+  });
+
   // DINER VOUCHERS - Get all vouchers for a diner
   app.get("/api/diners/:dinerId/vouchers", async (req, res) => {
     try {

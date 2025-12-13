@@ -25,6 +25,12 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   
+  // SHORT REGISTRATION REDIRECT - /r/:token redirects to /register?token=...
+  app.get("/r/:token", (req, res) => {
+    const { token } = req.params;
+    res.redirect(`/register?token=${token}`);
+  });
+
   // TRANSACTIONS - Record a transaction and calculate points
   app.post("/api/transactions", async (req, res) => {
     try {
@@ -280,11 +286,11 @@ export async function registerRoutes(
         expiresAt,
       });
       
-      // Generate full registration link
+      // Generate full registration link (short format for SMS)
       const host = req.get('host') || 'localhost:5000';
       const protocol = req.protocol || 'https';
-      const fullRegistrationLink = `${protocol}://${host}/register?token=${token}`;
-      const registrationLink = `/register?token=${token}`;
+      const fullRegistrationLink = `${protocol}://${host}/r/${token}`;
+      const registrationLink = `/r/${token}`;
       
       // Send SMS with registration link
       let smsSent = false;

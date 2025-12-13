@@ -264,8 +264,8 @@ export async function registerRoutes(
         return res.status(400).json({ error: "A customer with this phone number is already registered" });
       }
       
-      // Generate unique token
-      const token = crypto.randomBytes(32).toString('hex');
+      // Generate unique token (shorter, URL-friendly format)
+      const token = crypto.randomBytes(8).toString('base64url');
       
       // Set expiry to 7 days from now
       const expiresAt = new Date();

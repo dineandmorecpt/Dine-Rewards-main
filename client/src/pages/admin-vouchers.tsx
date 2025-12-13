@@ -61,7 +61,7 @@ export default function AdminVouchers() {
 
   // Invite diner state
   const [invitePhone, setInvitePhone] = useState("");
-  const [inviteSuccess, setInviteSuccess] = useState<{phone: string; registrationLink: string} | null>(null);
+  const [inviteSuccess, setInviteSuccess] = useState<{phone: string; registrationLink: string; smsSent: boolean} | null>(null);
 
   const startScanner = async () => {
     try {
@@ -214,12 +214,15 @@ export default function AdminVouchers() {
       const fullLink = window.location.origin + data.invitation.registrationLink;
       setInviteSuccess({
         phone: data.invitation.phone,
-        registrationLink: fullLink
+        registrationLink: fullLink,
+        smsSent: data.smsSent
       });
       setInvitePhone("");
       toast({
-        title: "Invitation Created!",
-        description: "Share the registration link with the customer."
+        title: data.smsSent ? "SMS Sent!" : "Invitation Created!",
+        description: data.smsSent 
+          ? `Registration link sent via SMS to ${data.invitation.phone}` 
+          : "Share the registration link with the customer."
       });
     },
     onError: (error: Error) => {
@@ -604,10 +607,19 @@ export default function AdminVouchers() {
                   <div className="mt-4 p-4 bg-green-50 dark:bg-green-950/30 rounded-md border border-green-200 dark:border-green-800">
                     <p className="text-sm text-green-700 dark:text-green-400 font-medium flex items-center gap-2 mb-3">
                       <Check className="h-4 w-4" />
-                      Invitation created for {inviteSuccess.phone}
+                      {inviteSuccess.smsSent 
+                        ? `SMS sent to ${inviteSuccess.phone}` 
+                        : `Invitation created for ${inviteSuccess.phone}`}
                     </p>
+                    {inviteSuccess.smsSent && (
+                      <p className="text-sm text-green-600 dark:text-green-400 mb-3">
+                        The customer will receive an SMS with the registration link.
+                      </p>
+                    )}
                     <div className="space-y-2">
-                      <Label className="text-xs text-muted-foreground">Registration Link</Label>
+                      <Label className="text-xs text-muted-foreground">
+                        {inviteSuccess.smsSent ? "Registration Link (also sent via SMS)" : "Registration Link"}
+                      </Label>
                       <div className="flex gap-2">
                         <Input
                           value={inviteSuccess.registrationLink}
@@ -633,7 +645,9 @@ export default function AdminVouchers() {
                         </Button>
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        Share this link with the customer. It expires in 7 days.
+                        {inviteSuccess.smsSent 
+                          ? "Link expires in 7 days." 
+                          : "Share this link with the customer. It expires in 7 days."}
                       </p>
                     </div>
                   </div>

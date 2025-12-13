@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { createLoyaltyServices } from "./services/loyalty";
+import { sendRegistrationInvite } from "./services/sms";
 import { insertTransactionSchema } from "@shared/schema";
 import { z } from "zod";
 import crypto from "crypto";
@@ -279,14 +280,29 @@ export async function registerRoutes(
         expiresAt,
       });
       
-      // Generate registration link
+      // Generate full registration link
+      const host = req.get('host') || 'localhost:5000';
+      const protocol = req.protocol || 'https';
+      const fullRegistrationLink = `${protocol}://${host}/register?token=${token}`;
       const registrationLink = `/register?token=${token}`;
       
-      // TODO: Send SMS via Twilio when configured
-      // For now, return the link for manual sharing
+      // Send SMS with registration link
+      let smsSent = false;
+      let smsError: string | undefined;
+      
+      try {
+        const smsResult = await sendRegistrationInvite(phone, restaurant.name, fullRegistrationLink);
+        smsSent = smsResult.success;
+        smsError = smsResult.error;
+      } catch (err: any) {
+        console.error('SMS sending failed:', err);
+        smsError = err.message;
+      }
       
       res.json({
         success: true,
+        smsSent,
+        smsError,
         invitation: {
           id: invitation.id,
           phone: invitation.phone,
@@ -294,7 +310,9 @@ export async function registerRoutes(
           expiresAt: invitation.expiresAt,
           registrationLink,
         },
-        message: "Invitation created. Share the registration link with the customer."
+        message: smsSent 
+          ? "Invitation sent via SMS to the customer." 
+          : "Invitation created. Share the registration link with the customer manually."
       });
     } catch (error: any) {
       console.error("Create invitation error:", error);

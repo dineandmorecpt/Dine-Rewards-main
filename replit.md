@@ -6,6 +6,13 @@ Dine&More is a premium restaurant loyalty rewards platform that serves two user 
 
 The application is a full-stack TypeScript project with a React frontend and Express backend, using PostgreSQL for data persistence.
 
+## SMS Integration
+
+The app uses a custom SMS Portal API for sending registration invitations to diners.
+- **API Endpoint**: https://rest.smsportal.com/v1/BulkMessages
+- **Authentication**: Basic Auth using SMS_CLIENT_ID and SMS_API_SECRET secrets
+- **Service file**: server/services/sms.ts
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.

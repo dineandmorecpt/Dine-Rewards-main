@@ -159,6 +159,83 @@ export async function registerRoutes(
     });
   });
 
+  // AUTH - Register diner (self-registration)
+  const selfRegisterDinerSchema = z.object({
+    name: z.string().min(1, "First name is required"),
+    lastName: z.string().min(1, "Surname is required"),
+    email: z.string().email("Invalid email address"),
+    phone: z.string()
+      .transform(val => val.trim().replace(/[\s\-()]/g, ''))
+      .refine(val => val.length >= 7, { message: "Phone number must be at least 7 digits" })
+      .refine(val => /^[0-9+]+$/.test(val), { message: "Phone number contains invalid characters" }),
+    password: z.string().min(6, "Password must be at least 6 characters"),
+  });
+
+  app.post("/api/auth/register-diner", async (req, res) => {
+    try {
+      const parseResult = selfRegisterDinerSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(422).json({ 
+          error: parseResult.error.errors[0]?.message || "Invalid input" 
+        });
+      }
+
+      const { name, lastName, email, phone, password } = parseResult.data;
+
+      // Check if email already exists
+      const existingEmail = await storage.getUserByEmail(email);
+      if (existingEmail) {
+        return res.status(400).json({ error: "An account with this email already exists" });
+      }
+
+      // Check if phone already exists
+      const existingPhone = await storage.getUserByPhone(phone);
+      if (existingPhone) {
+        return res.status(400).json({ error: "An account with this phone number already exists" });
+      }
+
+      // Hash password
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Create user
+      const user = await storage.createUser({
+        name,
+        lastName,
+        email,
+        phone,
+        password: hashedPassword,
+        userType: 'diner',
+      });
+
+      // Set session
+      req.session.userId = user.id;
+      req.session.userType = user.userType;
+
+      // Explicitly save session before responding
+      req.session.save((err) => {
+        if (err) {
+          console.error("Session save error:", err);
+          return res.status(500).json({ error: "Registration failed" });
+        }
+        
+        res.json({
+          success: true,
+          user: {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            lastName: user.lastName,
+            phone: user.phone,
+            userType: user.userType,
+          },
+        });
+      });
+    } catch (error: any) {
+      console.error("Register diner error:", error);
+      res.status(500).json({ error: "Registration failed" });
+    }
+  });
+
   // AUTH - Login with access token (for diners with valid token)
   const tokenLoginSchema = z.object({
     accessToken: z.string().min(1, "Access token is required"),

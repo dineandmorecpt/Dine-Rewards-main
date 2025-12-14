@@ -91,6 +91,7 @@ export interface IStorage {
   getVoucherById(id: string): Promise<Voucher | undefined>;
   updateUserActiveVoucherCode(userId: string, code: string | null): Promise<User>;
   getUserByActiveVoucherCode(code: string): Promise<User | undefined>;
+  updateUserProfile(userId: string, profile: { name?: string; lastName?: string; email?: string; phone?: string }): Promise<User>;
   
   // Reconciliation Management
   createReconciliationBatch(batch: InsertReconciliationBatch): Promise<ReconciliationBatch>;
@@ -320,6 +321,14 @@ export class DbStorage implements IStorage {
 
   async getUserByActiveVoucherCode(code: string): Promise<User | undefined> {
     const result = await db.select().from(users).where(eq(users.activeVoucherCode, code));
+    return result[0];
+  }
+
+  async updateUserProfile(userId: string, profile: { name?: string; lastName?: string; email?: string; phone?: string }): Promise<User> {
+    const result = await db.update(users)
+      .set(profile)
+      .where(eq(users.id, userId))
+      .returning();
     return result[0];
   }
 

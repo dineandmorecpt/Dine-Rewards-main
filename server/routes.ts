@@ -510,6 +510,77 @@ export async function registerRoutes(
     }
   });
 
+  // USER PROFILE - Update user profile
+  const updateProfileSchema = z.object({
+    name: z.string().min(1, "First name is required"),
+    lastName: z.string().optional(),
+    email: z.string().email("Invalid email address"),
+    phone: z.string().optional(),
+  });
+
+  app.patch("/api/users/:userId/profile", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      
+      // Ensure user is updating their own profile
+      if (req.session.userId !== userId) {
+        return res.status(403).json({ error: "You can only update your own profile" });
+      }
+      
+      const parseResult = updateProfileSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(422).json({ 
+          error: parseResult.error.errors[0]?.message || "Invalid input" 
+        });
+      }
+      
+      const { name, lastName, email, phone } = parseResult.data;
+      
+      // Check if email is being changed and if it's already taken
+      const currentUser = await storage.getUser(userId);
+      if (!currentUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      if (email !== currentUser.email) {
+        const existingEmail = await storage.getUserByEmail(email);
+        if (existingEmail) {
+          return res.status(400).json({ error: "This email is already in use" });
+        }
+      }
+      
+      // Check if phone is being changed and if it's already taken
+      if (phone && phone !== currentUser.phone) {
+        const existingPhone = await storage.getUserByPhone(phone);
+        if (existingPhone) {
+          return res.status(400).json({ error: "This phone number is already in use" });
+        }
+      }
+      
+      const updatedUser = await storage.updateUserProfile(userId, { 
+        name, 
+        lastName: lastName || undefined, 
+        email, 
+        phone: phone || undefined 
+      });
+      
+      res.json({
+        success: true,
+        user: {
+          id: updatedUser.id,
+          email: updatedUser.email,
+          name: updatedUser.name,
+          lastName: updatedUser.lastName,
+          phone: updatedUser.phone,
+          userType: updatedUser.userType,
+        },
+      });
+    } catch (error: any) {
+      console.error("Update profile error:", error);
+      res.status(500).json({ error: "Failed to update profile" });
+    }
+  });
+
   // DINER ALL TRANSACTIONS - Get all transactions for a diner with restaurant info
   app.get("/api/diners/:dinerId/transactions", async (req, res) => {
     try {

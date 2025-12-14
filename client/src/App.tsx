@@ -11,6 +11,7 @@ import AdminVouchers from "@/pages/admin-vouchers";
 import AdminReconciliation from "@/pages/admin-reconciliation";
 import DinerDashboard from "@/pages/diner-dashboard";
 import DinerHistory from "@/pages/diner-history";
+import DinerProfile from "@/pages/diner-profile";
 import Register from "@/pages/register";
 
 function Router() {
@@ -45,7 +46,7 @@ function Router() {
         <DinerGuard><DinerHistory /></DinerGuard>
       </Route>
       <Route path="/diner/profile">
-        <DinerGuard><DinerDashboard /></DinerGuard>
+        <DinerGuard><DinerProfile /></DinerGuard>
       </Route>
 
       <Route component={NotFound} />

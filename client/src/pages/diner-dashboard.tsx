@@ -11,9 +11,7 @@ import { Utensils, Gift, ChevronRight, Clock, AlertCircle, QrCode, Receipt } fro
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
-
-// Hardcoded diner ID from seed data
-const DINER_ID = "c38a1414-737b-4ecc-923e-e26f09395961";
+import { useAuth } from "@/hooks/use-auth";
 
 interface PointsBalance {
   id: string;
@@ -49,6 +47,8 @@ interface Transaction {
 
 export default function DinerDashboard() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const dinerId = user?.id;
   const [presentCodeOpen, setPresentCodeOpen] = useState(false);
   const [activeCode, setActiveCode] = useState<string | null>(null);
   const [activeVoucherTitle, setActiveVoucherTitle] = useState<string>("");
@@ -87,33 +87,35 @@ export default function DinerDashboard() {
 
   // Fetch points balances
   const { data: balances = [], isLoading: loadingBalances } = useQuery<PointsBalance[]>({
-    queryKey: ["/api/diners", DINER_ID, "points"],
+    queryKey: ["/api/diners", dinerId, "points"],
     queryFn: async () => {
-      const res = await fetch(`/api/diners/${DINER_ID}/points`);
+      const res = await fetch(`/api/diners/${dinerId}/points`);
       if (!res.ok) throw new Error("Failed to fetch points");
       return res.json();
     },
+    enabled: !!dinerId,
   });
 
   // Fetch vouchers
   const { data: vouchers = [], isLoading: loadingVouchers } = useQuery<Voucher[]>({
-    queryKey: ["/api/diners", DINER_ID, "vouchers"],
+    queryKey: ["/api/diners", dinerId, "vouchers"],
     queryFn: async () => {
-      const res = await fetch(`/api/diners/${DINER_ID}/vouchers`);
+      const res = await fetch(`/api/diners/${dinerId}/vouchers`);
       if (!res.ok) throw new Error("Failed to fetch vouchers");
       return res.json();
     },
+    enabled: !!dinerId,
   });
 
   // Fetch transactions for selected restaurant
   const { data: transactions = [], isLoading: loadingTransactions } = useQuery<Transaction[]>({
-    queryKey: ["/api/diners", DINER_ID, "restaurants", selectedRestaurant?.restaurantId, "transactions"],
+    queryKey: ["/api/diners", dinerId, "restaurants", selectedRestaurant?.restaurantId, "transactions"],
     queryFn: async () => {
-      const res = await fetch(`/api/diners/${DINER_ID}/restaurants/${selectedRestaurant!.restaurantId}/transactions`);
+      const res = await fetch(`/api/diners/${dinerId}/restaurants/${selectedRestaurant!.restaurantId}/transactions`);
       if (!res.ok) throw new Error("Failed to fetch transactions");
       return res.json();
     },
-    enabled: !!selectedRestaurant,
+    enabled: !!dinerId && !!selectedRestaurant,
   });
 
   // Create transaction mutation (simulates spending)
@@ -123,7 +125,7 @@ export default function DinerDashboard() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          dinerId: DINER_ID,
+          dinerId: dinerId,
           restaurantId,
           amountSpent,
           pointsEarned: Math.floor(Number(amountSpent)),
@@ -133,9 +135,9 @@ export default function DinerDashboard() {
       return res.json();
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/diners", DINER_ID, "points"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/diners", DINER_ID, "vouchers"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/diners", DINER_ID, "restaurants"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/diners", dinerId, "points"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/diners", dinerId, "vouchers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/diners", dinerId, "restaurants"] });
       
       if (data.vouchersGenerated && data.vouchersGenerated.length > 0) {
         toast({
@@ -154,7 +156,7 @@ export default function DinerDashboard() {
   // Select voucher to present mutation
   const selectVoucher = useMutation({
     mutationFn: async ({ voucherId, title }: { voucherId: string; title: string }) => {
-      const res = await fetch(`/api/diners/${DINER_ID}/vouchers/${voucherId}/select`, {
+      const res = await fetch(`/api/diners/${dinerId}/vouchers/${voucherId}/select`, {
         method: "POST",
       });
       if (!res.ok) {

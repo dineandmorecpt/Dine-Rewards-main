@@ -5,13 +5,13 @@ import {
   User, 
   History, 
   LogOut,
-  Menu,
-  QrCode
+  Menu
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { QRCodeSVG } from "qrcode.react";
 
 interface DinerLayoutProps {
   children: React.ReactNode;
@@ -20,7 +20,10 @@ interface DinerLayoutProps {
 export function DinerLayout({ children }: DinerLayoutProps) {
   const [location] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
+  
+  const memberId = user?.id ? user.id.slice(0, 8).toUpperCase() : '';
+  const qrValue = user?.id ? `diner:${user.id}` : '';
 
   const navigation = [
     { name: "My Rewards", href: "/diner/dashboard", icon: Wallet },
@@ -60,8 +63,19 @@ export function DinerLayout({ children }: DinerLayoutProps) {
 
       <div className="p-4 border-t border-border mt-auto">
         <div className="bg-primary/5 rounded-lg p-4 mb-4 text-center">
-            <QrCode className="h-24 w-24 mx-auto text-primary mb-2" />
-            <p className="text-xs font-medium text-primary">Member ID: 8829-102</p>
+            {qrValue ? (
+              <div className="bg-white p-2 rounded-lg inline-block mb-2">
+                <QRCodeSVG 
+                  value={qrValue} 
+                  size={80}
+                  level="M"
+                  includeMargin={false}
+                />
+              </div>
+            ) : (
+              <div className="h-20 w-20 mx-auto bg-muted rounded mb-2" />
+            )}
+            <p className="text-xs font-medium text-primary">Member ID: {memberId || '---'}</p>
             <p className="text-[10px] text-muted-foreground">Scan at till to earn points</p>
         </div>
         <Button 

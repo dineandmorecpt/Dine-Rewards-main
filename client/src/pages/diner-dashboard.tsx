@@ -197,7 +197,7 @@ export default function DinerDashboard() {
     <DinerLayout>
       <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
         <div className="flex flex-col gap-2">
-          <h1 className="text-3xl font-serif font-bold text-foreground">My Rewards</h1>
+          <h1 className="text-3xl font-serif font-bold text-foreground">Welcome back, {user?.name || 'Guest'}</h1>
           <p className="text-muted-foreground">Manage your loyalty points and vouchers across all restaurants.</p>
         </div>
 

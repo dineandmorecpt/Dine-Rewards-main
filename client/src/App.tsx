@@ -10,6 +10,7 @@ import AdminDashboard from "@/pages/admin-dashboard";
 import AdminVouchers from "@/pages/admin-vouchers";
 import AdminReconciliation from "@/pages/admin-reconciliation";
 import DinerDashboard from "@/pages/diner-dashboard";
+import DinerHistory from "@/pages/diner-history";
 import Register from "@/pages/register";
 
 function Router() {
@@ -41,7 +42,7 @@ function Router() {
         <DinerGuard><DinerDashboard /></DinerGuard>
       </Route>
       <Route path="/diner/history">
-        <DinerGuard><DinerDashboard /></DinerGuard>
+        <DinerGuard><DinerHistory /></DinerGuard>
       </Route>
       <Route path="/diner/profile">
         <DinerGuard><DinerDashboard /></DinerGuard>

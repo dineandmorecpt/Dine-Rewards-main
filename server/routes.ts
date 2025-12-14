@@ -510,6 +510,29 @@ export async function registerRoutes(
     }
   });
 
+  // DINER ALL TRANSACTIONS - Get all transactions for a diner with restaurant info
+  app.get("/api/diners/:dinerId/transactions", async (req, res) => {
+    try {
+      const { dinerId } = req.params;
+      const allTransactions = await storage.getTransactionsByDiner(dinerId);
+      
+      // Get all restaurants to map names
+      const allRestaurants = await storage.getAllRestaurants();
+      const restaurantMap = new Map(allRestaurants.map(r => [r.id, r.name]));
+      
+      // Add restaurant name to each transaction
+      const transactionsWithRestaurant = allTransactions.map(tx => ({
+        ...tx,
+        restaurantName: restaurantMap.get(tx.restaurantId) || 'Unknown Restaurant'
+      }));
+      
+      res.json(transactionsWithRestaurant);
+    } catch (error) {
+      console.error("Get all transactions error:", error);
+      res.status(500).json({ error: "Failed to fetch transactions" });
+    }
+  });
+
   // DINER VOUCHERS - Get all vouchers for a diner
   app.get("/api/diners/:dinerId/vouchers", async (req, res) => {
     try {

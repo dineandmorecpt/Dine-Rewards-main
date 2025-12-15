@@ -52,7 +52,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             return (
               <div
                 key={item.name}
-                className="flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-md text-sidebar-foreground/40 cursor-not-allowed"
+                className="flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-md text-sidebar-foreground/40 cursor-not-allowed pointer-events-none select-none"
               >
                 <item.icon className="h-5 w-5 text-sidebar-foreground/30" />
                 {item.name}

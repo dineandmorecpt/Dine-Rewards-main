@@ -7,7 +7,8 @@ import {
   LogOut,
   Menu,
   FileCheck,
-  Megaphone
+  Megaphone,
+  CalendarDays
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
     { name: "Vouchers", href: "/admin/vouchers", icon: Ticket },
     { name: "Reconciliation", href: "/admin/reconciliation", icon: FileCheck },
+    { name: "Reservations", href: null, icon: CalendarDays, comingSoon: true },
     { name: "Campaigns", href: null, icon: Megaphone, comingSoon: true },
     { name: "Settings", href: "/admin/settings", icon: Settings },
   ];

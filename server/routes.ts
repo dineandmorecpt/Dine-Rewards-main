@@ -670,6 +670,17 @@ export async function registerRoutes(
       const { restaurantId } = req.params;
       const { code, billId } = req.body;
       const result = await services.voucher.redeemVoucherByCode(restaurantId, code, billId);
+      
+      // Log activity
+      await storage.createActivityLog({
+        restaurantId,
+        userId: req.session.userId || null,
+        action: 'voucher_redeemed',
+        targetType: 'voucher',
+        targetId: result.voucher?.id || code,
+        details: JSON.stringify({ code, billId, dinerId: result.voucher?.dinerId }),
+      });
+      
       res.json(result);
     } catch (error: any) {
       console.error("Restaurant redeem voucher error:", error);
@@ -709,6 +720,17 @@ export async function registerRoutes(
       const { restaurantId } = req.params;
       const settings = req.body;
       const updatedRestaurant = await services.config.updateRestaurantSettings(restaurantId, settings);
+      
+      // Log activity
+      await storage.createActivityLog({
+        restaurantId,
+        userId: req.session.userId || null,
+        action: 'settings_updated',
+        targetType: 'settings',
+        targetId: restaurantId,
+        details: JSON.stringify(settings),
+      });
+      
       res.json(updatedRestaurant);
     } catch (error: any) {
       console.error("Update restaurant settings error:", error);
@@ -782,6 +804,16 @@ export async function registerRoutes(
         ...parseResult.data,
       });
 
+      // Log activity
+      await storage.createActivityLog({
+        restaurantId,
+        userId: req.session.userId,
+        action: 'voucher_type_created',
+        targetType: 'voucher_type',
+        targetId: voucherType.id,
+        details: JSON.stringify({ name: voucherType.name, creditsCost: voucherType.creditsCost }),
+      });
+
       res.json(voucherType);
     } catch (error: any) {
       console.error("Create voucher type error:", error);
@@ -816,6 +848,17 @@ export async function registerRoutes(
       }
 
       const updated = await storage.updateVoucherType(voucherTypeId, req.body);
+      
+      // Log activity
+      await storage.createActivityLog({
+        restaurantId,
+        userId: req.session.userId,
+        action: 'voucher_type_updated',
+        targetType: 'voucher_type',
+        targetId: voucherTypeId,
+        details: JSON.stringify({ changes: req.body }),
+      });
+      
       res.json(updated);
     } catch (error: any) {
       console.error("Update voucher type error:", error);
@@ -844,7 +887,21 @@ export async function registerRoutes(
         return res.status(403).json({ error: "Only owners and managers can delete voucher types" });
       }
 
+      // Get voucher type details before deleting for logging
+      const voucherType = await storage.getVoucherType(voucherTypeId);
+
       await storage.deleteVoucherType(voucherTypeId);
+      
+      // Log activity
+      await storage.createActivityLog({
+        restaurantId,
+        userId: req.session.userId,
+        action: 'voucher_type_deleted',
+        targetType: 'voucher_type',
+        targetId: voucherTypeId,
+        details: JSON.stringify({ name: voucherType?.name }),
+      });
+      
       res.json({ success: true });
     } catch (error: any) {
       console.error("Delete voucher type error:", error);
@@ -1333,6 +1390,16 @@ export async function registerRoutes(
         addedBy: req.session.userId || null,
       });
 
+      // Log activity
+      await storage.createActivityLog({
+        restaurantId,
+        userId: req.session.userId,
+        action: 'portal_user_added',
+        targetType: 'portal_user',
+        targetId: portalUser.id,
+        details: JSON.stringify({ email, name, role }),
+      });
+
       res.json({
         success: true,
         portalUser: {
@@ -1371,6 +1438,17 @@ export async function registerRoutes(
       }
 
       await storage.removePortalUser(portalUserId);
+      
+      // Log activity
+      await storage.createActivityLog({
+        restaurantId,
+        userId: req.session.userId,
+        action: 'portal_user_removed',
+        targetType: 'portal_user',
+        targetId: portalUserId,
+        details: null,
+      });
+      
       res.json({ success: true });
     } catch (error) {
       console.error("Remove portal user error:", error);

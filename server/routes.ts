@@ -1017,7 +1017,26 @@ export async function registerRoutes(
   // PORTAL USERS - Get all portal users for a restaurant
   app.get("/api/restaurants/:restaurantId/portal-users", async (req, res) => {
     try {
+      // Require authenticated admin
+      if (!req.session.userId || req.session.userType !== 'admin') {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
       const { restaurantId } = req.params;
+      
+      // Verify user has access to this restaurant (owner or portal user)
+      const restaurant = await storage.getRestaurant(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+      
+      const isOwner = restaurant.adminUserId === req.session.userId;
+      const portalAccess = await storage.getPortalUserByUserAndRestaurant(req.session.userId, restaurantId);
+      
+      if (!isOwner && !portalAccess) {
+        return res.status(403).json({ error: "You don't have access to this restaurant" });
+      }
+
       const portalUsers = await storage.getPortalUsersByRestaurant(restaurantId);
       res.json(portalUsers);
     } catch (error) {
@@ -1035,7 +1054,23 @@ export async function registerRoutes(
 
   app.post("/api/restaurants/:restaurantId/portal-users", async (req, res) => {
     try {
+      // Require authenticated admin
+      if (!req.session.userId || req.session.userType !== 'admin') {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
       const { restaurantId } = req.params;
+      
+      // Verify user is owner of this restaurant (only owners can add portal users)
+      const restaurant = await storage.getRestaurant(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+      
+      if (restaurant.adminUserId !== req.session.userId) {
+        return res.status(403).json({ error: "Only restaurant owners can add portal users" });
+      }
+
       const parseResult = addPortalUserSchema.safeParse(req.body);
       if (!parseResult.success) {
         return res.status(422).json({ 
@@ -1093,7 +1128,23 @@ export async function registerRoutes(
   // PORTAL USERS - Remove a portal user
   app.delete("/api/restaurants/:restaurantId/portal-users/:portalUserId", async (req, res) => {
     try {
-      const { portalUserId } = req.params;
+      // Require authenticated admin
+      if (!req.session.userId || req.session.userType !== 'admin') {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { restaurantId, portalUserId } = req.params;
+      
+      // Verify user is owner of this restaurant (only owners can remove portal users)
+      const restaurant = await storage.getRestaurant(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+      
+      if (restaurant.adminUserId !== req.session.userId) {
+        return res.status(403).json({ error: "Only restaurant owners can remove portal users" });
+      }
+
       await storage.removePortalUser(portalUserId);
       res.json({ success: true });
     } catch (error) {

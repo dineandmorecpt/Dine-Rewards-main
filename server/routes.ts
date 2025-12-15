@@ -1378,5 +1378,19 @@ export async function registerRoutes(
     }
   });
 
+  // ACTIVITY LOGS - Get activity logs for a restaurant
+  app.get("/api/restaurants/:restaurantId/activity-logs", async (req, res) => {
+    try {
+      const { restaurantId } = req.params;
+      const limit = Math.min(parseInt(req.query.limit as string) || 100, 500);
+      
+      const logs = await storage.getActivityLogsByRestaurant(restaurantId, limit);
+      res.json(logs);
+    } catch (error) {
+      console.error("Get activity logs error:", error);
+      res.status(500).json({ error: "Failed to fetch activity logs" });
+    }
+  });
+
   return httpServer;
 }

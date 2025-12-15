@@ -4,6 +4,7 @@ export interface RestaurantStats {
   dinersLast30Days: number;
   totalSpent: number;
   vouchersRedeemed: number;
+  totalRegisteredDiners: number;
   transactions: any[];
 }
 
@@ -27,11 +28,14 @@ export class StatsService implements IStatsService {
     
     const restaurantVouchers = await this.storage.getVouchersByRestaurant(restaurantId);
     const vouchersRedeemed = restaurantVouchers.filter(v => v.isRedeemed).length;
+    
+    const totalRegisteredDiners = await this.storage.countAllDiners();
 
     return {
       dinersLast30Days,
       totalSpent,
       vouchersRedeemed,
+      totalRegisteredDiners,
       transactions: recentTransactions
     };
   }

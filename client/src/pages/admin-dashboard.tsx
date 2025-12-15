@@ -44,6 +44,7 @@ interface RestaurantStats {
   dinersLast30Days: number;
   totalSpent: number;
   vouchersRedeemed: number;
+  totalRegisteredDiners: number;
 }
 
 export default function AdminDashboard() {
@@ -244,11 +245,17 @@ export default function AdminDashboard() {
         </div>
 
         {/* Key Metrics Grid */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <StatsCard 
-            title="Diners (30 Days)" 
-            value={stats?.dinersLast30Days || 0}
+            title="Total Registered Diners" 
+            value={stats?.totalRegisteredDiners || 0}
             icon={Users}
+            description="All rewards members"
+          />
+          <StatsCard 
+            title="Active Diners (30 Days)" 
+            value={stats?.dinersLast30Days || 0}
+            icon={UserPlus}
             trend={{ value: 12, label: "vs last month", positive: true }}
           />
           <StatsCard 

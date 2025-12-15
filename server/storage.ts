@@ -107,6 +107,9 @@ export interface IStorage {
   getDinerInvitationByToken(token: string): Promise<DinerInvitation | undefined>;
   updateDinerInvitation(id: string, updates: Partial<DinerInvitation>): Promise<DinerInvitation>;
   getDinerInvitationsByRestaurant(restaurantId: string): Promise<DinerInvitation[]>;
+  
+  // Stats
+  countAllDiners(): Promise<number>;
 }
 
 export class DbStorage implements IStorage {
@@ -400,6 +403,13 @@ export class DbStorage implements IStorage {
     return await db.select().from(dinerInvitations)
       .where(eq(dinerInvitations.restaurantId, restaurantId))
       .orderBy(desc(dinerInvitations.createdAt));
+  }
+
+  async countAllDiners(): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)::int` })
+      .from(users)
+      .where(eq(users.userType, 'diner'));
+    return result[0]?.count || 0;
   }
 }
 

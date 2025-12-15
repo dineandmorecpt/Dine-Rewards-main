@@ -9,6 +9,7 @@ import Home from "@/pages/home";
 import AdminDashboard from "@/pages/admin-dashboard";
 import AdminVouchers from "@/pages/admin-vouchers";
 import AdminReconciliation from "@/pages/admin-reconciliation";
+import AdminSettings from "@/pages/admin-settings";
 import DinerDashboard from "@/pages/diner-dashboard";
 import DinerHistory from "@/pages/diner-history";
 import DinerProfile from "@/pages/diner-profile";
@@ -33,7 +34,7 @@ function Router() {
         <AdminGuard><AdminDashboard /></AdminGuard>
       </Route>
       <Route path="/admin/settings">
-        <AdminGuard><AdminDashboard /></AdminGuard>
+        <AdminGuard><AdminSettings /></AdminGuard>
       </Route>
       
       <Route path="/diner/dashboard">

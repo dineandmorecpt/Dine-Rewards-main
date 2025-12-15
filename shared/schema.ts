@@ -186,3 +186,20 @@ export const insertDinerInvitationSchema = createInsertSchema(dinerInvitations).
 });
 export type InsertDinerInvitation = z.infer<typeof insertDinerInvitationSchema>;
 export type DinerInvitation = typeof dinerInvitations.$inferSelect;
+
+// Portal users - additional users who can access a restaurant's admin portal
+export const portalUsers = pgTable("portal_users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  role: text("role").notNull().default("staff"), // 'owner' | 'manager' | 'staff'
+  addedBy: varchar("added_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertPortalUserSchema = createInsertSchema(portalUsers).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertPortalUser = z.infer<typeof insertPortalUserSchema>;
+export type PortalUser = typeof portalUsers.$inferSelect;

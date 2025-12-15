@@ -36,9 +36,9 @@ export default function AdminVouchers() {
   const [vouchers, setVouchers] = useState(initialVouchers);
   const [campaigns, setCampaigns] = useState(initialCampaigns);
   const [voucherValue, setVoucherValue] = useState("R100 Loyalty Voucher");
-  const [voucherValidityDays, setVoucherValidityDays] = useState(30);
-  const [pointsPerCurrency, setPointsPerCurrency] = useState(1);
-  const [pointsThreshold, setPointsThreshold] = useState(1000);
+  const [voucherValidityDays, setVoucherValidityDays] = useState<number | string>(30);
+  const [pointsPerCurrency, setPointsPerCurrency] = useState<number | string>(1);
+  const [pointsThreshold, setPointsThreshold] = useState<number | string>(1000);
   const [isSaving, setIsSaving] = useState(false);
   const [redeemCode, setRedeemCode] = useState("");
   const [billId, setBillId] = useState("");
@@ -727,10 +727,18 @@ export default function AdminVouchers() {
                       min={1}
                       max={365}
                       value={voucherValidityDays}
-                      onChange={(e) => setVoucherValidityDays(parseInt(e.target.value) || 30)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setVoucherValidityDays(val === '' ? '' : parseInt(val) || '');
+                      }}
+                      onBlur={() => {
+                        if (voucherValidityDays === '' || voucherValidityDays < 1) {
+                          setVoucherValidityDays(30);
+                        }
+                      }}
                     />
                     <p className="text-xs text-muted-foreground">
-                      How many days the voucher is valid after being generated
+                      Voucher expires this many days after it is created
                     </p>
                   </div>
                 </CardContent>
@@ -756,7 +764,15 @@ export default function AdminVouchers() {
                       min={1}
                       max={100}
                       value={pointsPerCurrency}
-                      onChange={(e) => setPointsPerCurrency(parseInt(e.target.value) || 1)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setPointsPerCurrency(val === '' ? '' : parseInt(val) || '');
+                      }}
+                      onBlur={() => {
+                        if (pointsPerCurrency === '' || pointsPerCurrency < 1) {
+                          setPointsPerCurrency(1);
+                        }
+                      }}
                     />
                     <p className="text-xs text-muted-foreground">
                       Number of points diners earn for each R1 spent
@@ -771,7 +787,15 @@ export default function AdminVouchers() {
                       min={100}
                       max={10000}
                       value={pointsThreshold}
-                      onChange={(e) => setPointsThreshold(parseInt(e.target.value) || 1000)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setPointsThreshold(val === '' ? '' : parseInt(val) || '');
+                      }}
+                      onBlur={() => {
+                        if (pointsThreshold === '' || pointsThreshold < 100) {
+                          setPointsThreshold(1000);
+                        }
+                      }}
                     />
                     <p className="text-xs text-muted-foreground">
                       Points required to automatically generate a voucher

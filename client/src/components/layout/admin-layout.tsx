@@ -32,11 +32,10 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const SidebarContent = () => (
     <div className="flex flex-col h-full bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
       <div className="p-6">
-        <h1 className="text-2xl font-serif font-bold tracking-tight text-primary-foreground">
-          Dine<span className="text-sidebar-primary">&</span>More
+        <h1 className="text-2xl font-serif font-bold tracking-tight text-sidebar-primary">
+          Fancy Franks
         </h1>
-        <p className="text-sm text-sidebar-primary font-semibold mt-1">Fancy Franks</p>
-        <p className="text-xs text-sidebar-foreground/60 uppercase tracking-wider font-medium">Restaurant Admin</p>
+        <p className="text-xs text-sidebar-foreground/60 uppercase tracking-wider font-medium mt-1">Restaurant Admin</p>
       </div>
 
       <nav className="flex-1 px-4 space-y-1">
@@ -78,7 +77,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     <div className="min-h-screen bg-background font-sans">
       {/* Mobile Sidebar */}
       <div className="lg:hidden p-4 border-b flex items-center justify-between bg-card">
-        <span className="font-serif font-bold text-xl">Dine&More</span>
+        <span className="font-serif font-bold text-xl text-primary">Fancy Franks</span>
         <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon">

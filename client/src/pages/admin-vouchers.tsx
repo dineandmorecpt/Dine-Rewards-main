@@ -19,12 +19,6 @@ import { useAuth } from "@/hooks/use-auth";
 import { QRCodeCanvas } from "qrcode.react";
 
 // Mock Data
-const initialVouchers = [
-  { id: 1, title: "Welcome Drink", type: "item", value: "Free Cocktail", expiry: "30 days", active: true, redeemed: 45 },
-  { id: 2, title: "Birthday Treat", type: "discount", value: "20% Off", expiry: "7 days", active: true, redeemed: 128 },
-  { id: 3, title: "Loyalty Reward", type: "currency", value: "$15 Credit", expiry: "60 days", active: true, redeemed: 312 },
-  { id: 4, title: "Summer Special", type: "discount", value: "10% Off", expiry: "30 days", active: false, redeemed: 890 },
-];
 
 const initialCampaigns = [
   { id: 1, name: "Summer Kickoff", status: "Active", voucher: "Summer Special", audience: "All Diners", sent: 1250, openRate: "45%" },
@@ -35,7 +29,6 @@ const initialCampaigns = [
 const RESTAURANT_ID = "b563a4ad-6dcc-4b42-8c49-5da98fb8d6ad";
 
 export default function AdminVouchers() {
-  const [vouchers, setVouchers] = useState(initialVouchers);
   const [campaigns, setCampaigns] = useState(initialCampaigns);
   const [voucherValue, setVoucherValue] = useState("R100 Loyalty Voucher");
   const [voucherValidityDays, setVoucherValidityDays] = useState<number | string>(30);
@@ -758,40 +751,9 @@ export default function AdminVouchers() {
               )}
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {vouchers.map((voucher) => (
-                <Card key={voucher.id} className={cn("transition-all hover:shadow-md", !voucher.active && "opacity-60")}>
-                  <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
-                    <div className="space-y-1">
-                      <CardTitle className="text-base font-semibold">{voucher.title}</CardTitle>
-                      <CardDescription>{voucher.value} • {voucher.expiry}</CardDescription>
-                    </div>
-                    <div className={cn("p-2 rounded-full", 
-                      voucher.type === 'discount' ? "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400" : 
-                      voucher.type === 'currency' ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400" :
-                      "bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400"
-                    )}>
-                      {voucher.type === 'discount' && <Percent className="h-4 w-4" />}
-                      {voucher.type === 'currency' && <DollarSign className="h-4 w-4" />}
-                      {voucher.type === 'item' && <Gift className="h-4 w-4" />}
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="mt-2 flex items-center text-sm text-muted-foreground">
-                      <Ticket className="mr-2 h-4 w-4" />
-                      {voucher.redeemed} redeemed
-                    </div>
-                  </CardContent>
-                  <CardFooter className="border-t bg-muted/10 p-3">
-                    <div className="flex w-full items-center justify-between">
-                      <Badge variant={voucher.active ? "default" : "secondary"}>
-                        {voucher.active ? "Active" : "Archived"}
-                      </Badge>
-                      <Button variant="ghost" size="sm" className="h-7 text-xs">Edit</Button>
-                    </div>
-                  </CardFooter>
-                </Card>
-              ))}
+            <div className="text-center py-8 text-muted-foreground">
+              <Ticket className="h-12 w-12 mx-auto mb-2 opacity-50" />
+              <p>No vouchers yet. Vouchers are automatically generated when diners earn enough points.</p>
             </div>
           </TabsContent>
         </Tabs>

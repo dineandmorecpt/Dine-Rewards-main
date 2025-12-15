@@ -35,9 +35,9 @@ export function DinerLayout({ children }: DinerLayoutProps) {
     <div className="flex flex-col h-full bg-card text-card-foreground border-r border-border">
       <div className="p-6">
         <h1 className="text-2xl font-serif font-bold tracking-tight text-primary">
-          Fancy Franks
+          Dine<span className="text-chart-1">&</span>More
         </h1>
-        <p className="text-xs text-muted-foreground mt-1 uppercase tracking-wider font-medium">Rewards</p>
+        <p className="text-xs text-muted-foreground mt-1 uppercase tracking-wider font-medium">Diner Rewards</p>
       </div>
 
       <nav className="flex-1 px-4 space-y-1">
@@ -95,7 +95,7 @@ export function DinerLayout({ children }: DinerLayoutProps) {
     <div className="min-h-screen bg-background font-sans">
       {/* Mobile Sidebar */}
       <div className="lg:hidden p-4 border-b flex items-center justify-between bg-card">
-        <span className="font-serif font-bold text-xl text-primary">Fancy Franks</span>
+        <span className="font-serif font-bold text-xl">Dine&More</span>
         <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon">

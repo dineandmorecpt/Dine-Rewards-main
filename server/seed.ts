@@ -42,7 +42,7 @@ async function seed() {
     console.log("✓ Created restaurant:", sushiZen.name);
 
     const burgerJoint = await storage.createRestaurant({
-      name: "Fancy Franks",
+      name: "The Burger Joint",
       adminUserId: admin.id,
       voucherValue: "Free Milkshake",
       voucherValidityDays: 60,
@@ -76,7 +76,7 @@ async function seed() {
       totalPointsEarned: 2950,
       totalVouchersGenerated: 2
     });
-    console.log("✓ Created points balance for Fancy Franks");
+    console.log("✓ Created points balance for The Burger Joint");
 
     // Create some sample vouchers
     const voucher1Expiry = new Date();
@@ -115,7 +115,7 @@ async function seed() {
       isRedeemed: false,
       redeemedAt: null
     });
-    console.log("✓ Created vouchers for Fancy Franks");
+    console.log("✓ Created vouchers for The Burger Joint");
 
     // Create some sample transactions
     await storage.createTransaction({

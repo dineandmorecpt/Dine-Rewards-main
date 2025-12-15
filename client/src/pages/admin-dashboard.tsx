@@ -30,16 +30,6 @@ const weeklyVisitsData = [
   { name: "Sun", visits: 95 },
 ];
 
-const weeklyRedemptionsData = [
-  { name: "Mon", redemptions: 8 },
-  { name: "Tue", redemptions: 12 },
-  { name: "Wed", redemptions: 15 },
-  { name: "Thu", redemptions: 22 },
-  { name: "Fri", redemptions: 35 },
-  { name: "Sat", redemptions: 48 },
-  { name: "Sun", redemptions: 42 },
-];
-
 interface RestaurantStats {
   dinersLast30Days: number;
   totalSpent: number;
@@ -265,94 +255,48 @@ export default function AdminDashboard() {
           />
         </div>
 
-        {/* Charts Grid */}
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* Weekly Visit Trends Chart */}
-          <Card className="border-none shadow-sm">
-            <CardHeader>
-              <CardTitle className="font-serif text-xl">Weekly Visit Trends</CardTitle>
-              <CardDescription>Number of rewards diners visiting per day</CardDescription>
-            </CardHeader>
-            <CardContent className="pl-0">
-              <div className="h-[300px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={weeklyVisitsData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
-                    <XAxis 
-                      dataKey="name" 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{ fill: 'hsl(var(--muted-foreground))' }} 
-                      dy={10}
-                    />
-                    <YAxis 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{ fill: 'hsl(var(--muted-foreground))' }} 
-                    />
-                    <Tooltip 
-                      cursor={{ fill: 'hsl(var(--muted)/0.4)' }}
-                      contentStyle={{ 
-                        backgroundColor: 'hsl(var(--popover))', 
-                        borderColor: 'hsl(var(--border))',
-                        borderRadius: 'var(--radius)' 
-                      }}
-                    />
-                    <Bar 
-                      dataKey="visits" 
-                      fill="hsl(var(--primary))" 
-                      radius={[4, 4, 0, 0]} 
-                      barSize={40}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Weekly Redemptions Chart */}
-          <Card className="border-none shadow-sm">
-            <CardHeader>
-              <CardTitle className="font-serif text-xl">Redemptions by Day</CardTitle>
-              <CardDescription>Number of vouchers redeemed per day of the week</CardDescription>
-            </CardHeader>
-            <CardContent className="pl-0">
-              <div className="h-[300px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={weeklyRedemptionsData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
-                    <XAxis 
-                      dataKey="name" 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{ fill: 'hsl(var(--muted-foreground))' }} 
-                      dy={10}
-                    />
-                    <YAxis 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{ fill: 'hsl(var(--muted-foreground))' }} 
-                    />
-                    <Tooltip 
-                      cursor={{ fill: 'hsl(var(--muted)/0.4)' }}
-                      contentStyle={{ 
-                        backgroundColor: 'hsl(var(--popover))', 
-                        borderColor: 'hsl(var(--border))',
-                        borderRadius: 'var(--radius)' 
-                      }}
-                    />
-                    <Bar 
-                      dataKey="redemptions" 
-                      fill="hsl(var(--chart-2))" 
-                      radius={[4, 4, 0, 0]} 
-                      barSize={40}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        {/* Weekly Trends Chart */}
+        <Card className="border-none shadow-sm">
+          <CardHeader>
+            <CardTitle className="font-serif text-xl">Weekly Visit Trends</CardTitle>
+            <CardDescription>Number of rewards diners visiting per day</CardDescription>
+          </CardHeader>
+          <CardContent className="pl-0">
+            <div className="h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={weeklyVisitsData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
+                  <XAxis 
+                    dataKey="name" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fill: 'hsl(var(--muted-foreground))' }} 
+                    dy={10}
+                  />
+                  <YAxis 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fill: 'hsl(var(--muted-foreground))' }} 
+                  />
+                  <Tooltip 
+                    cursor={{ fill: 'hsl(var(--muted)/0.4)' }}
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(var(--popover))', 
+                      borderColor: 'hsl(var(--border))',
+                      borderRadius: 'var(--radius)' 
+                    }}
+                  />
+                  <Bar 
+                    dataKey="visits" 
+                    fill="hsl(var(--primary))" 
+                    radius={[4, 4, 0, 0]} 
+                    barSize={40}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </AdminLayout>
   );

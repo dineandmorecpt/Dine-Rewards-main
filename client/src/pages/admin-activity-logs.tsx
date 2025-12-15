@@ -4,8 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
 import { Activity, Clock, User, Settings, Ticket, Users, Loader2 } from "lucide-react";
 import { format } from "date-fns";
-
-const RESTAURANT_ID = "b563a4ad-6dcc-4b42-8c49-5da98fb8d6ad";
+import { useAuth } from "@/hooks/use-auth";
 
 const actionLabels: Record<string, { label: string; color: string; icon: typeof Activity }> = {
   voucher_redeemed: { label: "Voucher Redeemed", color: "bg-green-100 text-green-800", icon: Ticket },
@@ -18,13 +17,20 @@ const actionLabels: Record<string, { label: string; color: string; icon: typeof 
 };
 
 export default function AdminActivityLogs() {
+  const { restaurant } = useAuth();
+  const restaurantId = restaurant?.id;
+
   const activityLogs = useQuery({
-    queryKey: ['activity-logs', RESTAURANT_ID],
+    queryKey: ['activity-logs', restaurantId],
     queryFn: async () => {
-      const res = await fetch(`/api/restaurants/${RESTAURANT_ID}/activity-logs?limit=100`);
+      if (!restaurantId) return [];
+      const res = await fetch(`/api/restaurants/${restaurantId}/activity-logs?limit=100`, {
+        credentials: 'include'
+      });
       if (!res.ok) throw new Error('Failed to fetch activity logs');
       return res.json();
-    }
+    },
+    enabled: !!restaurantId,
   });
 
   const formatDetails = (action: string, details: string | null) => {

@@ -1456,10 +1456,29 @@ export async function registerRoutes(
     }
   });
 
-  // ACTIVITY LOGS - Get activity logs for a restaurant
+  // ACTIVITY LOGS - Get activity logs for a restaurant (authenticated admin only)
   app.get("/api/restaurants/:restaurantId/activity-logs", async (req, res) => {
     try {
+      // Require authenticated admin
+      if (!req.session.userId || req.session.userType !== 'restaurant_admin') {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
       const { restaurantId } = req.params;
+      
+      // Verify user has access to this restaurant
+      const restaurant = await storage.getRestaurant(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+      
+      const isOwner = restaurant.adminUserId === req.session.userId;
+      const portalAccess = await storage.getPortalUserByUserAndRestaurant(req.session.userId, restaurantId);
+      
+      if (!isOwner && !portalAccess) {
+        return res.status(403).json({ error: "You don't have access to this restaurant's activity logs" });
+      }
+      
       const limit = Math.min(parseInt(req.query.limit as string) || 100, 500);
       
       const logs = await storage.getActivityLogsByRestaurant(restaurantId, limit);

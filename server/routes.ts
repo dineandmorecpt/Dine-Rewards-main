@@ -1014,5 +1014,93 @@ export async function registerRoutes(
     }
   });
 
+  // PORTAL USERS - Get all portal users for a restaurant
+  app.get("/api/restaurants/:restaurantId/portal-users", async (req, res) => {
+    try {
+      const { restaurantId } = req.params;
+      const portalUsers = await storage.getPortalUsersByRestaurant(restaurantId);
+      res.json(portalUsers);
+    } catch (error) {
+      console.error("Get portal users error:", error);
+      res.status(500).json({ error: "Failed to fetch portal users" });
+    }
+  });
+
+  // PORTAL USERS - Add a new portal user
+  const addPortalUserSchema = z.object({
+    email: z.string().email("Invalid email address"),
+    name: z.string().min(1, "Name is required"),
+    role: z.enum(["manager", "staff"]).default("staff"),
+  });
+
+  app.post("/api/restaurants/:restaurantId/portal-users", async (req, res) => {
+    try {
+      const { restaurantId } = req.params;
+      const parseResult = addPortalUserSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(422).json({ 
+          error: parseResult.error.errors[0]?.message || "Invalid input" 
+        });
+      }
+
+      const { email, name, role } = parseResult.data;
+
+      // Check if user already exists
+      let user = await storage.getUserByEmail(email);
+      
+      if (!user) {
+        // Create new admin user with random password
+        const hashedPassword = await bcrypt.hash(crypto.randomBytes(16).toString('hex'), 10);
+        user = await storage.createUser({
+          email,
+          name,
+          password: hashedPassword,
+          userType: 'admin',
+        });
+      }
+
+      // Check if already a portal user for this restaurant
+      const existingPortalUser = await storage.getPortalUserByUserAndRestaurant(user.id, restaurantId);
+      if (existingPortalUser) {
+        return res.status(400).json({ error: "This user already has access to this restaurant" });
+      }
+
+      // Add as portal user
+      const portalUser = await storage.addPortalUser({
+        restaurantId,
+        userId: user.id,
+        role,
+        addedBy: req.session.userId || null,
+      });
+
+      res.json({
+        success: true,
+        portalUser: {
+          ...portalUser,
+          user: {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+          }
+        }
+      });
+    } catch (error: any) {
+      console.error("Add portal user error:", error);
+      res.status(500).json({ error: error.message || "Failed to add user" });
+    }
+  });
+
+  // PORTAL USERS - Remove a portal user
+  app.delete("/api/restaurants/:restaurantId/portal-users/:portalUserId", async (req, res) => {
+    try {
+      const { portalUserId } = req.params;
+      await storage.removePortalUser(portalUserId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Remove portal user error:", error);
+      res.status(500).json({ error: "Failed to remove user" });
+    }
+  });
+
   return httpServer;
 }

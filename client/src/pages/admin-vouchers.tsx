@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Ticket, Megaphone, Plus, Calendar, Users, Percent, DollarSign, Gift, Clock, Send, Settings, Save, ScanLine, Check, FileUp, FileCheck, FileX, ChevronRight, Upload, Camera, X, Phone, Receipt, Coins } from "lucide-react";
+import { Ticket, Megaphone, Plus, Calendar, Users, Percent, DollarSign, Gift, Clock, Send, Settings, Save, ScanLine, Check, FileUp, FileCheck, FileX, ChevronRight, Upload, Camera, X, Phone, Receipt, Coins, UserPlus, Trash2, Mail } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -58,6 +58,79 @@ export default function AdminVouchers() {
   const [captureIsScanning, setCaptureIsScanning] = useState(false);
   const captureScannerRef = useRef<Html5Qrcode | null>(null);
   const [captureSuccess, setCaptureSuccess] = useState<{dinerName: string; pointsEarned: number; currentPoints: number} | null>(null);
+  
+  // Portal users state
+  const [newUserEmail, setNewUserEmail] = useState("");
+  const [newUserName, setNewUserName] = useState("");
+  const [newUserRole, setNewUserRole] = useState<"manager" | "staff">("staff");
+  const [addUserDialogOpen, setAddUserDialogOpen] = useState(false);
+  
+  // Fetch portal users
+  const portalUsersQuery = useQuery({
+    queryKey: ['portal-users', RESTAURANT_ID],
+    queryFn: async () => {
+      const res = await fetch(`/api/restaurants/${RESTAURANT_ID}/portal-users`);
+      if (!res.ok) throw new Error('Failed to fetch portal users');
+      return res.json();
+    }
+  });
+  
+  const addPortalUser = useMutation({
+    mutationFn: async ({ email, name, role }: { email: string; name: string; role: string }) => {
+      const res = await fetch(`/api/restaurants/${RESTAURANT_ID}/portal-users`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, name, role })
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to add user");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      portalUsersQuery.refetch();
+      setNewUserEmail("");
+      setNewUserName("");
+      setNewUserRole("staff");
+      setAddUserDialogOpen(false);
+      toast({
+        title: "User Added",
+        description: "The user has been added to your portal."
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to Add User",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+  
+  const removePortalUser = useMutation({
+    mutationFn: async (portalUserId: string) => {
+      const res = await fetch(`/api/restaurants/${RESTAURANT_ID}/portal-users/${portalUserId}`, {
+        method: "DELETE"
+      });
+      if (!res.ok) throw new Error("Failed to remove user");
+      return res.json();
+    },
+    onSuccess: () => {
+      portalUsersQuery.refetch();
+      toast({
+        title: "User Removed",
+        description: "The user has been removed from your portal."
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to Remove User",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
 
 
   const startScanner = async () => {
@@ -813,6 +886,131 @@ export default function AdminVouchers() {
                 <Save className="h-4 w-4" />
                 {isSaving ? "Saving..." : "Save Settings"}
               </Button>
+
+              {/* User Management Card */}
+              <Card className="mt-6">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    Portal User Management
+                  </CardTitle>
+                  <CardDescription>
+                    Add or remove users who can access this restaurant's admin portal.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Add User Dialog */}
+                  <Dialog open={addUserDialogOpen} onOpenChange={setAddUserDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" className="w-full gap-2" data-testid="button-add-user">
+                        <UserPlus className="h-4 w-4" />
+                        Add User
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Add Portal User</DialogTitle>
+                        <DialogDescription>
+                          Add a new user who can access this restaurant's admin portal.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="grid gap-2">
+                          <Label htmlFor="new-user-name">Name</Label>
+                          <Input
+                            id="new-user-name"
+                            placeholder="e.g., John Smith"
+                            value={newUserName}
+                            onChange={(e) => setNewUserName(e.target.value)}
+                            data-testid="input-new-user-name"
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="new-user-email">Email</Label>
+                          <Input
+                            id="new-user-email"
+                            type="email"
+                            placeholder="e.g., john@example.com"
+                            value={newUserEmail}
+                            onChange={(e) => setNewUserEmail(e.target.value)}
+                            data-testid="input-new-user-email"
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="new-user-role">Role</Label>
+                          <Select value={newUserRole} onValueChange={(val: "manager" | "staff") => setNewUserRole(val)}>
+                            <SelectTrigger data-testid="select-new-user-role">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="staff">Staff</SelectItem>
+                              <SelectItem value="manager">Manager</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-muted-foreground">
+                            Managers have full access; Staff can only record transactions and redeem vouchers.
+                          </p>
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button
+                          onClick={() => addPortalUser.mutate({ email: newUserEmail, name: newUserName, role: newUserRole })}
+                          disabled={!newUserEmail.trim() || !newUserName.trim() || addPortalUser.isPending}
+                          className="gap-2"
+                          data-testid="button-confirm-add-user"
+                        >
+                          {addPortalUser.isPending ? "Adding..." : "Add User"}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+
+                  {/* Users List */}
+                  <div className="space-y-2">
+                    {portalUsersQuery.isLoading && (
+                      <p className="text-sm text-muted-foreground text-center py-4">Loading users...</p>
+                    )}
+                    {portalUsersQuery.data?.length === 0 && (
+                      <p className="text-sm text-muted-foreground text-center py-4">No additional users added yet.</p>
+                    )}
+                    {portalUsersQuery.data?.map((pu: any) => (
+                      <div 
+                        key={pu.id} 
+                        className="flex items-center justify-between p-3 border rounded-lg bg-muted/30"
+                        data-testid={`portal-user-${pu.id}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                            <span className="text-sm font-medium text-primary">
+                              {pu.user?.name?.charAt(0)?.toUpperCase() || '?'}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">{pu.user?.name || 'Unknown'}</p>
+                            <p className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Mail className="h-3 w-3" />
+                              {pu.user?.email || 'No email'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className="capitalize">{pu.role}</Badge>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={() => removePortalUser.mutate(pu.id)}
+                            disabled={removePortalUser.isPending}
+                            data-testid={`button-remove-user-${pu.id}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </TabsContent>
         </Tabs>

@@ -50,7 +50,7 @@ export type InsertRestaurant = z.infer<typeof insertRestaurantSchema>;
 export type Restaurant = typeof restaurants.$inferSelect;
 
 // Points balance per diner per restaurant
-// Rule: Points do not fall away, but reset to 0 after 1000 points generate a voucher
+// Rule: Points do not fall away, but reset to 0 after reaching threshold and earning a voucher credit
 export const pointsBalances = pgTable("points_balances", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   dinerId: varchar("diner_id").notNull().references(() => users.id),
@@ -58,6 +58,8 @@ export const pointsBalances = pgTable("points_balances", {
   currentPoints: integer("current_points").notNull().default(0),
   totalPointsEarned: integer("total_points_earned").notNull().default(0),
   totalVouchersGenerated: integer("total_vouchers_generated").notNull().default(0),
+  availableVoucherCredits: integer("available_voucher_credits").notNull().default(0), // Credits diner can redeem for vouchers
+  totalVoucherCreditsEarned: integer("total_voucher_credits_earned").notNull().default(0), // Total credits ever earned
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
@@ -86,11 +88,32 @@ export const insertTransactionSchema = createInsertSchema(transactions).omit({
 export type InsertTransaction = z.infer<typeof insertTransactionSchema>;
 export type Transaction = typeof transactions.$inferSelect;
 
+// Voucher types - templates created by restaurant owners that diners can choose from
+export const voucherTypes = pgTable("voucher_types", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id),
+  name: text("name").notNull(), // e.g., "R100 Off Your Bill"
+  description: text("description"), // Optional details about the voucher
+  rewardDetails: text("reward_details"), // Fine print, terms, etc.
+  creditsCost: integer("credits_cost").notNull().default(1), // How many credits to redeem this voucher
+  validityDays: integer("validity_days").notNull().default(30), // Days until voucher expires
+  isActive: boolean("is_active").notNull().default(true), // Can diners select this?
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertVoucherTypeSchema = createInsertSchema(voucherTypes).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertVoucherType = z.infer<typeof insertVoucherTypeSchema>;
+export type VoucherType = typeof voucherTypes.$inferSelect;
+
 // Vouchers generated and their redemption status
 export const vouchers = pgTable("vouchers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   dinerId: varchar("diner_id").notNull().references(() => users.id),
   restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id),
+  voucherTypeId: varchar("voucher_type_id").references(() => voucherTypes.id), // Which type was selected
   title: text("title").notNull(),
   code: text("code").notNull().unique(),
   expiryDate: timestamp("expiry_date").notNull(),

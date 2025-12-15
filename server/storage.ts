@@ -9,6 +9,8 @@ import {
   type InsertTransaction,
   type Voucher,
   type InsertVoucher,
+  type VoucherType,
+  type InsertVoucherType,
   type Campaign,
   type InsertCampaign,
   type ReconciliationBatch,
@@ -24,6 +26,7 @@ import {
   pointsBalances,
   transactions,
   vouchers,
+  voucherTypes,
   campaigns,
   reconciliationBatches,
   reconciliationRecords,
@@ -58,7 +61,13 @@ export interface IStorage {
   // Points Management
   getPointsBalance(dinerId: string, restaurantId: string): Promise<PointsBalance | undefined>;
   createPointsBalance(balance: InsertPointsBalance): Promise<PointsBalance>;
-  updatePointsBalance(id: string, currentPoints: number, totalPointsEarned: number, totalVouchersGenerated: number): Promise<PointsBalance>;
+  updatePointsBalance(id: string, updates: { 
+    currentPoints?: number; 
+    totalPointsEarned?: number; 
+    totalVouchersGenerated?: number;
+    availableVoucherCredits?: number;
+    totalVoucherCreditsEarned?: number;
+  }): Promise<PointsBalance>;
   getPointsBalancesByDiner(dinerId: string): Promise<PointsBalance[]>;
   
   // Transaction Management
@@ -73,6 +82,14 @@ export interface IStorage {
   getVouchersByRestaurant(restaurantId: string): Promise<Voucher[]>;
   redeemVoucher(voucherId: string, billId?: string): Promise<Voucher>;
   getVoucherByBillId(restaurantId: string, billId: string): Promise<Voucher | undefined>;
+  
+  // Voucher Type Management
+  createVoucherType(voucherType: InsertVoucherType): Promise<VoucherType>;
+  getVoucherTypesByRestaurant(restaurantId: string): Promise<VoucherType[]>;
+  getActiveVoucherTypesByRestaurant(restaurantId: string): Promise<VoucherType[]>;
+  getVoucherType(id: string): Promise<VoucherType | undefined>;
+  updateVoucherType(id: string, updates: Partial<InsertVoucherType>): Promise<VoucherType>;
+  deleteVoucherType(id: string): Promise<void>;
   
   // Campaign Management
   createCampaign(campaign: InsertCampaign): Promise<Campaign>;
@@ -184,15 +201,17 @@ export class DbStorage implements IStorage {
 
   async updatePointsBalance(
     id: string, 
-    currentPoints: number, 
-    totalPointsEarned: number, 
-    totalVouchersGenerated: number
+    updates: { 
+      currentPoints?: number; 
+      totalPointsEarned?: number; 
+      totalVouchersGenerated?: number;
+      availableVoucherCredits?: number;
+      totalVoucherCreditsEarned?: number;
+    }
   ): Promise<PointsBalance> {
     const result = await db.update(pointsBalances)
       .set({ 
-        currentPoints, 
-        totalPointsEarned, 
-        totalVouchersGenerated,
+        ...updates,
         updatedAt: new Date()
       })
       .where(eq(pointsBalances.id, id))
@@ -280,6 +299,44 @@ export class DbStorage implements IStorage {
         eq(vouchers.billId, billId)
       ));
     return result[0];
+  }
+
+  // Voucher Type Methods
+  async createVoucherType(voucherType: InsertVoucherType): Promise<VoucherType> {
+    const result = await db.insert(voucherTypes).values(voucherType).returning();
+    return result[0];
+  }
+
+  async getVoucherTypesByRestaurant(restaurantId: string): Promise<VoucherType[]> {
+    return await db.select().from(voucherTypes)
+      .where(eq(voucherTypes.restaurantId, restaurantId))
+      .orderBy(desc(voucherTypes.createdAt));
+  }
+
+  async getActiveVoucherTypesByRestaurant(restaurantId: string): Promise<VoucherType[]> {
+    return await db.select().from(voucherTypes)
+      .where(and(
+        eq(voucherTypes.restaurantId, restaurantId),
+        eq(voucherTypes.isActive, true)
+      ))
+      .orderBy(desc(voucherTypes.createdAt));
+  }
+
+  async getVoucherType(id: string): Promise<VoucherType | undefined> {
+    const result = await db.select().from(voucherTypes).where(eq(voucherTypes.id, id));
+    return result[0];
+  }
+
+  async updateVoucherType(id: string, updates: Partial<InsertVoucherType>): Promise<VoucherType> {
+    const result = await db.update(voucherTypes)
+      .set(updates)
+      .where(eq(voucherTypes.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteVoucherType(id: string): Promise<void> {
+    await db.delete(voucherTypes).where(eq(voucherTypes.id, id));
   }
 
   // Campaign Methods

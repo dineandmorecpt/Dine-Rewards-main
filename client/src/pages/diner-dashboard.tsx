@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Utensils, Gift, ChevronRight, Clock, AlertCircle, QrCode, Receipt } from "lucide-react";
+import { Utensils, Gift, ChevronRight, Clock, AlertCircle, QrCode, Receipt, Sparkles, Star } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
+import { Separator } from "@/components/ui/separator";
 import { toast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { useAuth } from "@/hooks/use-auth";
@@ -22,6 +23,18 @@ interface PointsBalance {
   restaurantId: string;
   pointsPerCurrency: number;
   pointsThreshold: number;
+  availableVoucherCredits: number;
+  totalVoucherCreditsEarned: number;
+}
+
+interface VoucherType {
+  id: string;
+  name: string;
+  description?: string;
+  rewardDetails?: string;
+  creditsCost: number;
+  validityDays: number;
+  isActive: boolean;
 }
 
 type VoucherStatus = "active" | "redeemed" | "expired";
@@ -56,6 +69,8 @@ export default function DinerDashboard() {
   const [timeRemaining, setTimeRemaining] = useState<string>("");
   const [selectedRestaurant, setSelectedRestaurant] = useState<PointsBalance | null>(null);
   const [transactionHistoryOpen, setTransactionHistoryOpen] = useState(false);
+  const [redeemCreditsOpen, setRedeemCreditsOpen] = useState(false);
+  const [redeemingRestaurant, setRedeemingRestaurant] = useState<PointsBalance | null>(null);
 
   useEffect(() => {
     if (!codeExpiresAt || !presentCodeOpen) return;
@@ -116,6 +131,50 @@ export default function DinerDashboard() {
       return res.json();
     },
     enabled: !!dinerId && !!selectedRestaurant,
+  });
+
+  // Fetch active voucher types for redeeming restaurant
+  const { data: voucherTypes = [], isLoading: loadingVoucherTypes } = useQuery<VoucherType[]>({
+    queryKey: ["/api/restaurants", redeemingRestaurant?.restaurantId, "voucher-types", "active"],
+    queryFn: async () => {
+      const res = await fetch(`/api/restaurants/${redeemingRestaurant!.restaurantId}/voucher-types/active`);
+      if (!res.ok) throw new Error("Failed to fetch voucher types");
+      return res.json();
+    },
+    enabled: !!redeemingRestaurant,
+  });
+
+  // Redeem credit for voucher
+  const redeemCredit = useMutation({
+    mutationFn: async ({ restaurantId, voucherTypeId }: { restaurantId: string; voucherTypeId: string }) => {
+      const res = await fetch(`/api/diners/${dinerId}/restaurants/${restaurantId}/redeem-credit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ voucherTypeId }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to redeem credit");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/diners", dinerId, "points"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/diners", dinerId, "vouchers"] });
+      setRedeemCreditsOpen(false);
+      setRedeemingRestaurant(null);
+      toast({
+        title: "Voucher Created!",
+        description: `You now have a new voucher: ${data.voucher.title}`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Redemption Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   // Create transaction mutation (simulates spending)
@@ -293,6 +352,32 @@ export default function DinerDashboard() {
                       </Button>
                     </div>
                   </CardFooter>
+                  
+                  {/* Available Credits Banner */}
+                  {rest.availableVoucherCredits > 0 && (
+                    <div 
+                      className="absolute top-0 left-0 right-0 bg-gradient-to-r from-amber-500 to-orange-500 text-white px-3 py-2 flex items-center justify-between"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <span className="text-sm font-medium flex items-center gap-1">
+                        <Sparkles className="h-4 w-4" />
+                        {rest.availableVoucherCredits} Credit{rest.availableVoucherCredits !== 1 ? 's' : ''} Available!
+                      </span>
+                      <Button 
+                        size="sm" 
+                        variant="secondary"
+                        className="h-7 text-xs"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setRedeemingRestaurant(rest);
+                          setRedeemCreditsOpen(true);
+                        }}
+                        data-testid={`button-redeem-credits-${rest.restaurantName.toLowerCase().replace(/\s+/g, '-')}`}
+                      >
+                        Redeem
+                      </Button>
+                    </div>
+                  )}
                 </Card>
               ))}
             </div>
@@ -466,6 +551,82 @@ export default function DinerDashboard() {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Credit Redemption Dialog */}
+        <Dialog open={redeemCreditsOpen} onOpenChange={(open) => {
+          setRedeemCreditsOpen(open);
+          if (!open) setRedeemingRestaurant(null);
+        }}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="font-serif text-xl flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-amber-500" />
+                Choose Your Reward
+              </DialogTitle>
+              <DialogDescription>
+                {redeemingRestaurant?.restaurantName} - You have {redeemingRestaurant?.availableVoucherCredits} credit{(redeemingRestaurant?.availableVoucherCredits || 0) !== 1 ? 's' : ''} to spend
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+              {loadingVoucherTypes ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+              ) : voucherTypes.length === 0 ? (
+                <div className="text-center py-8">
+                  <Gift className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
+                  <p className="text-muted-foreground">No rewards available</p>
+                  <p className="text-sm text-muted-foreground mt-1">The restaurant hasn't set up any reward options yet.</p>
+                </div>
+              ) : (
+                <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                  {voucherTypes.map((vt) => {
+                    const canAfford = (redeemingRestaurant?.availableVoucherCredits || 0) >= vt.creditsCost;
+                    return (
+                      <Card 
+                        key={vt.id} 
+                        className={`p-4 cursor-pointer transition-all ${canAfford ? 'hover:border-primary hover:shadow-md' : 'opacity-50 cursor-not-allowed'}`}
+                        onClick={() => {
+                          if (canAfford && redeemingRestaurant) {
+                            redeemCredit.mutate({ restaurantId: redeemingRestaurant.restaurantId, voucherTypeId: vt.id });
+                          }
+                        }}
+                        data-testid={`card-select-voucher-type-${vt.id}`}
+                      >
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <h3 className="font-medium font-serif">{vt.name}</h3>
+                            {vt.description && (
+                              <p className="text-sm text-muted-foreground mt-1">{vt.description}</p>
+                            )}
+                            <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                Valid {vt.validityDays} days
+                              </span>
+                            </div>
+                            {vt.rewardDetails && (
+                              <p className="text-xs text-muted-foreground mt-2 pt-2 border-t">{vt.rewardDetails}</p>
+                            )}
+                          </div>
+                          <div className="text-right ml-4">
+                            <Badge 
+                              variant={canAfford ? "default" : "secondary"}
+                              className={canAfford ? "bg-amber-500 hover:bg-amber-500" : ""}
+                            >
+                              <Star className="h-3 w-3 mr-1" />
+                              {vt.creditsCost} Credit{vt.creditsCost !== 1 ? 's' : ''}
+                            </Badge>
+                          </div>
+                        </div>
+                      </Card>
+                    );
+                  })}
                 </div>
               )}
             </div>

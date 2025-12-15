@@ -715,6 +715,175 @@ export async function registerRoutes(
       res.status(400).json({ error: error.message || "Failed to update settings" });
     }
   });
+
+  // VOUCHER TYPES - Get all voucher types for a restaurant (admin)
+  app.get("/api/restaurants/:restaurantId/voucher-types", async (req, res) => {
+    try {
+      const { restaurantId } = req.params;
+      const voucherTypes = await storage.getVoucherTypesByRestaurant(restaurantId);
+      res.json(voucherTypes);
+    } catch (error) {
+      console.error("Get voucher types error:", error);
+      res.status(500).json({ error: "Failed to fetch voucher types" });
+    }
+  });
+
+  // VOUCHER TYPES - Get active voucher types for diners to choose from
+  app.get("/api/restaurants/:restaurantId/voucher-types/active", async (req, res) => {
+    try {
+      const { restaurantId } = req.params;
+      const voucherTypes = await storage.getActiveVoucherTypesByRestaurant(restaurantId);
+      res.json(voucherTypes);
+    } catch (error) {
+      console.error("Get active voucher types error:", error);
+      res.status(500).json({ error: "Failed to fetch voucher types" });
+    }
+  });
+
+  // VOUCHER TYPES - Create new voucher type (owner/manager only)
+  const createVoucherTypeSchema = z.object({
+    name: z.string().min(1, "Name is required"),
+    description: z.string().optional(),
+    rewardDetails: z.string().optional(),
+    creditsCost: z.number().int().min(1).default(1),
+    validityDays: z.number().int().min(1).default(30),
+    isActive: z.boolean().default(true),
+  });
+
+  app.post("/api/restaurants/:restaurantId/voucher-types", async (req, res) => {
+    try {
+      if (!req.session.userId || req.session.userType !== 'admin') {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { restaurantId } = req.params;
+      
+      const restaurant = await storage.getRestaurant(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+      
+      const isOwner = restaurant.adminUserId === req.session.userId;
+      const portalAccess = await storage.getPortalUserByUserAndRestaurant(req.session.userId, restaurantId);
+      
+      if (!isOwner && (!portalAccess || portalAccess.role === 'staff')) {
+        return res.status(403).json({ error: "Only owners and managers can create voucher types" });
+      }
+
+      const parseResult = createVoucherTypeSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(422).json({ 
+          error: parseResult.error.errors[0]?.message || "Invalid input" 
+        });
+      }
+
+      const voucherType = await storage.createVoucherType({
+        restaurantId,
+        ...parseResult.data,
+      });
+
+      res.json(voucherType);
+    } catch (error: any) {
+      console.error("Create voucher type error:", error);
+      res.status(500).json({ error: error.message || "Failed to create voucher type" });
+    }
+  });
+
+  // VOUCHER TYPES - Update voucher type (owner/manager only)
+  app.patch("/api/restaurants/:restaurantId/voucher-types/:voucherTypeId", async (req, res) => {
+    try {
+      if (!req.session.userId || req.session.userType !== 'admin') {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { restaurantId, voucherTypeId } = req.params;
+      
+      const restaurant = await storage.getRestaurant(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+      
+      const isOwner = restaurant.adminUserId === req.session.userId;
+      const portalAccess = await storage.getPortalUserByUserAndRestaurant(req.session.userId, restaurantId);
+      
+      if (!isOwner && (!portalAccess || portalAccess.role === 'staff')) {
+        return res.status(403).json({ error: "Only owners and managers can update voucher types" });
+      }
+
+      const voucherType = await storage.getVoucherType(voucherTypeId);
+      if (!voucherType || voucherType.restaurantId !== restaurantId) {
+        return res.status(404).json({ error: "Voucher type not found" });
+      }
+
+      const updated = await storage.updateVoucherType(voucherTypeId, req.body);
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Update voucher type error:", error);
+      res.status(500).json({ error: error.message || "Failed to update voucher type" });
+    }
+  });
+
+  // VOUCHER TYPES - Delete voucher type (owner/manager only)
+  app.delete("/api/restaurants/:restaurantId/voucher-types/:voucherTypeId", async (req, res) => {
+    try {
+      if (!req.session.userId || req.session.userType !== 'admin') {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { restaurantId, voucherTypeId } = req.params;
+      
+      const restaurant = await storage.getRestaurant(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+      
+      const isOwner = restaurant.adminUserId === req.session.userId;
+      const portalAccess = await storage.getPortalUserByUserAndRestaurant(req.session.userId, restaurantId);
+      
+      if (!isOwner && (!portalAccess || portalAccess.role === 'staff')) {
+        return res.status(403).json({ error: "Only owners and managers can delete voucher types" });
+      }
+
+      await storage.deleteVoucherType(voucherTypeId);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Delete voucher type error:", error);
+      res.status(500).json({ error: error.message || "Failed to delete voucher type" });
+    }
+  });
+
+  // DINER REDEEM VOUCHER CREDIT - Diner selects a voucher type to redeem their credit
+  const redeemVoucherCreditSchema = z.object({
+    voucherTypeId: z.string().min(1, "Voucher type is required"),
+  });
+
+  app.post("/api/diners/:dinerId/restaurants/:restaurantId/redeem-credit", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { dinerId, restaurantId } = req.params;
+
+      if (req.session.userId !== dinerId) {
+        return res.status(403).json({ error: "You can only redeem your own credits" });
+      }
+
+      const parseResult = redeemVoucherCreditSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(422).json({ 
+          error: parseResult.error.errors[0]?.message || "Invalid input" 
+        });
+      }
+
+      const { voucherTypeId } = parseResult.data;
+      const result = await services.loyalty.redeemVoucherCredit(dinerId, restaurantId, voucherTypeId);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Redeem voucher credit error:", error);
+      res.status(400).json({ error: error.message || "Failed to redeem voucher credit" });
+    }
+  });
   
   // RESTAURANT STATS - Get restaurant dashboard statistics
   app.get("/api/restaurants/:restaurantId/stats", async (req, res) => {

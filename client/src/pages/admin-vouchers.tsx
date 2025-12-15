@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Ticket, Megaphone, Plus, Calendar, Users, Percent, DollarSign, Gift, Clock, Send, Settings, Save, ScanLine, Check, FileUp, FileCheck, FileX, ChevronRight, Upload, Camera, X, Phone, Receipt, Coins, UserPlus, Trash2, Mail, Lock, Download, QrCode } from "lucide-react";
+import { Ticket, Megaphone, Plus, Calendar, Users, Percent, DollarSign, Gift, Clock, Send, Settings, Save, ScanLine, Check, FileUp, FileCheck, FileX, ChevronRight, Upload, Camera, X, Phone, Receipt, Coins, UserPlus, Trash2, Mail, Lock, Download, QrCode, Pencil, ToggleLeft, ToggleRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -64,6 +64,16 @@ export default function AdminVouchers() {
   const [newUserName, setNewUserName] = useState("");
   const [newUserRole, setNewUserRole] = useState<"manager" | "staff">("staff");
   const [addUserDialogOpen, setAddUserDialogOpen] = useState(false);
+  
+  // Voucher types state
+  const [voucherTypeDialogOpen, setVoucherTypeDialogOpen] = useState(false);
+  const [editingVoucherType, setEditingVoucherType] = useState<any>(null);
+  const [voucherTypeName, setVoucherTypeName] = useState("");
+  const [voucherTypeDescription, setVoucherTypeDescription] = useState("");
+  const [voucherTypeRewardDetails, setVoucherTypeRewardDetails] = useState("");
+  const [voucherTypeCreditsCost, setVoucherTypeCreditsCost] = useState<number | string>(1);
+  const [voucherTypeValidityDays, setVoucherTypeValidityDays] = useState<number | string>(30);
+  const [voucherTypeIsActive, setVoucherTypeIsActive] = useState(true);
   
   // QR code ref for download
   const qrCodeRef = useRef<HTMLCanvasElement>(null);
@@ -154,6 +164,143 @@ export default function AdminVouchers() {
       });
     }
   });
+  
+  // Voucher types queries
+  const voucherTypesQuery = useQuery({
+    queryKey: ['voucher-types', RESTAURANT_ID],
+    queryFn: async () => {
+      const res = await fetch(`/api/restaurants/${RESTAURANT_ID}/voucher-types`);
+      if (!res.ok) throw new Error('Failed to fetch voucher types');
+      return res.json();
+    }
+  });
+  
+  const resetVoucherTypeForm = () => {
+    setVoucherTypeName("");
+    setVoucherTypeDescription("");
+    setVoucherTypeRewardDetails("");
+    setVoucherTypeCreditsCost(1);
+    setVoucherTypeValidityDays(30);
+    setVoucherTypeIsActive(true);
+    setEditingVoucherType(null);
+  };
+  
+  const openEditVoucherType = (vt: any) => {
+    setEditingVoucherType(vt);
+    setVoucherTypeName(vt.name);
+    setVoucherTypeDescription(vt.description || "");
+    setVoucherTypeRewardDetails(vt.rewardDetails || "");
+    setVoucherTypeCreditsCost(vt.creditsCost);
+    setVoucherTypeValidityDays(vt.validityDays);
+    setVoucherTypeIsActive(vt.isActive);
+    setVoucherTypeDialogOpen(true);
+  };
+  
+  const createVoucherType = useMutation({
+    mutationFn: async (data: { name: string; description?: string; rewardDetails?: string; creditsCost: number; validityDays: number; isActive: boolean }) => {
+      const res = await fetch(`/api/restaurants/${RESTAURANT_ID}/voucher-types`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to create voucher type");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      voucherTypesQuery.refetch();
+      setVoucherTypeDialogOpen(false);
+      resetVoucherTypeForm();
+      toast({
+        title: "Voucher Type Created",
+        description: "The voucher type has been created successfully."
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to Create Voucher Type",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+  
+  const updateVoucherType = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: { name?: string; description?: string; rewardDetails?: string; creditsCost?: number; validityDays?: number; isActive?: boolean } }) => {
+      const res = await fetch(`/api/restaurants/${RESTAURANT_ID}/voucher-types/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to update voucher type");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      voucherTypesQuery.refetch();
+      setVoucherTypeDialogOpen(false);
+      resetVoucherTypeForm();
+      toast({
+        title: "Voucher Type Updated",
+        description: "The voucher type has been updated successfully."
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to Update Voucher Type",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+  
+  const deleteVoucherType = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/restaurants/${RESTAURANT_ID}/voucher-types/${id}`, {
+        method: "DELETE"
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to delete voucher type");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      voucherTypesQuery.refetch();
+      toast({
+        title: "Voucher Type Deleted",
+        description: "The voucher type has been deleted."
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to Delete Voucher Type",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+  
+  const handleSaveVoucherType = () => {
+    const data = {
+      name: voucherTypeName,
+      description: voucherTypeDescription || undefined,
+      rewardDetails: voucherTypeRewardDetails || undefined,
+      creditsCost: Number(voucherTypeCreditsCost),
+      validityDays: Number(voucherTypeValidityDays),
+      isActive: voucherTypeIsActive
+    };
+    
+    if (editingVoucherType) {
+      updateVoucherType.mutate({ id: editingVoucherType.id, data });
+    } else {
+      createVoucherType.mutate(data);
+    }
+  };
 
 
   const startScanner = async () => {
@@ -690,71 +837,212 @@ export default function AdminVouchers() {
 
             <Separator />
 
-            <div className="flex justify-between items-center">
-              <h2 className="text-xl font-medium font-serif">Active Vouchers</h2>
-              {canCreateVoucher ? (
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button className="gap-2">
-                      <Plus className="h-4 w-4" /> Create Voucher
-                    </Button>
-                  </DialogTrigger>
-                <DialogContent className="sm:max-w-[500px]">
-                  <DialogHeader>
-                    <DialogTitle>Create New Voucher</DialogTitle>
-                    <DialogDescription>
-                      Define the reward details. This will be added to your voucher library.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="grid gap-4 py-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="v-title">Voucher Title</Label>
-                      <Input id="v-title" placeholder="e.g., Free Dessert" />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="grid gap-2">
-                        <Label htmlFor="v-type">Type</Label>
-                        <Select>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select type" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="discount">Percentage (%)</SelectItem>
-                            <SelectItem value="currency">Fixed Amount ($)</SelectItem>
-                            <SelectItem value="item">Free Item</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="v-value">Value</Label>
-                        <Input id="v-value" placeholder="e.g., 20% or $10" />
-                      </div>
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="v-desc">Description</Label>
-                      <Textarea id="v-desc" placeholder="Terms and conditions..." />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="v-expiry">Validity (Days)</Label>
-                      <Input id="v-expiry" type="number" placeholder="30" />
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button type="submit">Create Voucher</Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+            {/* Voucher Types Management Section */}
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-xl font-medium font-serif">Voucher Types</h2>
+                  <p className="text-sm text-muted-foreground">Define the reward options diners can choose when they earn voucher credits.</p>
+                </div>
+                {canCreateVoucher ? (
+                  <Button 
+                    className="gap-2" 
+                    onClick={() => {
+                      resetVoucherTypeForm();
+                      setVoucherTypeDialogOpen(true);
+                    }}
+                    data-testid="button-create-voucher-type"
+                  >
+                    <Plus className="h-4 w-4" /> Create Voucher Type
+                  </Button>
+                ) : (
+                  <Button className="gap-2" variant="outline" disabled>
+                    <Lock className="h-4 w-4" /> Create Voucher Type
+                  </Button>
+                )}
+              </div>
+              
+              {/* Voucher Types List */}
+              {voucherTypesQuery.isLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+              ) : !voucherTypesQuery.data || voucherTypesQuery.data.length === 0 ? (
+                <Card className="p-8 text-center border-dashed">
+                  <Gift className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
+                  <p className="text-muted-foreground font-medium">No voucher types created yet</p>
+                  <p className="text-sm text-muted-foreground mt-1">Create voucher types so diners can choose their rewards when they earn credits.</p>
+                </Card>
               ) : (
-                <Button className="gap-2" variant="outline" disabled>
-                  <Lock className="h-4 w-4" /> Create Voucher
-                </Button>
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {voucherTypesQuery.data.map((vt: any) => (
+                    <Card key={vt.id} className={cn("relative overflow-hidden", !vt.isActive && "opacity-60")} data-testid={`card-voucher-type-${vt.id}`}>
+                      <div className={cn("absolute top-0 left-0 right-0 h-1", vt.isActive ? "bg-primary" : "bg-muted")} />
+                      <CardHeader className="pb-2">
+                        <div className="flex justify-between items-start gap-2">
+                          <CardTitle className="text-lg font-serif">{vt.name}</CardTitle>
+                          <Badge variant={vt.isActive ? "default" : "secondary"}>
+                            {vt.isActive ? "Active" : "Inactive"}
+                          </Badge>
+                        </div>
+                        {vt.description && (
+                          <CardDescription className="line-clamp-2">{vt.description}</CardDescription>
+                        )}
+                      </CardHeader>
+                      <CardContent className="pb-2 space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Credits Required</span>
+                          <span className="font-medium">{vt.creditsCost}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Valid For</span>
+                          <span className="font-medium">{vt.validityDays} days</span>
+                        </div>
+                        {vt.rewardDetails && (
+                          <p className="text-xs text-muted-foreground pt-2 border-t">{vt.rewardDetails}</p>
+                        )}
+                      </CardContent>
+                      <CardFooter className="pt-2 border-t bg-muted/20 gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="flex-1 gap-1"
+                          onClick={() => openEditVoucherType(vt)}
+                          data-testid={`button-edit-voucher-type-${vt.id}`}
+                        >
+                          <Pencil className="h-3 w-3" /> Edit
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="gap-1"
+                          onClick={() => updateVoucherType.mutate({ id: vt.id, data: { isActive: !vt.isActive } })}
+                          data-testid={`button-toggle-voucher-type-${vt.id}`}
+                        >
+                          {vt.isActive ? <ToggleRight className="h-3 w-3" /> : <ToggleLeft className="h-3 w-3" />}
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => {
+                            if (confirm("Are you sure you want to delete this voucher type?")) {
+                              deleteVoucherType.mutate(vt.id);
+                            }
+                          }}
+                          data-testid={`button-delete-voucher-type-${vt.id}`}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </CardFooter>
+                    </Card>
+                  ))}
+                </div>
               )}
             </div>
-
-            <div className="text-center py-8 text-muted-foreground">
-              <Ticket className="h-12 w-12 mx-auto mb-2 opacity-50" />
-              <p>No vouchers yet. Vouchers are automatically generated when diners earn enough points.</p>
-            </div>
+            
+            {/* Voucher Type Dialog */}
+            <Dialog open={voucherTypeDialogOpen} onOpenChange={(open) => {
+              setVoucherTypeDialogOpen(open);
+              if (!open) resetVoucherTypeForm();
+            }}>
+              <DialogContent className="sm:max-w-[500px]">
+                <DialogHeader>
+                  <DialogTitle>{editingVoucherType ? "Edit Voucher Type" : "Create Voucher Type"}</DialogTitle>
+                  <DialogDescription>
+                    {editingVoucherType ? "Update the voucher type details." : "Define a new reward option that diners can choose."}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="vt-name">Name *</Label>
+                    <Input 
+                      id="vt-name" 
+                      placeholder="e.g., R100 Off Your Bill"
+                      value={voucherTypeName}
+                      onChange={(e) => setVoucherTypeName(e.target.value)}
+                      data-testid="input-voucher-type-name"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="vt-description">Description</Label>
+                    <Textarea 
+                      id="vt-description" 
+                      placeholder="Brief description of the reward..."
+                      value={voucherTypeDescription}
+                      onChange={(e) => setVoucherTypeDescription(e.target.value)}
+                      data-testid="input-voucher-type-description"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="vt-credits">Credits Required</Label>
+                      <Input 
+                        id="vt-credits" 
+                        type="number" 
+                        min="1"
+                        value={voucherTypeCreditsCost}
+                        onChange={(e) => setVoucherTypeCreditsCost(e.target.value)}
+                        data-testid="input-voucher-type-credits"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="vt-validity">Validity (Days)</Label>
+                      <Input 
+                        id="vt-validity" 
+                        type="number" 
+                        min="1"
+                        value={voucherTypeValidityDays}
+                        onChange={(e) => setVoucherTypeValidityDays(e.target.value)}
+                        data-testid="input-voucher-type-validity"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="vt-reward-details">Terms & Conditions</Label>
+                    <Textarea 
+                      id="vt-reward-details" 
+                      placeholder="Fine print, exclusions, terms..."
+                      value={voucherTypeRewardDetails}
+                      onChange={(e) => setVoucherTypeRewardDetails(e.target.value)}
+                      data-testid="input-voucher-type-reward-details"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="vt-active">Active (visible to diners)</Label>
+                    <Button
+                      type="button"
+                      variant={voucherTypeIsActive ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setVoucherTypeIsActive(!voucherTypeIsActive)}
+                      className="gap-2"
+                      data-testid="button-voucher-type-active"
+                    >
+                      {voucherTypeIsActive ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}
+                      {voucherTypeIsActive ? "Active" : "Inactive"}
+                    </Button>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      setVoucherTypeDialogOpen(false);
+                      resetVoucherTypeForm();
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={handleSaveVoucherType}
+                    disabled={!voucherTypeName.trim() || createVoucherType.isPending || updateVoucherType.isPending}
+                    data-testid="button-save-voucher-type"
+                  >
+                    {(createVoucherType.isPending || updateVoucherType.isPending) ? "Saving..." : (editingVoucherType ? "Update" : "Create")}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </TabsContent>
         </Tabs>
       </div>

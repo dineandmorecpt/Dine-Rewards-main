@@ -10,12 +10,13 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Ticket, Megaphone, Plus, Calendar, Users, Percent, DollarSign, Gift, Clock, Send, Settings, Save, ScanLine, Check, FileUp, FileCheck, FileX, ChevronRight, Upload, Camera, X, Phone, Receipt, Coins, UserPlus, Trash2, Mail, Lock } from "lucide-react";
+import { Ticket, Megaphone, Plus, Calendar, Users, Percent, DollarSign, Gift, Clock, Send, Settings, Save, ScanLine, Check, FileUp, FileCheck, FileX, ChevronRight, Upload, Camera, X, Phone, Receipt, Coins, UserPlus, Trash2, Mail, Lock, Download, QrCode } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Html5Qrcode } from "html5-qrcode";
 import { useAuth } from "@/hooks/use-auth";
+import { QRCodeCanvas } from "qrcode.react";
 
 // Mock Data
 const initialVouchers = [
@@ -70,6 +71,29 @@ export default function AdminVouchers() {
   const [newUserName, setNewUserName] = useState("");
   const [newUserRole, setNewUserRole] = useState<"manager" | "staff">("staff");
   const [addUserDialogOpen, setAddUserDialogOpen] = useState(false);
+  
+  // QR code ref for download
+  const qrCodeRef = useRef<HTMLCanvasElement>(null);
+  
+  // Get registration URL
+  const registrationUrl = typeof window !== 'undefined' 
+    ? `${window.location.origin}/register` 
+    : '/register';
+  
+  const downloadQRCode = () => {
+    const canvas = document.querySelector('#registration-qr-code canvas') as HTMLCanvasElement;
+    if (canvas) {
+      const url = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.download = 'dine-and-more-registration-qr.png';
+      link.href = url;
+      link.click();
+      toast({
+        title: "QR Code Downloaded",
+        description: "The registration QR code has been saved as a PNG file."
+      });
+    }
+  };
   
   // Fetch portal users
   const portalUsersQuery = useQuery({
@@ -898,6 +922,41 @@ export default function AdminVouchers() {
                 <Save className="h-4 w-4" />
                 {isSaving ? "Saving..." : "Save Settings"}
               </Button>
+
+              {/* Registration QR Code Card */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <QrCode className="h-5 w-5" />
+                    Registration QR Code
+                  </CardTitle>
+                  <CardDescription>
+                    Display this QR code at your restaurant so customers can scan and register for your loyalty program.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div id="registration-qr-code" className="flex justify-center p-4 bg-white rounded-lg">
+                    <QRCodeCanvas
+                      value={registrationUrl}
+                      size={200}
+                      level="H"
+                      includeMargin={true}
+                    />
+                  </div>
+                  <p className="text-xs text-center text-muted-foreground break-all">
+                    {registrationUrl}
+                  </p>
+                  <Button
+                    onClick={downloadQRCode}
+                    variant="outline"
+                    className="w-full gap-2"
+                    data-testid="button-download-qr"
+                  >
+                    <Download className="h-4 w-4" />
+                    Download QR Code (PNG)
+                  </Button>
+                </CardContent>
+              </Card>
 
               {/* User Management Card - Only visible to owners */}
               {canManageUsers && (

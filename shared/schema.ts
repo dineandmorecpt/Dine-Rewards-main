@@ -226,3 +226,22 @@ export const insertPortalUserSchema = createInsertSchema(portalUsers).omit({
 });
 export type InsertPortalUser = z.infer<typeof insertPortalUserSchema>;
 export type PortalUser = typeof portalUsers.$inferSelect;
+
+// Activity logs - audit trail for important actions
+export const activityLogs = pgTable("activity_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id),
+  userId: varchar("user_id").references(() => users.id), // Who performed the action (null for system actions)
+  action: text("action").notNull(), // Action type: 'voucher_created', 'voucher_redeemed', 'settings_updated', etc.
+  details: text("details"), // JSON string with additional context
+  targetType: text("target_type"), // Entity type affected: 'voucher', 'transaction', 'settings', 'user'
+  targetId: text("target_id"), // ID of the affected entity
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertActivityLogSchema = createInsertSchema(activityLogs).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
+export type ActivityLog = typeof activityLogs.$inferSelect;

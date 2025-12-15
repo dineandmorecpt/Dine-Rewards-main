@@ -21,6 +21,8 @@ import {
   type InsertDinerInvitation,
   type PortalUser,
   type InsertPortalUser,
+  type ActivityLog,
+  type InsertActivityLog,
   users,
   restaurants,
   pointsBalances,
@@ -31,7 +33,8 @@ import {
   reconciliationBatches,
   reconciliationRecords,
   dinerInvitations,
-  portalUsers
+  portalUsers,
+  activityLogs
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/node-postgres";
 import pkg from "pg";
@@ -136,6 +139,10 @@ export interface IStorage {
   addPortalUser(portalUser: InsertPortalUser): Promise<PortalUser>;
   removePortalUser(id: string): Promise<void>;
   getPortalUserByUserAndRestaurant(userId: string, restaurantId: string): Promise<PortalUser | undefined>;
+  
+  // Activity Log Management
+  createActivityLog(log: InsertActivityLog): Promise<ActivityLog>;
+  getActivityLogsByRestaurant(restaurantId: string, limit?: number): Promise<(ActivityLog & { user?: User })[]>;
 }
 
 export class DbStorage implements IStorage {
@@ -504,6 +511,26 @@ export class DbStorage implements IStorage {
     const result = await db.select().from(portalUsers)
       .where(and(eq(portalUsers.userId, userId), eq(portalUsers.restaurantId, restaurantId)));
     return result[0];
+  }
+
+  // Activity Log Methods
+  async createActivityLog(log: InsertActivityLog): Promise<ActivityLog> {
+    const result = await db.insert(activityLogs).values(log).returning();
+    return result[0];
+  }
+
+  async getActivityLogsByRestaurant(restaurantId: string, limit = 100): Promise<(ActivityLog & { user?: User })[]> {
+    const results = await db.select()
+      .from(activityLogs)
+      .leftJoin(users, eq(activityLogs.userId, users.id))
+      .where(eq(activityLogs.restaurantId, restaurantId))
+      .orderBy(desc(activityLogs.createdAt))
+      .limit(limit);
+    
+    return results.map(r => ({
+      ...r.activity_logs,
+      user: r.users || undefined
+    }));
   }
 }
 

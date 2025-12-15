@@ -17,6 +17,8 @@ import {
   type InsertReconciliationRecord,
   type DinerInvitation,
   type InsertDinerInvitation,
+  type PortalUser,
+  type InsertPortalUser,
   users,
   restaurants,
   pointsBalances,
@@ -25,7 +27,8 @@ import {
   campaigns,
   reconciliationBatches,
   reconciliationRecords,
-  dinerInvitations
+  dinerInvitations,
+  portalUsers
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/node-postgres";
 import pkg from "pg";
@@ -110,6 +113,12 @@ export interface IStorage {
   
   // Stats
   countAllDiners(): Promise<number>;
+  
+  // Portal User Management
+  getPortalUsersByRestaurant(restaurantId: string): Promise<(PortalUser & { user: User })[]>;
+  addPortalUser(portalUser: InsertPortalUser): Promise<PortalUser>;
+  removePortalUser(id: string): Promise<void>;
+  getPortalUserByUserAndRestaurant(userId: string, restaurantId: string): Promise<PortalUser | undefined>;
 }
 
 export class DbStorage implements IStorage {
@@ -410,6 +419,34 @@ export class DbStorage implements IStorage {
       .from(users)
       .where(eq(users.userType, 'diner'));
     return result[0]?.count || 0;
+  }
+
+  async getPortalUsersByRestaurant(restaurantId: string): Promise<(PortalUser & { user: User })[]> {
+    const results = await db.select()
+      .from(portalUsers)
+      .innerJoin(users, eq(portalUsers.userId, users.id))
+      .where(eq(portalUsers.restaurantId, restaurantId))
+      .orderBy(desc(portalUsers.createdAt));
+    
+    return results.map(r => ({
+      ...r.portal_users,
+      user: r.users
+    }));
+  }
+
+  async addPortalUser(portalUser: InsertPortalUser): Promise<PortalUser> {
+    const result = await db.insert(portalUsers).values(portalUser).returning();
+    return result[0];
+  }
+
+  async removePortalUser(id: string): Promise<void> {
+    await db.delete(portalUsers).where(eq(portalUsers.id, id));
+  }
+
+  async getPortalUserByUserAndRestaurant(userId: string, restaurantId: string): Promise<PortalUser | undefined> {
+    const result = await db.select().from(portalUsers)
+      .where(and(eq(portalUsers.userId, userId), eq(portalUsers.restaurantId, restaurantId)));
+    return result[0];
   }
 }
 

@@ -170,7 +170,7 @@ export default function AdminSettings() {
           <p className="text-muted-foreground mt-1">Configure your restaurant's loyalty program and manage team access.</p>
         </div>
 
-        <div className="grid gap-6 max-w-2xl">
+        <div className="grid gap-6 md:grid-cols-2">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -270,7 +270,7 @@ export default function AdminSettings() {
             data-testid="button-save-settings"
             onClick={handleSaveSettings}
             disabled={isSaving}
-            className="w-full gap-2"
+            className="w-full gap-2 md:col-span-2"
           >
             <Save className="h-4 w-4" />
             {isSaving ? "Saving..." : "Save Settings"}

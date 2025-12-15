@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useSearch, useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,8 @@ export default function Register() {
   const [name, setName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [registrationComplete, setRegistrationComplete] = useState(false);
@@ -35,7 +37,7 @@ export default function Register() {
     retry: false,
   });
 
-  const register = useMutation({
+  const registerWithToken = useMutation({
     mutationFn: async (data: { token: string; email: string; name: string; lastName: string; termsAccepted: boolean; privacyAccepted: boolean }) => {
       const res = await fetch('/api/diners/register', {
         method: 'POST',
@@ -53,9 +55,27 @@ export default function Register() {
     },
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const selfRegister = useMutation({
+    mutationFn: async (data: { name: string; lastName: string; email: string; phone: string; password: string }) => {
+      const res = await fetch('/api/auth/register-diner', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Registration failed");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      setRegistrationComplete(true);
+    },
+  });
+
+  const handleTokenSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    register.mutate({
+    registerWithToken.mutate({
       token,
       email,
       name,
@@ -65,19 +85,169 @@ export default function Register() {
     });
   };
 
-  const isFormValid = name.trim() && lastName.trim() && email.trim() && termsAccepted && privacyAccepted;
+  const handleSelfRegisterSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    selfRegister.mutate({
+      name,
+      lastName,
+      email,
+      phone,
+      password,
+    });
+  };
+
+  const isTokenFormValid = name.trim() && lastName.trim() && email.trim() && termsAccepted && privacyAccepted;
+  const isSelfFormValid = name.trim() && lastName.trim() && email.trim() && phone.trim() && password.length >= 6 && termsAccepted && privacyAccepted;
+
+  if (registrationComplete) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-emerald-50 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-2" />
+            <CardTitle className="text-2xl">Welcome to Dine&More!</CardTitle>
+            <CardDescription className="text-base">
+              Your registration is complete. Start earning points on your next visit!
+            </CardDescription>
+          </CardHeader>
+          <CardFooter className="justify-center">
+            <Button onClick={() => navigate('/diner/dashboard')} data-testid="button-go-dashboard">
+              View My Dashboard
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    );
+  }
 
   if (!token) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-emerald-50 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800 flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
-            <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-2" />
-            <CardTitle>Invalid Link</CardTitle>
+            <div className="mx-auto mb-4 p-3 rounded-full bg-primary/10">
+              <Gift className="h-8 w-8 text-primary" />
+            </div>
+            <CardTitle className="text-2xl font-serif">Join Dine&More Rewards</CardTitle>
             <CardDescription>
-              This registration link is invalid or missing. Please use the link sent to your phone.
+              Create your account to start earning rewards at participating restaurants!
             </CardDescription>
           </CardHeader>
+          <form onSubmit={handleSelfRegisterSubmit}>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">First Name</Label>
+                <Input
+                  id="name"
+                  placeholder="Enter your first name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  data-testid="input-register-name"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="lastName">Surname</Label>
+                <Input
+                  id="lastName"
+                  placeholder="Enter your surname"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  required
+                  data-testid="input-register-surname"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="Enter your email address"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  data-testid="input-register-email"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone Number</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  placeholder="e.g., 0821234567"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  required
+                  data-testid="input-register-phone"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Create a password (min. 6 characters)"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  data-testid="input-register-password"
+                />
+              </div>
+
+              <div className="space-y-3 pt-2">
+                <div className="flex items-start space-x-2">
+                  <Checkbox
+                    id="terms"
+                    checked={termsAccepted}
+                    onCheckedChange={(checked) => setTermsAccepted(checked === true)}
+                    data-testid="checkbox-terms"
+                  />
+                  <Label htmlFor="terms" className="text-sm leading-tight cursor-pointer">
+                    I accept the <a href="#" className="text-primary underline">Terms & Conditions</a>
+                  </Label>
+                </div>
+
+                <div className="flex items-start space-x-2">
+                  <Checkbox
+                    id="privacy"
+                    checked={privacyAccepted}
+                    onCheckedChange={(checked) => setPrivacyAccepted(checked === true)}
+                    data-testid="checkbox-privacy"
+                  />
+                  <Label htmlFor="privacy" className="text-sm leading-tight cursor-pointer">
+                    I accept the <a href="#" className="text-primary underline">Privacy Policy</a>
+                  </Label>
+                </div>
+              </div>
+
+              {selfRegister.isError && (
+                <div className="p-3 bg-destructive/10 text-destructive text-sm rounded-md">
+                  {(selfRegister.error as Error).message}
+                </div>
+              )}
+            </CardContent>
+            <CardFooter>
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={!isSelfFormValid || selfRegister.isPending}
+                data-testid="button-register"
+              >
+                {selfRegister.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Registering...
+                  </>
+                ) : (
+                  "Create Account"
+                )}
+              </Button>
+            </CardFooter>
+          </form>
         </Card>
       </div>
     );
@@ -111,27 +281,6 @@ export default function Register() {
     );
   }
 
-  if (registrationComplete) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-emerald-50 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-2" />
-            <CardTitle className="text-2xl">Welcome to the Rewards Program!</CardTitle>
-            <CardDescription className="text-base">
-              Your registration is complete. Start earning points on your next visit to {invitation.data?.restaurantName}!
-            </CardDescription>
-          </CardHeader>
-          <CardFooter className="justify-center">
-            <Button onClick={() => navigate('/diner/dashboard')} data-testid="button-go-dashboard">
-              View My Dashboard
-            </Button>
-          </CardFooter>
-        </Card>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-emerald-50 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800 flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
@@ -144,7 +293,7 @@ export default function Register() {
             Complete your registration to start earning rewards with every visit!
           </CardDescription>
         </CardHeader>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleTokenSubmit}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="name">Name</Label>
@@ -221,9 +370,9 @@ export default function Register() {
               </div>
             </div>
 
-            {register.isError && (
+            {registerWithToken.isError && (
               <div className="p-3 bg-destructive/10 text-destructive text-sm rounded-md">
-                {(register.error as Error).message}
+                {(registerWithToken.error as Error).message}
               </div>
             )}
           </CardContent>
@@ -231,10 +380,10 @@ export default function Register() {
             <Button
               type="submit"
               className="w-full"
-              disabled={!isFormValid || register.isPending}
+              disabled={!isTokenFormValid || registerWithToken.isPending}
               data-testid="button-register"
             >
-              {register.isPending ? (
+              {registerWithToken.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Registering...

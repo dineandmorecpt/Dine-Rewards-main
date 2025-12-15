@@ -69,11 +69,27 @@ export async function registerRoutes(
         return res.status(401).json({ error: "Invalid email or password" });
       }
 
-      // Get restaurant if admin
+      // Get restaurant and portal role if admin
       let restaurant = null;
+      let portalRole = null;
+      
       if (user.userType === 'admin') {
-        const restaurants = await storage.getRestaurantsByAdmin(user.id);
-        restaurant = restaurants[0] || null;
+        const ownedRestaurants = await storage.getRestaurantsByAdmin(user.id);
+        
+        if (ownedRestaurants.length > 0) {
+          restaurant = ownedRestaurants[0];
+          portalRole = 'owner';
+        } else {
+          const allRestaurants = await storage.getAllRestaurants();
+          for (const r of allRestaurants) {
+            const portalAccess = await storage.getPortalUserByUserAndRestaurant(user.id, r.id);
+            if (portalAccess) {
+              restaurant = r;
+              portalRole = portalAccess.role;
+              break;
+            }
+          }
+        }
       }
 
       // Set session
@@ -101,6 +117,7 @@ export async function registerRoutes(
             id: restaurant.id,
             name: restaurant.name,
           } : null,
+          portalRole,
         });
       });
     } catch (error: any) {
@@ -113,19 +130,37 @@ export async function registerRoutes(
   app.get("/api/auth/me", async (req, res) => {
     try {
       if (!req.session.userId) {
-        return res.json({ user: null, restaurant: null });
+        return res.json({ user: null, restaurant: null, portalRole: null });
       }
 
       const user = await storage.getUser(req.session.userId);
       if (!user) {
         req.session.destroy(() => {});
-        return res.json({ user: null, restaurant: null });
+        return res.json({ user: null, restaurant: null, portalRole: null });
       }
 
       let restaurant = null;
+      let portalRole = null; // 'owner' | 'manager' | 'staff' | null
+      
       if (user.userType === 'admin') {
-        const restaurants = await storage.getRestaurantsByAdmin(user.id);
-        restaurant = restaurants[0] || null;
+        // Check if user owns any restaurants
+        const ownedRestaurants = await storage.getRestaurantsByAdmin(user.id);
+        
+        if (ownedRestaurants.length > 0) {
+          restaurant = ownedRestaurants[0];
+          portalRole = 'owner'; // Restaurant owner has full permissions
+        } else {
+          // Check if user has portal access to any restaurant
+          const allRestaurants = await storage.getAllRestaurants();
+          for (const r of allRestaurants) {
+            const portalAccess = await storage.getPortalUserByUserAndRestaurant(user.id, r.id);
+            if (portalAccess) {
+              restaurant = r;
+              portalRole = portalAccess.role; // 'manager' or 'staff'
+              break;
+            }
+          }
+        }
       }
 
       res.json({
@@ -141,10 +176,11 @@ export async function registerRoutes(
           id: restaurant.id,
           name: restaurant.name,
         } : null,
+        portalRole, // 'owner' | 'manager' | 'staff' | null
       });
     } catch (error) {
       console.error("Get current user error:", error);
-      res.json({ user: null, restaurant: null });
+      res.json({ user: null, restaurant: null, portalRole: null });
     }
   });
 
@@ -736,10 +772,30 @@ export async function registerRoutes(
     }
   });
 
-  // RECONCILIATION - Upload CSV for bill matching
+  // RECONCILIATION - Upload CSV for bill matching (owner/manager only, staff cannot upload)
   app.post("/api/restaurants/:restaurantId/reconciliation/upload", async (req, res) => {
     try {
+      // Require authenticated admin
+      if (!req.session.userId || req.session.userType !== 'admin') {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
       const { restaurantId } = req.params;
+      
+      // Check user's role for this restaurant
+      const restaurant = await storage.getRestaurant(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+      
+      const isOwner = restaurant.adminUserId === req.session.userId;
+      const portalAccess = await storage.getPortalUserByUserAndRestaurant(req.session.userId, restaurantId);
+      
+      // Staff cannot upload reconciliation files - only owner/manager
+      if (!isOwner && (!portalAccess || portalAccess.role === 'staff')) {
+        return res.status(403).json({ error: "You don't have permission to upload reconciliation files" });
+      }
+
       const { fileName, csvContent } = req.body;
       
       if (!fileName || !csvContent) {

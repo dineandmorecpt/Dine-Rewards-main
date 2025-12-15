@@ -19,10 +19,10 @@ export async function sendSMS(phone: string, message: string): Promise<{ success
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        message_template: message,
-        contacts: [
+        messages: [
           {
-            msisdn: phone,
+            content: message,
+            destination: phone.replace(/^\+/, '')
           }
         ]
       }),

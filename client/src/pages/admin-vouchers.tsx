@@ -10,11 +10,12 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Ticket, Megaphone, Plus, Calendar, Users, Percent, DollarSign, Gift, Clock, Send, Settings, Save, ScanLine, Check, FileUp, FileCheck, FileX, ChevronRight, Upload, Camera, X, Phone, Receipt, Coins, UserPlus, Trash2, Mail } from "lucide-react";
+import { Ticket, Megaphone, Plus, Calendar, Users, Percent, DollarSign, Gift, Clock, Send, Settings, Save, ScanLine, Check, FileUp, FileCheck, FileX, ChevronRight, Upload, Camera, X, Phone, Receipt, Coins, UserPlus, Trash2, Mail, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Html5Qrcode } from "html5-qrcode";
+import { useAuth } from "@/hooks/use-auth";
 
 // Mock Data
 const initialVouchers = [
@@ -49,6 +50,11 @@ export default function AdminVouchers() {
   const [isScanning, setIsScanning] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const { toast } = useToast();
+  const { portalRole, isOwnerOrManager } = useAuth();
+  
+  const canUploadReconciliation = isOwnerOrManager;
+  const canCreateVoucher = isOwnerOrManager;
+  const canManageUsers = portalRole === 'owner';
   
   // Transaction capture state
   const [capturePhone, setCapturePhone] = useState("");
@@ -670,12 +676,13 @@ export default function AdminVouchers() {
 
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-medium font-serif">Active Vouchers</h2>
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button className="gap-2">
-                    <Plus className="h-4 w-4" /> Create Voucher
-                  </Button>
-                </DialogTrigger>
+              {canCreateVoucher ? (
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button className="gap-2">
+                      <Plus className="h-4 w-4" /> Create Voucher
+                    </Button>
+                  </DialogTrigger>
                 <DialogContent className="sm:max-w-[500px]">
                   <DialogHeader>
                     <DialogTitle>Create New Voucher</DialogTitle>
@@ -721,6 +728,11 @@ export default function AdminVouchers() {
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
+              ) : (
+                <Button className="gap-2" variant="outline" disabled>
+                  <Lock className="h-4 w-4" /> Create Voucher
+                </Button>
+              )}
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -887,7 +899,8 @@ export default function AdminVouchers() {
                 {isSaving ? "Saving..." : "Save Settings"}
               </Button>
 
-              {/* User Management Card */}
+              {/* User Management Card - Only visible to owners */}
+              {canManageUsers && (
               <Card className="mt-6">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -1011,6 +1024,7 @@ export default function AdminVouchers() {
                   </div>
                 </CardContent>
               </Card>
+              )}
             </div>
           </TabsContent>
         </Tabs>

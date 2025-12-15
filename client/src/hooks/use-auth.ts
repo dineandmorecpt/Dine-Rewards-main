@@ -15,9 +15,12 @@ interface Restaurant {
   name: string;
 }
 
+type PortalRole = 'owner' | 'manager' | 'staff' | null;
+
 interface AuthResponse {
   user: User | null;
   restaurant: Restaurant | null;
+  portalRole: PortalRole;
 }
 
 async function fetchAuthStatus(): Promise<AuthResponse> {
@@ -25,7 +28,7 @@ async function fetchAuthStatus(): Promise<AuthResponse> {
     credentials: "include",
   });
   if (!response.ok) {
-    return { user: null, restaurant: null };
+    return { user: null, restaurant: null, portalRole: null };
   }
   return response.json();
 }
@@ -49,23 +52,29 @@ export function useAuth() {
     } catch (error) {
       console.error("Logout error:", error);
     }
-    queryClient.setQueryData(["auth"], { user: null, restaurant: null });
+    queryClient.setQueryData(["auth"], { user: null, restaurant: null, portalRole: null });
     window.location.href = "/";
   }, [queryClient]);
 
   const user = data?.user ?? null;
   const restaurant = data?.restaurant ?? null;
+  const portalRole = data?.portalRole ?? null;
   const isAuthenticated = !!user;
   const isDiner = user?.userType === 'diner';
   const isAdmin = user?.userType === 'admin';
+  const isOwnerOrManager = portalRole === 'owner' || portalRole === 'manager';
+  const isStaff = portalRole === 'staff';
 
   return {
     user,
     restaurant,
+    portalRole,
     isLoading,
     isAuthenticated,
     isDiner,
     isAdmin,
+    isOwnerOrManager,
+    isStaff,
     logout,
     refetch,
   };

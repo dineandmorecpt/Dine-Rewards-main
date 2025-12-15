@@ -44,6 +44,6 @@ export async function sendSMS(phone: string, message: string): Promise<{ success
 }
 
 export async function sendRegistrationInvite(phone: string, restaurantName: string, registrationLink: string): Promise<{ success: boolean; error?: string }> {
-  const message = `Welcome to Fancy Franks rewards, please use the link to register: ${registrationLink} Fancy Franks Rewards`;
+  const message = `Welcome to Fancy Frank's rewards, please use the link to register: ${registrationLink} Fancy Frank's Rewards`;
   return sendSMS(phone, message);
 }

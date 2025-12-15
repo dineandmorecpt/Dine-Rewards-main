@@ -73,7 +73,7 @@ export async function registerRoutes(
       let restaurant = null;
       let portalRole = null;
       
-      if (user.userType === 'admin') {
+      if (user.userType === 'restaurant_admin') {
         const ownedRestaurants = await storage.getRestaurantsByAdmin(user.id);
         
         if (ownedRestaurants.length > 0) {
@@ -142,7 +142,7 @@ export async function registerRoutes(
       let restaurant = null;
       let portalRole = null; // 'owner' | 'manager' | 'staff' | null
       
-      if (user.userType === 'admin') {
+      if (user.userType === 'restaurant_admin') {
         // Check if user owns any restaurants
         const ownedRestaurants = await storage.getRestaurantsByAdmin(user.id);
         

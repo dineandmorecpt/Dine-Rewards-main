@@ -1,4 +1,4 @@
-const SMS_API_URL = 'https://rest.smsportal.com/BulkMessages';
+const SMS_API_URL = 'https://rest.smsportal.com/v1/BulkMessages';
 
 export async function sendSMS(phone: string, message: string): Promise<{ success: boolean; error?: string }> {
   const apiKey = process.env.SMS_CLIENT_ID;

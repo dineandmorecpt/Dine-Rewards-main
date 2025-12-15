@@ -6,8 +6,10 @@ import {
   Settings, 
   LogOut,
   Menu,
-  FileCheck
+  FileCheck,
+  Megaphone
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useState } from "react";
@@ -26,6 +28,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
     { name: "Vouchers", href: "/admin/vouchers", icon: Ticket },
     { name: "Reconciliation", href: "/admin/reconciliation", icon: FileCheck },
+    { name: "Campaigns", href: null, icon: Megaphone, comingSoon: true },
     { name: "Settings", href: "/admin/settings", icon: Settings },
   ];
 
@@ -42,10 +45,26 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       <nav className="flex-1 px-4 space-y-1">
         {navigation.map((item) => {
           const isActive = location === item.href;
+          
+          if (item.comingSoon) {
+            return (
+              <div
+                key={item.name}
+                className="flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-md text-sidebar-foreground/40 cursor-not-allowed"
+              >
+                <item.icon className="h-5 w-5 text-sidebar-foreground/30" />
+                {item.name}
+                <Badge variant="outline" className="ml-auto text-[10px] px-1.5 py-0 h-4 border-sidebar-foreground/20 text-sidebar-foreground/40">
+                  Soon
+                </Badge>
+              </div>
+            );
+          }
+          
           return (
             <Link
               key={item.name}
-              href={item.href}
+              href={item.href!}
               className={cn(
                 "flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-md transition-all duration-200 group",
                 isActive

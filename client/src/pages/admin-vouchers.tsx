@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Ticket, Megaphone, Plus, Calendar, Users, Percent, DollarSign, Gift, Clock, Send, Settings, Save, ScanLine, Check, FileUp, FileCheck, FileX, ChevronRight, Upload, Camera, X, Phone, Receipt, Coins, UserPlus, Copy, ExternalLink, Loader2 } from "lucide-react";
+import { Ticket, Megaphone, Plus, Calendar, Users, Percent, DollarSign, Gift, Clock, Send, Settings, Save, ScanLine, Check, FileUp, FileCheck, FileX, ChevronRight, Upload, Camera, X, Phone, Receipt, Coins } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -59,9 +59,6 @@ export default function AdminVouchers() {
   const captureScannerRef = useRef<Html5Qrcode | null>(null);
   const [captureSuccess, setCaptureSuccess] = useState<{dinerName: string; pointsEarned: number; currentPoints: number} | null>(null);
 
-  // Invite diner state
-  const [invitePhone, setInvitePhone] = useState("");
-  const [inviteSuccess, setInviteSuccess] = useState<{phone: string; registrationLink: string; smsSent: boolean} | null>(null);
 
   const startScanner = async () => {
     try {
@@ -196,59 +193,6 @@ export default function AdminVouchers() {
       });
     }
   });
-
-  const inviteDiner = useMutation({
-    mutationFn: async ({ phone }: { phone: string }) => {
-      const res = await fetch(`/api/restaurants/${RESTAURANT_ID}/diners/invite`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone })
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to create invitation");
-      }
-      return res.json();
-    },
-    onSuccess: (data) => {
-      const fullLink = window.location.origin + data.invitation.registrationLink;
-      setInviteSuccess({
-        phone: data.invitation.phone,
-        registrationLink: fullLink,
-        smsSent: data.smsSent
-      });
-      setInvitePhone("");
-      toast({
-        title: data.smsSent ? "SMS Sent!" : "Invitation Created!",
-        description: data.smsSent 
-          ? `Registration link sent via SMS to ${data.invitation.phone}` 
-          : "Share the registration link with the customer."
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Failed to Create Invitation",
-        description: error.message,
-        variant: "destructive"
-      });
-    }
-  });
-
-  const copyToClipboard = async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      toast({
-        title: "Copied!",
-        description: "Link copied to clipboard."
-      });
-    } catch {
-      toast({
-        title: "Copy Failed",
-        description: "Please copy the link manually.",
-        variant: "destructive"
-      });
-    }
-  };
 
   const reconciliationBatches = useQuery({
     queryKey: ['reconciliation-batches', RESTAURANT_ID],
@@ -389,9 +333,8 @@ export default function AdminVouchers() {
         </div>
 
         <Tabs defaultValue="capture" className="w-full space-y-6">
-          <TabsList className="grid w-full grid-cols-6 max-w-[850px]">
+          <TabsList className="grid w-full grid-cols-5 max-w-[700px]">
             <TabsTrigger value="capture">Capture</TabsTrigger>
-            <TabsTrigger value="invite">Invite</TabsTrigger>
             <TabsTrigger value="vouchers">Vouchers</TabsTrigger>
             <TabsTrigger value="reconciliation">Reconciliation</TabsTrigger>
             <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
@@ -544,111 +487,6 @@ export default function AdminVouchers() {
                         <p className="text-muted-foreground">New Balance</p>
                         <p className="font-semibold">{captureSuccess.currentPoints} points</p>
                       </div>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* INVITE DINER TAB */}
-          <TabsContent value="invite" className="space-y-6">
-            <Card className="border-primary/30 bg-gradient-to-r from-primary/5 to-blue-500/10">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <UserPlus className="h-5 w-5 text-primary" />
-                  Invite New Customer
-                </CardTitle>
-                <CardDescription>
-                  Enter a customer's phone number to create a registration link. Share the link with them to join your rewards program.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4 max-w-md">
-                  <div className="space-y-2">
-                    <Label htmlFor="invite-phone" className="flex items-center gap-2">
-                      <Phone className="h-4 w-4" />
-                      Customer Phone Number
-                    </Label>
-                    <Input
-                      id="invite-phone"
-                      placeholder="e.g., 0821234567"
-                      value={invitePhone}
-                      onChange={(e) => {
-                        setInvitePhone(e.target.value);
-                        setInviteSuccess(null);
-                      }}
-                      className="font-mono"
-                      data-testid="input-invite-phone"
-                    />
-                  </div>
-
-                  <Button
-                    onClick={() => inviteDiner.mutate({ phone: invitePhone })}
-                    disabled={!invitePhone.trim() || inviteDiner.isPending}
-                    className="w-full gap-2"
-                    data-testid="button-invite-diner"
-                  >
-                    {inviteDiner.isPending ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Creating Invitation...
-                      </>
-                    ) : (
-                      <>
-                        <UserPlus className="h-4 w-4" />
-                        Create Invitation
-                      </>
-                    )}
-                  </Button>
-                </div>
-
-                {inviteSuccess && (
-                  <div className="mt-4 p-4 bg-green-50 dark:bg-green-950/30 rounded-md border border-green-200 dark:border-green-800">
-                    <p className="text-sm text-green-700 dark:text-green-400 font-medium flex items-center gap-2 mb-3">
-                      <Check className="h-4 w-4" />
-                      {inviteSuccess.smsSent 
-                        ? `SMS sent to ${inviteSuccess.phone}` 
-                        : `Invitation created for ${inviteSuccess.phone}`}
-                    </p>
-                    {inviteSuccess.smsSent && (
-                      <p className="text-sm text-green-600 dark:text-green-400 mb-3">
-                        The customer will receive an SMS with the registration link.
-                      </p>
-                    )}
-                    <div className="space-y-2">
-                      <Label className="text-xs text-muted-foreground">
-                        {inviteSuccess.smsSent ? "Registration Link (also sent via SMS)" : "Registration Link"}
-                      </Label>
-                      <div className="flex gap-2">
-                        <Input
-                          value={inviteSuccess.registrationLink}
-                          readOnly
-                          className="font-mono text-xs bg-muted"
-                          data-testid="input-registration-link"
-                        />
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => copyToClipboard(inviteSuccess.registrationLink)}
-                          data-testid="button-copy-link"
-                        >
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => window.open(inviteSuccess.registrationLink, '_blank')}
-                          data-testid="button-open-link"
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {inviteSuccess.smsSent 
-                          ? "Link expires in 7 days." 
-                          : "Share this link with the customer. It expires in 7 days."}
-                      </p>
                     </div>
                   </div>
                 )}

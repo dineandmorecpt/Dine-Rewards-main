@@ -29,9 +29,6 @@ function Router() {
       <Route path="/admin/reconciliation">
         <AdminGuard><AdminReconciliation /></AdminGuard>
       </Route>
-      <Route path="/admin/diners">
-        <AdminGuard><AdminDashboard /></AdminGuard>
-      </Route>
       <Route path="/admin/menu">
         <AdminGuard><AdminDashboard /></AdminGuard>
       </Route>

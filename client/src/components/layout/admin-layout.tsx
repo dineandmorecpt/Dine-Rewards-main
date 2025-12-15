@@ -2,8 +2,6 @@ import { cn } from "@/lib/utils";
 import { Link, useLocation, useRoute } from "wouter";
 import { 
   LayoutDashboard, 
-  Users, 
-  UtensilsCrossed, 
   Ticket, 
   Settings, 
   LogOut,
@@ -26,7 +24,6 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
   const navigation = [
     { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
-    { name: "Diners", href: "/admin/diners", icon: Users },
     { name: "Vouchers", href: "/admin/vouchers", icon: Ticket },
     { name: "Reconciliation", href: "/admin/reconciliation", icon: FileCheck },
     { name: "Settings", href: "/admin/settings", icon: Settings },

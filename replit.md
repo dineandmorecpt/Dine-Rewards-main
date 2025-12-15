@@ -1,4 +1,4 @@
-# Dine&More - Restaurant Rewards Platform
+# Dine&More - Restaurant Rewards Platform (Fancy Franks)
 
 ## Overview
 

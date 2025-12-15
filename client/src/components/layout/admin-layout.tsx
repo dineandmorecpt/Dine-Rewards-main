@@ -35,7 +35,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         <h1 className="text-2xl font-serif font-bold tracking-tight text-primary-foreground">
           Dine<span className="text-sidebar-primary">&</span>More
         </h1>
-        <p className="text-sm text-sidebar-primary font-semibold mt-1">The Burger Joint</p>
+        <p className="text-sm text-sidebar-primary font-semibold mt-1">Fancy Franks</p>
         <p className="text-xs text-sidebar-foreground/60 uppercase tracking-wider font-medium">Restaurant Admin</p>
       </div>
 

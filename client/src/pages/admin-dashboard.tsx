@@ -288,7 +288,7 @@ export default function AdminDashboard() {
           />
           <StatsCard 
             title="Total Revenue" 
-            value={`R${stats?.totalSpent?.toFixed(2) || "0.00"}`}
+            value={new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(stats?.totalSpent || 0)}
             icon={DollarSign}
             trend={{ value: 8, label: "vs last month", positive: true }}
           />

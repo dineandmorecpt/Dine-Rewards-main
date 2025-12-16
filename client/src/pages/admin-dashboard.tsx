@@ -403,10 +403,10 @@ export default function AdminDashboard() {
                     onSelect={(range) => range && setDateRange(range)}
                     numberOfMonths={1}
                     showOutsideDays
-                    className="w-full"
+                    className="mx-auto"
                     classNames={{
-                      months: "w-full",
-                      month: "w-full space-y-4",
+                      months: "flex justify-center",
+                      month: "space-y-4",
                       caption: "flex justify-between items-center px-2",
                       caption_label: "text-lg font-medium",
                       nav: "flex items-center gap-1",

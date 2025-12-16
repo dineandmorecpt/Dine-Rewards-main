@@ -373,13 +373,14 @@ export default function AdminDashboard() {
                     showOutsideDays
                     className="mx-auto mb-6"
                     classNames={{
+                      root: "relative",
                       months: "flex flex-col sm:flex-row gap-8 justify-center",
-                      month: "space-y-4 relative",
+                      month: "space-y-4",
                       month_caption: "flex justify-center items-center h-10 mb-2",
                       caption_label: "text-lg font-medium",
-                      nav: "absolute inset-x-0 top-0 flex w-full items-center justify-between z-10",
-                      button_previous: "h-8 w-8 bg-transparent p-0 opacity-60 hover:opacity-100 inline-flex items-center justify-center rounded-md border border-input hover:bg-accent",
-                      button_next: "h-8 w-8 bg-transparent p-0 opacity-60 hover:opacity-100 inline-flex items-center justify-center rounded-md border border-input hover:bg-accent",
+                      nav: "absolute inset-y-0 inset-x-0 flex items-center justify-between z-10 pointer-events-none",
+                      button_previous: "h-10 w-10 bg-background p-0 opacity-70 hover:opacity-100 inline-flex items-center justify-center rounded-md border border-input hover:bg-accent shadow-sm pointer-events-auto -ml-4",
+                      button_next: "h-10 w-10 bg-background p-0 opacity-70 hover:opacity-100 inline-flex items-center justify-center rounded-md border border-input hover:bg-accent shadow-sm pointer-events-auto -mr-4",
                       weekdays: "flex",
                       weekday: "text-muted-foreground text-center text-sm font-normal py-2 w-10",
                       week: "flex mt-1",

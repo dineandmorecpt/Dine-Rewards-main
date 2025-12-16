@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { StatsCard } from "@/components/dashboard/stats-card";
-import { Users, DollarSign, TicketPercent, UserPlus, Phone, Check, Copy, ExternalLink, Loader2, CalendarIcon } from "lucide-react";
+import { Users, DollarSign, TicketPercent, UserPlus, Phone, Check, Copy, ExternalLink, Loader2, CalendarIcon, Download } from "lucide-react";
 import { 
   Bar, 
   BarChart, 
@@ -31,6 +31,22 @@ interface RestaurantStats {
   totalSpent: number;
   vouchersRedeemed: number;
   totalRegisteredDiners: number;
+}
+
+function downloadCSV(data: Record<string, unknown>[], filename: string) {
+  if (data.length === 0) return;
+  const headers = Object.keys(data[0]);
+  const csvRows = [
+    headers.join(','),
+    ...data.map(row => headers.map(h => `"${row[h]}"`).join(','))
+  ];
+  const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 export default function AdminDashboard() {
@@ -316,7 +332,18 @@ export default function AdminDashboard() {
               <CardTitle className="font-serif text-xl">Diner Registrations</CardTitle>
               <CardDescription>New registered diners over time</CardDescription>
             </div>
-            <Dialog>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => downloadCSV(chartData.map(d => ({ Date: d.date, Registrations: d.registrations })), 'diner-registrations.csv')}
+                disabled={chartData.length === 0}
+                data-testid="button-export-registrations"
+              >
+                <Download className="h-4 w-4 mr-1" />
+                Export
+              </Button>
+              <Dialog>
               <DialogTrigger asChild>
                 <Button
                   variant="outline"
@@ -377,6 +404,7 @@ export default function AdminDashboard() {
                 </div>
               </DialogContent>
             </Dialog>
+            </div>
           </CardHeader>
           <CardContent className="pl-0">
             {isLoadingRegistrations ? (
@@ -438,9 +466,21 @@ export default function AdminDashboard() {
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Voucher Redemptions by Type Chart */}
           <Card className="border-none shadow-sm">
-            <CardHeader>
-              <CardTitle className="font-serif text-xl">Voucher Redemptions by Type</CardTitle>
-              <CardDescription>Number of vouchers redeemed per voucher type</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <div>
+                <CardTitle className="font-serif text-xl">Voucher Redemptions by Type</CardTitle>
+                <CardDescription>Number of vouchers redeemed per voucher type</CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => downloadCSV(redemptionsChartData.map(d => ({ 'Voucher Type': d.name, Redemptions: d.redemptions })), 'voucher-redemptions-by-type.csv')}
+                disabled={redemptionsChartData.length === 0}
+                data-testid="button-export-redemptions"
+              >
+                <Download className="h-4 w-4 mr-1" />
+                Export
+              </Button>
             </CardHeader>
             <CardContent className="pl-0">
               {isLoadingRedemptions ? (

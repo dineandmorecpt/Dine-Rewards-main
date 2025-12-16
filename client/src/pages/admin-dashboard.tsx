@@ -361,11 +361,11 @@ export default function AdminDashboard() {
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-md p-0">
-                <div className="p-6">
-                  <DialogHeader className="mb-4">
-                    <DialogTitle>Select Date Range</DialogTitle>
+                <div className="p-6 flex flex-col items-center">
+                  <DialogHeader className="mb-4 text-center w-full">
+                    <DialogTitle className="text-center">Select Date Range</DialogTitle>
                   </DialogHeader>
-                  <div className="flex gap-2 mb-6">
+                  <div className="flex gap-2 mb-6 w-full justify-center">
                     <Button
                       type="button"
                       variant="outline"

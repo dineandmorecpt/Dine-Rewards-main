@@ -360,59 +360,61 @@ export default function AdminDashboard() {
                   )}
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-4xl w-full">
+              <DialogContent className="max-w-5xl w-full">
                 <DialogHeader>
-                  <DialogTitle>Select Date Range</DialogTitle>
+                  <DialogTitle className="text-xl">Select Date Range</DialogTitle>
                 </DialogHeader>
-                <div className="py-4 border-b">
-                  <div className="flex gap-4 justify-center">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setDateRange({ from: subDays(new Date(), 7), to: new Date() })}
-                      data-testid="button-7-days"
-                    >
-                      Last 7 days
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setDateRange({ from: subDays(new Date(), 30), to: new Date() })}
-                      data-testid="button-30-days"
-                    >
-                      Last 30 days
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setDateRange({ from: subDays(new Date(), 90), to: new Date() })}
-                      data-testid="button-90-days"
-                    >
-                      Last 90 days
-                    </Button>
-                  </div>
+                <div className="flex flex-wrap justify-center gap-3 px-6 py-5 bg-muted/40 rounded-md mx-4">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="px-6 py-2 font-medium shadow-sm"
+                    onClick={() => setDateRange({ from: subDays(new Date(), 7), to: new Date() })}
+                    data-testid="button-7-days"
+                  >
+                    Last 7 days
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="px-6 py-2 font-medium shadow-sm"
+                    onClick={() => setDateRange({ from: subDays(new Date(), 30), to: new Date() })}
+                    data-testid="button-30-days"
+                  >
+                    Last 30 days
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="px-6 py-2 font-medium shadow-sm"
+                    onClick={() => setDateRange({ from: subDays(new Date(), 90), to: new Date() })}
+                    data-testid="button-90-days"
+                  >
+                    Last 90 days
+                  </Button>
                 </div>
-                <div className="flex justify-center py-6 px-4">
+                <div className="flex justify-center py-8 px-6">
                   <Calendar
                     mode="range"
                     selected={dateRange}
                     onSelect={(range) => range && setDateRange(range)}
                     numberOfMonths={2}
-                    className="rounded-md border p-4 w-full max-w-2xl"
+                    className="rounded-md border p-6 w-full"
                     classNames={{
-                      months: "flex flex-col sm:flex-row gap-8 w-full justify-center",
-                      month: "space-y-4",
-                      caption: "flex justify-center pt-1 relative items-center",
-                      caption_label: "text-sm font-medium",
+                      months: "flex flex-col sm:flex-row gap-12 w-full justify-center",
+                      month: "space-y-6 flex-1",
+                      caption: "flex justify-center pt-2 relative items-center mb-4",
+                      caption_label: "text-base font-semibold",
                       nav: "space-x-1 flex items-center",
                       table: "w-full border-collapse",
                       head_row: "flex w-full",
-                      head_cell: "text-muted-foreground rounded-md w-10 font-normal text-[0.8rem] flex-1 text-center",
-                      row: "flex w-full mt-2",
-                      cell: "text-center text-sm p-0 relative flex-1 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
-                      day: "h-10 w-full p-0 font-normal aria-selected:opacity-100 hover:bg-accent hover:text-accent-foreground rounded-md",
+                      head_cell: "text-muted-foreground rounded-md font-medium text-sm flex-1 text-center py-2",
+                      row: "flex w-full mt-1",
+                      cell: "text-center p-1 relative flex-1 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
+                      day: "h-12 w-full p-0 font-normal text-base aria-selected:opacity-100 hover:bg-accent hover:text-accent-foreground rounded-md transition-colors",
                       day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
                       day_range_middle: "aria-selected:bg-accent aria-selected:text-accent-foreground",
+                      day_today: "bg-accent text-accent-foreground font-semibold",
                     }}
                     data-testid="calendar-date-range"
                   />

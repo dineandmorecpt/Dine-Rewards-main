@@ -324,7 +324,7 @@ export default function AdminDashboard() {
                   )}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="end">
+              <PopoverContent className="w-auto p-4" align="end">
                 <div className="p-3 border-b">
                   <div className="flex gap-2 flex-wrap">
                     <Button
@@ -358,6 +358,7 @@ export default function AdminDashboard() {
                   selected={dateRange}
                   onSelect={(range) => range && setDateRange(range)}
                   numberOfMonths={2}
+                  className="p-3"
                   data-testid="calendar-date-range"
                 />
               </PopoverContent>

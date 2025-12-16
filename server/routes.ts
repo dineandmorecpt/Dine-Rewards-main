@@ -1456,6 +1456,55 @@ export async function registerRoutes(
     }
   });
 
+  // DINER REGISTRATIONS STATS - Get diner registrations by date range for charts
+  app.get("/api/restaurants/:restaurantId/diner-registrations", async (req, res) => {
+    try {
+      // Require authenticated admin
+      if (!req.session.userId || req.session.userType !== 'restaurant_admin') {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { restaurantId } = req.params;
+      
+      // Verify user has access to this restaurant
+      const restaurant = await storage.getRestaurant(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+      
+      const isOwner = restaurant.adminUserId === req.session.userId;
+      const portalAccess = await storage.getPortalUserByUserAndRestaurant(req.session.userId, restaurantId);
+      
+      if (!isOwner && !portalAccess) {
+        return res.status(403).json({ error: "You don't have access to this restaurant's stats" });
+      }
+      
+      // Parse date range - defaults to last 30 days
+      // Expects YYYY-MM-DD format to avoid timezone issues
+      const parseDate = (str: string | undefined, fallback: Date): Date => {
+        if (!str) return fallback;
+        const match = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (!match) return fallback;
+        const [, year, month, day] = match;
+        return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+      };
+      
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const thirtyDaysAgo = new Date(today);
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const endDate = parseDate(req.query.end as string, today);
+      const startDate = parseDate(req.query.start as string, thirtyDaysAgo);
+      
+      const data = await storage.getDinerRegistrationsByDateRange(restaurantId, startDate, endDate);
+      res.json(data);
+    } catch (error) {
+      console.error("Get diner registrations error:", error);
+      res.status(500).json({ error: "Failed to fetch diner registrations" });
+    }
+  });
+
   // ACTIVITY LOGS - Get activity logs for a restaurant (authenticated admin only)
   app.get("/api/restaurants/:restaurantId/activity-logs", async (req, res) => {
     try {

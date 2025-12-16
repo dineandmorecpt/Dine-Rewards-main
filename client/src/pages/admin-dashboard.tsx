@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { StatsCard } from "@/components/dashboard/stats-card";
-import { Users, DollarSign, TicketPercent, UserPlus, Phone, Check, Copy, ExternalLink, Loader2 } from "lucide-react";
+import { Users, DollarSign, TicketPercent, UserPlus, Phone, Check, Copy, ExternalLink, Loader2, CalendarIcon } from "lucide-react";
 import { 
   Bar, 
   BarChart, 
@@ -10,25 +10,20 @@ import {
   XAxis, 
   YAxis, 
   Tooltip,
-  CartesianGrid 
+  CartesianGrid,
+  AreaChart,
+  Area
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-
-const RESTAURANT_ID = "b563a4ad-6dcc-4b42-8c49-5da98fb8d6ad";
-
-const weeklyVisitsData = [
-  { name: "Mon", visits: 24 },
-  { name: "Tue", visits: 35 },
-  { name: "Wed", visits: 42 },
-  { name: "Thu", visits: 58 },
-  { name: "Fri", visits: 85 },
-  { name: "Sat", visits: 110 },
-  { name: "Sun", visits: 95 },
-];
+import { useAuth } from "@/hooks/use-auth";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format, subDays } from "date-fns";
+import type { DateRange } from "react-day-picker";
 
 const weeklyRedemptionsData = [
   { name: "Mon", redemptions: 3 },
@@ -49,21 +44,54 @@ interface RestaurantStats {
 
 export default function AdminDashboard() {
   const { toast } = useToast();
+  const { restaurant } = useAuth();
+  const restaurantId = restaurant?.id;
   const [invitePhone, setInvitePhone] = useState("");
   const [inviteSuccess, setInviteSuccess] = useState<{phone: string; registrationLink: string; smsSent: boolean} | null>(null);
+  
+  const [dateRange, setDateRange] = useState<DateRange>({
+    from: subDays(new Date(), 30),
+    to: new Date(),
+  });
 
   const { data: stats, isLoading } = useQuery<RestaurantStats>({
-    queryKey: ["/api/restaurants", RESTAURANT_ID, "stats"],
+    queryKey: ["/api/restaurants", restaurantId, "stats"],
     queryFn: async () => {
-      const res = await fetch(`/api/restaurants/${RESTAURANT_ID}/stats`);
+      const res = await fetch(`/api/restaurants/${restaurantId}/stats`, { credentials: 'include' });
       if (!res.ok) throw new Error("Failed to fetch stats");
       return res.json();
     },
+    enabled: !!restaurantId,
   });
+
+  const { data: registrationData, isLoading: isLoadingRegistrations } = useQuery<{ date: string; count: number }[]>({
+    queryKey: ["/api/restaurants", restaurantId, "diner-registrations", dateRange.from?.toDateString(), dateRange.to?.toDateString()],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (dateRange.from) params.set('start', format(dateRange.from, 'yyyy-MM-dd'));
+      if (dateRange.to) params.set('end', format(dateRange.to, 'yyyy-MM-dd'));
+      const res = await fetch(`/api/restaurants/${restaurantId}/diner-registrations?${params}`, { credentials: 'include' });
+      if (!res.ok) throw new Error("Failed to fetch registrations");
+      return res.json();
+    },
+    enabled: !!restaurantId && !!dateRange.from && !!dateRange.to,
+  });
+
+  const chartData = useMemo(() => {
+    if (!registrationData) return [];
+    return registrationData.map(item => {
+      const [year, month, day] = item.date.split('-').map(Number);
+      const localDate = new Date(year, month - 1, day);
+      return {
+        date: format(localDate, 'MMM d'),
+        registrations: item.count,
+      };
+    });
+  }, [registrationData]);
 
   const inviteDiner = useMutation({
     mutationFn: async ({ phone }: { phone: string }) => {
-      const res = await fetch(`/api/restaurants/${RESTAURANT_ID}/diners/invite`, {
+      const res = await fetch(`/api/restaurants/${restaurantId}/diners/invite`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone })
@@ -272,51 +300,127 @@ export default function AdminDashboard() {
           />
         </div>
 
-        {/* Charts Grid */}
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* Weekly Trends Chart */}
-          <Card className="border-none shadow-sm">
-            <CardHeader>
-              <CardTitle className="font-serif text-xl">Weekly Visit Trends</CardTitle>
-              <CardDescription>Number of rewards diners visiting per day</CardDescription>
-            </CardHeader>
-            <CardContent className="pl-0">
+        {/* Diner Registrations Chart - Full Width */}
+        <Card className="border-none shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <div>
+              <CardTitle className="font-serif text-xl">Diner Registrations</CardTitle>
+              <CardDescription>New registered diners over time</CardDescription>
+            </div>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="gap-2 text-sm"
+                  data-testid="button-date-range"
+                >
+                  <CalendarIcon className="h-4 w-4" />
+                  {dateRange.from && dateRange.to ? (
+                    <>
+                      {format(dateRange.from, "MMM d, yyyy")} - {format(dateRange.to, "MMM d, yyyy")}
+                    </>
+                  ) : (
+                    "Select date range"
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <div className="p-3 border-b">
+                  <div className="flex gap-2 flex-wrap">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setDateRange({ from: subDays(new Date(), 7), to: new Date() })}
+                      data-testid="button-7-days"
+                    >
+                      Last 7 days
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setDateRange({ from: subDays(new Date(), 30), to: new Date() })}
+                      data-testid="button-30-days"
+                    >
+                      Last 30 days
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setDateRange({ from: subDays(new Date(), 90), to: new Date() })}
+                      data-testid="button-90-days"
+                    >
+                      Last 90 days
+                    </Button>
+                  </div>
+                </div>
+                <Calendar
+                  mode="range"
+                  selected={dateRange}
+                  onSelect={(range) => range && setDateRange(range)}
+                  numberOfMonths={2}
+                  data-testid="calendar-date-range"
+                />
+              </PopoverContent>
+            </Popover>
+          </CardHeader>
+          <CardContent className="pl-0">
+            {isLoadingRegistrations ? (
+              <div className="h-[300px] flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : chartData.length === 0 ? (
+              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                No registration data for this period
+              </div>
+            ) : (
               <div className="h-[300px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={weeklyVisitsData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                  <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="registrationGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
                     <XAxis 
-                      dataKey="name" 
+                      dataKey="date" 
                       axisLine={false} 
                       tickLine={false} 
-                      tick={{ fill: 'hsl(var(--muted-foreground))' }} 
+                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} 
                       dy={10}
+                      interval="preserveStartEnd"
                     />
                     <YAxis 
                       axisLine={false} 
                       tickLine={false} 
-                      tick={{ fill: 'hsl(var(--muted-foreground))' }} 
+                      tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                      allowDecimals={false}
                     />
                     <Tooltip 
-                      cursor={{ fill: 'hsl(var(--muted)/0.4)' }}
                       contentStyle={{ 
                         backgroundColor: 'hsl(var(--popover))', 
                         borderColor: 'hsl(var(--border))',
                         borderRadius: 'var(--radius)' 
                       }}
+                      formatter={(value) => [`${value} registrations`, 'Registrations']}
                     />
-                    <Bar 
-                      dataKey="visits" 
-                      fill="hsl(var(--primary))" 
-                      radius={[4, 4, 0, 0]} 
-                      barSize={40}
+                    <Area 
+                      type="monotone"
+                      dataKey="registrations" 
+                      stroke="hsl(var(--primary))" 
+                      strokeWidth={2}
+                      fill="url(#registrationGradient)"
                     />
-                  </BarChart>
+                  </AreaChart>
                 </ResponsiveContainer>
               </div>
-            </CardContent>
-          </Card>
+            )}
+          </CardContent>
+        </Card>
 
+        {/* Charts Grid */}
+        <div className="grid gap-6 lg:grid-cols-2">
           {/* Voucher Redemptions Chart */}
           <Card className="border-none shadow-sm">
             <CardHeader>

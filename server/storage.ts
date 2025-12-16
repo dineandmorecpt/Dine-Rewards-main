@@ -143,6 +143,9 @@ export interface IStorage {
   // Activity Log Management
   createActivityLog(log: InsertActivityLog): Promise<ActivityLog>;
   getActivityLogsByRestaurant(restaurantId: string, limit?: number): Promise<(ActivityLog & { user?: User })[]>;
+  
+  // Diner Registration Stats
+  getDinerRegistrationsByDateRange(restaurantId: string, startDate: Date, endDate: Date): Promise<{ date: string; count: number }[]>;
 }
 
 export class DbStorage implements IStorage {
@@ -531,6 +534,32 @@ export class DbStorage implements IStorage {
       ...r.activity_logs,
       user: r.users || undefined
     }));
+  }
+
+  // Diner Registration Stats
+  async getDinerRegistrationsByDateRange(restaurantId: string, startDate: Date, endDate: Date): Promise<{ date: string; count: number }[]> {
+    // Use SQL to get day-by-day counts of diner registrations (via invitations consumed)
+    const result = await db.execute(sql`
+      WITH date_series AS (
+        SELECT generate_series(
+          ${startDate.toISOString()}::date,
+          ${endDate.toISOString()}::date,
+          '1 day'::interval
+        )::date AS date
+      )
+      SELECT 
+        ds.date::text as date,
+        COALESCE(COUNT(di.id), 0)::int as count
+      FROM date_series ds
+      LEFT JOIN diner_invitations di ON 
+        di.restaurant_id = ${restaurantId} AND
+        di.consumed_at::date = ds.date AND
+        di.status = 'registered'
+      GROUP BY ds.date
+      ORDER BY ds.date ASC
+    `);
+    
+    return (result.rows as { date: string; count: number }[]);
   }
 }
 

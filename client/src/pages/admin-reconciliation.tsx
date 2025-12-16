@@ -126,7 +126,7 @@ export default function AdminReconciliation() {
           </p>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-6">
           {/* Upload Card */}
           <Card className="border-primary/20">
             <CardHeader>

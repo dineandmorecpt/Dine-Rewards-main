@@ -60,6 +60,11 @@ export default function AdminDashboard() {
     from: subDays(new Date(), 30),
     to: new Date(),
   });
+  
+  const [redemptionsDateRange, setRedemptionsDateRange] = useState<DateRange>({
+    from: subDays(new Date(), 30),
+    to: new Date(),
+  });
 
   const { data: stats, isLoading } = useQuery<RestaurantStats>({
     queryKey: ["/api/restaurants", restaurantId, "stats"],
@@ -97,13 +102,16 @@ export default function AdminDashboard() {
   }, [registrationData]);
 
   const { data: redemptionsByType, isLoading: isLoadingRedemptions } = useQuery<{ voucherTypeName: string; count: number }[]>({
-    queryKey: ["/api/restaurants", restaurantId, "voucher-redemptions-by-type"],
+    queryKey: ["/api/restaurants", restaurantId, "voucher-redemptions-by-type", redemptionsDateRange.from?.toDateString(), redemptionsDateRange.to?.toDateString()],
     queryFn: async () => {
-      const res = await fetch(`/api/restaurants/${restaurantId}/voucher-redemptions-by-type`, { credentials: 'include' });
+      const params = new URLSearchParams();
+      if (redemptionsDateRange.from) params.set('start', format(redemptionsDateRange.from, 'yyyy-MM-dd'));
+      if (redemptionsDateRange.to) params.set('end', format(redemptionsDateRange.to, 'yyyy-MM-dd'));
+      const res = await fetch(`/api/restaurants/${restaurantId}/voucher-redemptions-by-type?${params}`, { credentials: 'include' });
       if (!res.ok) throw new Error("Failed to fetch redemptions by type");
       return res.json();
     },
-    enabled: !!restaurantId,
+    enabled: !!restaurantId && !!redemptionsDateRange.from && !!redemptionsDateRange.to,
   });
 
   const redemptionsChartData = useMemo(() => {
@@ -485,15 +493,14 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
-        {/* Charts Grid */}
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* Voucher Redemptions by Type Chart */}
-          <Card className="border-none shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <div>
-                <CardTitle className="font-serif text-xl">Voucher Redemptions by Type</CardTitle>
-                <CardDescription>Number of vouchers redeemed per voucher type</CardDescription>
-              </div>
+        {/* Voucher Redemptions by Type Chart - Full Width */}
+        <Card className="border-none shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <div>
+              <CardTitle className="font-serif text-xl">Voucher Redemptions by Type</CardTitle>
+              <CardDescription>Number of vouchers redeemed per voucher type</CardDescription>
+            </div>
+            <div className="flex gap-2">
               <Button
                 variant="outline"
                 size="sm"
@@ -504,60 +511,144 @@ export default function AdminDashboard() {
                 <Download className="h-4 w-4 mr-1" />
                 Export
               </Button>
-            </CardHeader>
-            <CardContent className="pl-0">
-              {isLoadingRedemptions ? (
-                <div className="h-[300px] flex items-center justify-center">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <Dialog>
+              <DialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="gap-2 text-sm"
+                  data-testid="button-redemptions-date-range"
+                >
+                  <CalendarIcon className="h-4 w-4" />
+                  {redemptionsDateRange.from && redemptionsDateRange.to ? (
+                    <>
+                      {format(redemptionsDateRange.from, "MMM d, yyyy")} - {format(redemptionsDateRange.to, "MMM d, yyyy")}
+                    </>
+                  ) : (
+                    "Select date range"
+                  )}
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-4xl w-full p-0">
+                <div className="p-6 flex flex-col items-center">
+                  <DialogHeader className="mb-4 text-center w-full">
+                    <DialogTitle className="text-center">Select Date Range</DialogTitle>
+                  </DialogHeader>
+                  <Calendar
+                    mode="range"
+                    selected={redemptionsDateRange}
+                    onSelect={(range) => range && setRedemptionsDateRange(range)}
+                    numberOfMonths={2}
+                    showOutsideDays
+                    className="mx-auto mb-6"
+                    classNames={{
+                      root: "relative",
+                      months: "flex flex-col sm:flex-row gap-8 justify-center",
+                      month: "space-y-4",
+                      month_caption: "flex justify-center items-center h-10 mb-2",
+                      caption_label: "text-lg font-medium",
+                      nav: "absolute inset-y-0 inset-x-0 flex items-center justify-between z-10 pointer-events-none",
+                      button_previous: "h-10 w-10 bg-background p-0 opacity-70 hover:opacity-100 inline-flex items-center justify-center rounded-md border border-input hover:bg-accent shadow-sm pointer-events-auto -ml-12",
+                      button_next: "h-10 w-10 bg-background p-0 opacity-70 hover:opacity-100 inline-flex items-center justify-center rounded-md border border-input hover:bg-accent shadow-sm pointer-events-auto -mr-12",
+                      weekdays: "flex",
+                      weekday: "text-muted-foreground text-center text-sm font-normal py-2 w-10",
+                      week: "flex mt-1",
+                      day: "w-10 h-10 text-center relative p-0 focus-within:relative focus-within:z-20",
+                      today: "bg-blue-500 text-white rounded-full",
+                      outside: "text-muted-foreground opacity-50",
+                      disabled: "text-muted-foreground opacity-50",
+                      range_middle: "bg-accent text-accent-foreground rounded-none",
+                      range_start: "bg-primary text-primary-foreground rounded-l-md",
+                      range_end: "bg-primary text-primary-foreground rounded-r-md",
+                      hidden: "invisible",
+                    }}
+                    data-testid="calendar-redemptions-date-range"
+                  />
+                  <div className="flex gap-3 w-full justify-center border-t pt-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="hover:bg-primary hover:text-primary-foreground active:scale-95 transition-all"
+                      onClick={() => setRedemptionsDateRange({ from: subDays(new Date(), 7), to: new Date() })}
+                      data-testid="button-redemptions-7-days"
+                    >
+                      Last 7 days
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="hover:bg-primary hover:text-primary-foreground active:scale-95 transition-all"
+                      onClick={() => setRedemptionsDateRange({ from: subDays(new Date(), 30), to: new Date() })}
+                      data-testid="button-redemptions-30-days"
+                    >
+                      Last 30 days
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="hover:bg-primary hover:text-primary-foreground active:scale-95 transition-all"
+                      onClick={() => setRedemptionsDateRange({ from: subDays(new Date(), 90), to: new Date() })}
+                      data-testid="button-redemptions-90-days"
+                    >
+                      Last 90 days
+                    </Button>
+                  </div>
                 </div>
-              ) : redemptionsChartData.length === 0 ? (
-                <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-                  No voucher redemptions yet
-                </div>
-              ) : (
-                <div className="h-[300px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={redemptionsChartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
-                      <XAxis 
-                        dataKey="name" 
-                        axisLine={false} 
-                        tickLine={false} 
-                        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} 
-                        dy={10}
-                        interval={0}
-                        angle={-20}
-                        textAnchor="end"
-                        height={60}
-                      />
-                      <YAxis 
-                        axisLine={false} 
-                        tickLine={false} 
-                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                        allowDecimals={false}
-                      />
-                      <Tooltip 
-                        cursor={{ fill: 'hsl(var(--muted)/0.4)' }}
-                        contentStyle={{ 
-                          backgroundColor: 'hsl(var(--popover))', 
-                          borderColor: 'hsl(var(--border))',
-                          borderRadius: 'var(--radius)' 
-                        }}
-                        formatter={(value) => [`${value} redeemed`, 'Redemptions']}
-                      />
-                      <Bar 
-                        dataKey="redemptions" 
-                        fill="hsl(var(--chart-2))" 
-                        radius={[4, 4, 0, 0]} 
-                        barSize={50}
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+              </DialogContent>
+            </Dialog>
+            </div>
+          </CardHeader>
+          <CardContent className="pl-0">
+            {isLoadingRedemptions ? (
+              <div className="h-[300px] flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : redemptionsChartData.length === 0 ? (
+              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                No voucher redemptions for this period
+              </div>
+            ) : (
+              <div className="h-[300px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={redemptionsChartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
+                    <XAxis 
+                      dataKey="name" 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} 
+                      dy={10}
+                      interval={0}
+                      angle={-20}
+                      textAnchor="end"
+                      height={60}
+                    />
+                    <YAxis 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                      allowDecimals={false}
+                    />
+                    <Tooltip 
+                      cursor={{ fill: 'hsl(var(--muted)/0.4)' }}
+                      contentStyle={{ 
+                        backgroundColor: 'hsl(var(--popover))', 
+                        borderColor: 'hsl(var(--border))',
+                        borderRadius: 'var(--radius)' 
+                      }}
+                      formatter={(value) => [`${value} redeemed`, 'Redemptions']}
+                    />
+                    <Bar 
+                      dataKey="redemptions" 
+                      fill="hsl(var(--chart-2))" 
+                      radius={[4, 4, 0, 0]} 
+                      barSize={50}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </AdminLayout>
   );

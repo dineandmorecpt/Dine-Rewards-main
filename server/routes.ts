@@ -1526,7 +1526,19 @@ export async function registerRoutes(
         return res.status(403).json({ error: "You don't have access to this restaurant's stats" });
       }
       
-      const data = await storage.getVoucherRedemptionsByType(restaurantId);
+      // Parse date range - expects YYYY-MM-DD format
+      const parseDate = (str: string | undefined): Date | undefined => {
+        if (!str) return undefined;
+        const match = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (!match) return undefined;
+        const [, year, month, day] = match;
+        return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+      };
+      
+      const startDate = parseDate(req.query.start as string);
+      const endDate = parseDate(req.query.end as string);
+      
+      const data = await storage.getVoucherRedemptionsByType(restaurantId, startDate, endDate);
       res.json(data);
     } catch (error) {
       console.error("Get voucher redemptions by type error:", error);

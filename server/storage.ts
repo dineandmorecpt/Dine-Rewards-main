@@ -146,7 +146,7 @@ export interface IStorage {
   
   // Diner Registration Stats
   getDinerRegistrationsByDateRange(restaurantId: string, startDate: Date, endDate: Date): Promise<{ date: string; count: number }[]>;
-  getVoucherRedemptionsByType(restaurantId: string): Promise<{ voucherTypeName: string; count: number }[]>;
+  getVoucherRedemptionsByType(restaurantId: string, startDate?: Date, endDate?: Date): Promise<{ voucherTypeName: string; count: number }[]>;
 }
 
 export class DbStorage implements IStorage {
@@ -563,18 +563,36 @@ export class DbStorage implements IStorage {
     return (result.rows as { date: string; count: number }[]);
   }
 
-  async getVoucherRedemptionsByType(restaurantId: string): Promise<{ voucherTypeName: string; count: number }[]> {
-    const result = await db.execute(sql`
-      SELECT 
-        COALESCE(vt.name, 'Unknown Type') as voucher_type_name,
-        COUNT(v.id)::int as count
-      FROM vouchers v
-      LEFT JOIN voucher_types vt ON v.voucher_type_id = vt.id
-      WHERE v.restaurant_id = ${restaurantId}
-        AND v.is_redeemed = true
-      GROUP BY vt.name
-      ORDER BY count DESC
-    `);
+  async getVoucherRedemptionsByType(restaurantId: string, startDate?: Date, endDate?: Date): Promise<{ voucherTypeName: string; count: number }[]> {
+    let query;
+    if (startDate && endDate) {
+      query = sql`
+        SELECT 
+          COALESCE(vt.name, 'Unknown Type') as voucher_type_name,
+          COUNT(v.id)::int as count
+        FROM vouchers v
+        LEFT JOIN voucher_types vt ON v.voucher_type_id = vt.id
+        WHERE v.restaurant_id = ${restaurantId}
+          AND v.is_redeemed = true
+          AND v.redeemed_at >= ${startDate.toISOString()}::timestamp
+          AND v.redeemed_at <= ${endDate.toISOString()}::timestamp
+        GROUP BY vt.name
+        ORDER BY count DESC
+      `;
+    } else {
+      query = sql`
+        SELECT 
+          COALESCE(vt.name, 'Unknown Type') as voucher_type_name,
+          COUNT(v.id)::int as count
+        FROM vouchers v
+        LEFT JOIN voucher_types vt ON v.voucher_type_id = vt.id
+        WHERE v.restaurant_id = ${restaurantId}
+          AND v.is_redeemed = true
+        GROUP BY vt.name
+        ORDER BY count DESC
+      `;
+    }
+    const result = await db.execute(query);
     
     return (result.rows as { voucher_type_name: string; count: number }[]).map(row => ({
       voucherTypeName: row.voucher_type_name,

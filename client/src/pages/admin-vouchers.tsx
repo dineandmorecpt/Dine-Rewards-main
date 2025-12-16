@@ -26,8 +26,6 @@ const initialCampaigns = [
   { id: 3, name: "VIP Gala Invite", status: "Completed", voucher: "Welcome Drink", audience: "VIP", sent: 150, openRate: "82%" },
 ];
 
-const RESTAURANT_ID = "b563a4ad-6dcc-4b42-8c49-5da98fb8d6ad";
-
 export default function AdminVouchers() {
   const [campaigns, setCampaigns] = useState(initialCampaigns);
   const [voucherValue, setVoucherValue] = useState("R100 Loyalty Voucher");
@@ -44,7 +42,8 @@ export default function AdminVouchers() {
   const [isScanning, setIsScanning] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const { toast } = useToast();
-  const { portalRole, isOwnerOrManager } = useAuth();
+  const { portalRole, isOwnerOrManager, restaurant } = useAuth();
+  const restaurantId = restaurant?.id;
   
   const canUploadReconciliation = isOwnerOrManager;
   const canCreateVoucher = isOwnerOrManager;
@@ -100,17 +99,18 @@ export default function AdminVouchers() {
   
   // Fetch portal users
   const portalUsersQuery = useQuery({
-    queryKey: ['portal-users', RESTAURANT_ID],
+    queryKey: ['portal-users', restaurantId],
     queryFn: async () => {
-      const res = await fetch(`/api/restaurants/${RESTAURANT_ID}/portal-users`);
+      const res = await fetch(`/api/restaurants/${restaurantId}/portal-users`);
       if (!res.ok) throw new Error('Failed to fetch portal users');
       return res.json();
-    }
+    },
+    enabled: !!restaurantId
   });
   
   const addPortalUser = useMutation({
     mutationFn: async ({ email, name, role }: { email: string; name: string; role: string }) => {
-      const res = await fetch(`/api/restaurants/${RESTAURANT_ID}/portal-users`, {
+      const res = await fetch(`/api/restaurants/${restaurantId}/portal-users`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, name, role })
@@ -143,7 +143,7 @@ export default function AdminVouchers() {
   
   const removePortalUser = useMutation({
     mutationFn: async (portalUserId: string) => {
-      const res = await fetch(`/api/restaurants/${RESTAURANT_ID}/portal-users/${portalUserId}`, {
+      const res = await fetch(`/api/restaurants/${restaurantId}/portal-users/${portalUserId}`, {
         method: "DELETE"
       });
       if (!res.ok) throw new Error("Failed to remove user");
@@ -167,12 +167,13 @@ export default function AdminVouchers() {
   
   // Voucher types queries
   const voucherTypesQuery = useQuery({
-    queryKey: ['voucher-types', RESTAURANT_ID],
+    queryKey: ['voucher-types', restaurantId],
     queryFn: async () => {
-      const res = await fetch(`/api/restaurants/${RESTAURANT_ID}/voucher-types`);
+      const res = await fetch(`/api/restaurants/${restaurantId}/voucher-types`);
       if (!res.ok) throw new Error('Failed to fetch voucher types');
       return res.json();
-    }
+    },
+    enabled: !!restaurantId
   });
   
   const resetVoucherTypeForm = () => {
@@ -198,7 +199,7 @@ export default function AdminVouchers() {
   
   const createVoucherType = useMutation({
     mutationFn: async (data: { name: string; description?: string; rewardDetails?: string; creditsCost: number; validityDays: number; isActive: boolean }) => {
-      const res = await fetch(`/api/restaurants/${RESTAURANT_ID}/voucher-types`, {
+      const res = await fetch(`/api/restaurants/${restaurantId}/voucher-types`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data)
@@ -229,7 +230,7 @@ export default function AdminVouchers() {
   
   const updateVoucherType = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: { name?: string; description?: string; rewardDetails?: string; creditsCost?: number; validityDays?: number; isActive?: boolean } }) => {
-      const res = await fetch(`/api/restaurants/${RESTAURANT_ID}/voucher-types/${id}`, {
+      const res = await fetch(`/api/restaurants/${restaurantId}/voucher-types/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data)
@@ -260,7 +261,7 @@ export default function AdminVouchers() {
   
   const deleteVoucherType = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`/api/restaurants/${RESTAURANT_ID}/voucher-types/${id}`, {
+      const res = await fetch(`/api/restaurants/${restaurantId}/voucher-types/${id}`, {
         method: "DELETE"
       });
       if (!res.ok) {
@@ -403,7 +404,7 @@ export default function AdminVouchers() {
 
   const recordTransaction = useMutation({
     mutationFn: async ({ phone, billId, amountSpent }: { phone: string; billId?: string; amountSpent: number }) => {
-      const res = await fetch(`/api/restaurants/${RESTAURANT_ID}/transactions/record`, {
+      const res = await fetch(`/api/restaurants/${restaurantId}/transactions/record`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone, billId: billId || undefined, amountSpent })
@@ -438,29 +439,30 @@ export default function AdminVouchers() {
   });
 
   const reconciliationBatches = useQuery({
-    queryKey: ['reconciliation-batches', RESTAURANT_ID],
+    queryKey: ['reconciliation-batches', restaurantId],
     queryFn: async () => {
-      const res = await fetch(`/api/restaurants/${RESTAURANT_ID}/reconciliation/batches`);
+      const res = await fetch(`/api/restaurants/${restaurantId}/reconciliation/batches`);
       if (!res.ok) throw new Error('Failed to fetch batches');
       return res.json();
-    }
+    },
+    enabled: !!restaurantId
   });
 
   const batchDetails = useQuery({
     queryKey: ['batch-details', selectedBatchId],
     queryFn: async () => {
       if (!selectedBatchId) return null;
-      const res = await fetch(`/api/restaurants/${RESTAURANT_ID}/reconciliation/batches/${selectedBatchId}`);
+      const res = await fetch(`/api/restaurants/${restaurantId}/reconciliation/batches/${selectedBatchId}`);
       if (!res.ok) throw new Error('Failed to fetch batch details');
       return res.json();
     },
-    enabled: !!selectedBatchId
+    enabled: !!restaurantId && !!selectedBatchId
   });
 
   const uploadCSV = useMutation({
     mutationFn: async (file: File) => {
       const content = await file.text();
-      const res = await fetch(`/api/restaurants/${RESTAURANT_ID}/reconciliation/upload`, {
+      const res = await fetch(`/api/restaurants/${restaurantId}/reconciliation/upload`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fileName: file.name, csvContent: content })
@@ -490,7 +492,7 @@ export default function AdminVouchers() {
 
   const redeemVoucher = useMutation({
     mutationFn: async ({ code, billId }: { code: string; billId?: string }) => {
-      const res = await fetch(`/api/restaurants/${RESTAURANT_ID}/vouchers/redeem`, {
+      const res = await fetch(`/api/restaurants/${restaurantId}/vouchers/redeem`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code, billId: billId || undefined })
@@ -520,7 +522,7 @@ export default function AdminVouchers() {
   });
 
   useEffect(() => {
-    fetch(`/api/restaurants/${RESTAURANT_ID}`)
+    fetch(`/api/restaurants/${restaurantId}`)
       .then(res => res.json())
       .then(data => {
         if (data) {
@@ -536,7 +538,7 @@ export default function AdminVouchers() {
   const handleSaveSettings = async () => {
     setIsSaving(true);
     try {
-      const response = await fetch(`/api/restaurants/${RESTAURANT_ID}/settings`, {
+      const response = await fetch(`/api/restaurants/${restaurantId}/settings`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

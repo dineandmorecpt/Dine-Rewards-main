@@ -14,8 +14,6 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { QRCodeCanvas } from "qrcode.react";
 
-const RESTAURANT_ID = "b563a4ad-6dcc-4b42-8c49-5da98fb8d6ad";
-
 export default function AdminSettings() {
   const [voucherValue, setVoucherValue] = useState("R100 Loyalty Voucher");
   const [voucherValidityDays, setVoucherValidityDays] = useState<number | string>(30);
@@ -23,7 +21,8 @@ export default function AdminSettings() {
   const [pointsThreshold, setPointsThreshold] = useState<number | string>(1000);
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
-  const { portalRole } = useAuth();
+  const { portalRole, restaurant } = useAuth();
+  const restaurantId = restaurant?.id;
   
   const canManageUsers = portalRole === 'owner';
   
@@ -52,17 +51,18 @@ export default function AdminSettings() {
   };
 
   const portalUsersQuery = useQuery({
-    queryKey: ['portal-users', RESTAURANT_ID],
+    queryKey: ['portal-users', restaurantId],
     queryFn: async () => {
-      const res = await fetch(`/api/restaurants/${RESTAURANT_ID}/portal-users`);
+      const res = await fetch(`/api/restaurants/${restaurantId}/portal-users`);
       if (!res.ok) throw new Error('Failed to fetch portal users');
       return res.json();
-    }
+    },
+    enabled: !!restaurantId
   });
   
   const addPortalUser = useMutation({
     mutationFn: async ({ email, name, role }: { email: string; name: string; role: string }) => {
-      const res = await fetch(`/api/restaurants/${RESTAURANT_ID}/portal-users`, {
+      const res = await fetch(`/api/restaurants/${restaurantId}/portal-users`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, name, role })
@@ -95,7 +95,7 @@ export default function AdminSettings() {
   
   const removePortalUser = useMutation({
     mutationFn: async (portalUserId: string) => {
-      const res = await fetch(`/api/restaurants/${RESTAURANT_ID}/portal-users/${portalUserId}`, {
+      const res = await fetch(`/api/restaurants/${restaurantId}/portal-users/${portalUserId}`, {
         method: "DELETE"
       });
       if (!res.ok) throw new Error("Failed to remove user");
@@ -118,7 +118,7 @@ export default function AdminSettings() {
   });
 
   useEffect(() => {
-    fetch(`/api/restaurants/${RESTAURANT_ID}`)
+    fetch(`/api/restaurants/${restaurantId}`)
       .then(res => res.json())
       .then(data => {
         if (data) {
@@ -134,7 +134,7 @@ export default function AdminSettings() {
   const handleSaveSettings = async () => {
     setIsSaving(true);
     try {
-      const response = await fetch(`/api/restaurants/${RESTAURANT_ID}/settings`, {
+      const response = await fetch(`/api/restaurants/${restaurantId}/settings`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -6,38 +6,40 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Upload, FileUp, FileCheck, FileX, Download, ChevronRight, FileSpreadsheet } from "lucide-react";
-
-const RESTAURANT_ID = "b563a4ad-6dcc-4b42-8c49-5da98fb8d6ad";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function AdminReconciliation() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
   const { toast } = useToast();
+  const { restaurant } = useAuth();
+  const restaurantId = restaurant?.id;
 
   const reconciliationBatches = useQuery({
-    queryKey: ['reconciliation-batches', RESTAURANT_ID],
+    queryKey: ['reconciliation-batches', restaurantId],
     queryFn: async () => {
-      const res = await fetch(`/api/restaurants/${RESTAURANT_ID}/reconciliation/batches`);
+      const res = await fetch(`/api/restaurants/${restaurantId}/reconciliation/batches`);
       if (!res.ok) throw new Error('Failed to fetch batches');
       return res.json();
-    }
+    },
+    enabled: !!restaurantId
   });
 
   const batchDetails = useQuery({
     queryKey: ['batch-details', selectedBatchId],
     queryFn: async () => {
       if (!selectedBatchId) return null;
-      const res = await fetch(`/api/restaurants/${RESTAURANT_ID}/reconciliation/batches/${selectedBatchId}`);
+      const res = await fetch(`/api/restaurants/${restaurantId}/reconciliation/batches/${selectedBatchId}`);
       if (!res.ok) throw new Error('Failed to fetch batch details');
       return res.json();
     },
-    enabled: !!selectedBatchId
+    enabled: !!restaurantId && !!selectedBatchId
   });
 
   const uploadCSV = useMutation({
     mutationFn: async (file: File) => {
       const content = await file.text();
-      const res = await fetch(`/api/restaurants/${RESTAURANT_ID}/reconciliation/upload`, {
+      const res = await fetch(`/api/restaurants/${restaurantId}/reconciliation/upload`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fileName: file.name, csvContent: content })

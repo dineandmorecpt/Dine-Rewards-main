@@ -21,7 +21,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { format, subDays } from "date-fns";
 import type { DateRange } from "react-day-picker";
 
@@ -307,8 +307,8 @@ export default function AdminDashboard() {
               <CardTitle className="font-serif text-xl">Diner Registrations</CardTitle>
               <CardDescription>New registered diners over time</CardDescription>
             </div>
-            <Popover>
-              <PopoverTrigger asChild>
+            <Dialog>
+              <DialogTrigger asChild>
                 <Button
                   variant="outline"
                   className="gap-2 text-sm"
@@ -323,10 +323,13 @@ export default function AdminDashboard() {
                     "Select date range"
                   )}
                 </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-4" align="end">
-                <div className="p-3 border-b">
-                  <div className="flex gap-2 flex-wrap">
+              </DialogTrigger>
+              <DialogContent className="max-w-fit">
+                <DialogHeader>
+                  <DialogTitle>Select Date Range</DialogTitle>
+                </DialogHeader>
+                <div className="p-4 border-b">
+                  <div className="flex gap-2 flex-wrap justify-center">
                     <Button
                       variant="outline"
                       size="sm"
@@ -353,16 +356,18 @@ export default function AdminDashboard() {
                     </Button>
                   </div>
                 </div>
-                <Calendar
-                  mode="range"
-                  selected={dateRange}
-                  onSelect={(range) => range && setDateRange(range)}
-                  numberOfMonths={2}
-                  className="p-3"
-                  data-testid="calendar-date-range"
-                />
-              </PopoverContent>
-            </Popover>
+                <div className="flex justify-center p-4">
+                  <Calendar
+                    mode="range"
+                    selected={dateRange}
+                    onSelect={(range) => range && setDateRange(range)}
+                    numberOfMonths={2}
+                    className="rounded-md border"
+                    data-testid="calendar-date-range"
+                  />
+                </div>
+              </DialogContent>
+            </Dialog>
           </CardHeader>
           <CardContent className="pl-0">
             {isLoadingRegistrations ? (

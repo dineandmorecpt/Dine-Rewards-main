@@ -360,52 +360,20 @@ export default function AdminDashboard() {
                   )}
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-md p-0">
+              <DialogContent className="max-w-4xl w-full p-0">
                 <div className="p-6 flex flex-col items-center">
                   <DialogHeader className="mb-4 text-center w-full">
                     <DialogTitle className="text-center">Select Date Range</DialogTitle>
                   </DialogHeader>
-                  <div className="flex gap-2 mb-6 w-full justify-center">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="flex-1"
-                      onClick={() => setDateRange({ from: subDays(new Date(), 7), to: new Date() })}
-                      data-testid="button-7-days"
-                    >
-                      7 days
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="flex-1"
-                      onClick={() => setDateRange({ from: subDays(new Date(), 30), to: new Date() })}
-                      data-testid="button-30-days"
-                    >
-                      30 days
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="flex-1"
-                      onClick={() => setDateRange({ from: subDays(new Date(), 90), to: new Date() })}
-                      data-testid="button-90-days"
-                    >
-                      90 days
-                    </Button>
-                  </div>
                   <Calendar
                     mode="range"
                     selected={dateRange}
                     onSelect={(range) => range && setDateRange(range)}
-                    numberOfMonths={1}
+                    numberOfMonths={2}
                     showOutsideDays
-                    className="mx-auto"
+                    className="mx-auto mb-6"
                     classNames={{
-                      months: "flex justify-center",
+                      months: "flex flex-col sm:flex-row gap-8 justify-center",
                       month: "space-y-4 relative",
                       month_caption: "flex justify-center items-center h-10 mb-2",
                       caption_label: "text-lg font-medium",
@@ -413,9 +381,9 @@ export default function AdminDashboard() {
                       button_previous: "h-8 w-8 bg-transparent p-0 opacity-60 hover:opacity-100 inline-flex items-center justify-center rounded-md border border-input hover:bg-accent",
                       button_next: "h-8 w-8 bg-transparent p-0 opacity-60 hover:opacity-100 inline-flex items-center justify-center rounded-md border border-input hover:bg-accent",
                       weekdays: "flex",
-                      weekday: "text-muted-foreground text-center text-sm font-normal py-2 flex-1",
+                      weekday: "text-muted-foreground text-center text-sm font-normal py-2 w-10",
                       week: "flex mt-1",
-                      day: "flex-1 text-center relative p-0 focus-within:relative focus-within:z-20",
+                      day: "w-10 h-10 text-center relative p-0 focus-within:relative focus-within:z-20",
                       today: "bg-blue-500 text-white rounded-full",
                       outside: "text-muted-foreground opacity-50",
                       disabled: "text-muted-foreground opacity-50",
@@ -426,6 +394,32 @@ export default function AdminDashboard() {
                     }}
                     data-testid="calendar-date-range"
                   />
+                  <div className="flex gap-3 w-full justify-center border-t pt-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setDateRange({ from: subDays(new Date(), 7), to: new Date() })}
+                      data-testid="button-7-days"
+                    >
+                      Last 7 days
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setDateRange({ from: subDays(new Date(), 30), to: new Date() })}
+                      data-testid="button-30-days"
+                    >
+                      Last 30 days
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setDateRange({ from: subDays(new Date(), 90), to: new Date() })}
+                      data-testid="button-90-days"
+                    >
+                      Last 90 days
+                    </Button>
+                  </div>
                 </div>
               </DialogContent>
             </Dialog>

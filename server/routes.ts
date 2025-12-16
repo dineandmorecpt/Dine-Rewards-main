@@ -1505,6 +1505,35 @@ export async function registerRoutes(
     }
   });
 
+  // VOUCHER REDEMPTIONS BY TYPE - Get voucher redemptions grouped by voucher type
+  app.get("/api/restaurants/:restaurantId/voucher-redemptions-by-type", async (req, res) => {
+    try {
+      if (!req.session.userId || req.session.userType !== 'restaurant_admin') {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { restaurantId } = req.params;
+      
+      const restaurant = await storage.getRestaurant(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+      
+      const isOwner = restaurant.adminUserId === req.session.userId;
+      const portalAccess = await storage.getPortalUserByUserAndRestaurant(req.session.userId, restaurantId);
+      
+      if (!isOwner && !portalAccess) {
+        return res.status(403).json({ error: "You don't have access to this restaurant's stats" });
+      }
+      
+      const data = await storage.getVoucherRedemptionsByType(restaurantId);
+      res.json(data);
+    } catch (error) {
+      console.error("Get voucher redemptions by type error:", error);
+      res.status(500).json({ error: "Failed to fetch voucher redemptions" });
+    }
+  });
+
   // ACTIVITY LOGS - Get activity logs for a restaurant (authenticated admin only)
   app.get("/api/restaurants/:restaurantId/activity-logs", async (req, res) => {
     try {

@@ -25,15 +25,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { format, subDays } from "date-fns";
 import type { DateRange } from "react-day-picker";
 
-const weeklyRedemptionsData = [
-  { name: "Mon", redemptions: 3 },
-  { name: "Tue", redemptions: 5 },
-  { name: "Wed", redemptions: 4 },
-  { name: "Thu", redemptions: 7 },
-  { name: "Fri", redemptions: 12 },
-  { name: "Sat", redemptions: 18 },
-  { name: "Sun", redemptions: 14 },
-];
 
 interface RestaurantStats {
   dinersLast30Days: number;
@@ -88,6 +79,24 @@ export default function AdminDashboard() {
       };
     });
   }, [registrationData]);
+
+  const { data: redemptionsByType, isLoading: isLoadingRedemptions } = useQuery<{ voucherTypeName: string; count: number }[]>({
+    queryKey: ["/api/restaurants", restaurantId, "voucher-redemptions-by-type"],
+    queryFn: async () => {
+      const res = await fetch(`/api/restaurants/${restaurantId}/voucher-redemptions-by-type`, { credentials: 'include' });
+      if (!res.ok) throw new Error("Failed to fetch redemptions by type");
+      return res.json();
+    },
+    enabled: !!restaurantId,
+  });
+
+  const redemptionsChartData = useMemo(() => {
+    if (!redemptionsByType) return [];
+    return redemptionsByType.map(item => ({
+      name: item.voucherTypeName,
+      redemptions: item.count,
+    }));
+  }, [redemptionsByType]);
 
   const inviteDiner = useMutation({
     mutationFn: async ({ phone }: { phone: string }) => {
@@ -427,46 +436,62 @@ export default function AdminDashboard() {
 
         {/* Charts Grid */}
         <div className="grid gap-6 lg:grid-cols-2">
-          {/* Voucher Redemptions Chart */}
+          {/* Voucher Redemptions by Type Chart */}
           <Card className="border-none shadow-sm">
             <CardHeader>
-              <CardTitle className="font-serif text-xl">Voucher Redemptions</CardTitle>
-              <CardDescription>Number of vouchers redeemed per day</CardDescription>
+              <CardTitle className="font-serif text-xl">Voucher Redemptions by Type</CardTitle>
+              <CardDescription>Number of vouchers redeemed per voucher type</CardDescription>
             </CardHeader>
             <CardContent className="pl-0">
-              <div className="h-[300px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={weeklyRedemptionsData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
-                    <XAxis 
-                      dataKey="name" 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{ fill: 'hsl(var(--muted-foreground))' }} 
-                      dy={10}
-                    />
-                    <YAxis 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{ fill: 'hsl(var(--muted-foreground))' }} 
-                    />
-                    <Tooltip 
-                      cursor={{ fill: 'hsl(var(--muted)/0.4)' }}
-                      contentStyle={{ 
-                        backgroundColor: 'hsl(var(--popover))', 
-                        borderColor: 'hsl(var(--border))',
-                        borderRadius: 'var(--radius)' 
-                      }}
-                    />
-                    <Bar 
-                      dataKey="redemptions" 
-                      fill="hsl(var(--chart-2))" 
-                      radius={[4, 4, 0, 0]} 
-                      barSize={40}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+              {isLoadingRedemptions ? (
+                <div className="h-[300px] flex items-center justify-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : redemptionsChartData.length === 0 ? (
+                <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                  No voucher redemptions yet
+                </div>
+              ) : (
+                <div className="h-[300px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={redemptionsChartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
+                      <XAxis 
+                        dataKey="name" 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} 
+                        dy={10}
+                        interval={0}
+                        angle={-20}
+                        textAnchor="end"
+                        height={60}
+                      />
+                      <YAxis 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                        allowDecimals={false}
+                      />
+                      <Tooltip 
+                        cursor={{ fill: 'hsl(var(--muted)/0.4)' }}
+                        contentStyle={{ 
+                          backgroundColor: 'hsl(var(--popover))', 
+                          borderColor: 'hsl(var(--border))',
+                          borderRadius: 'var(--radius)' 
+                        }}
+                        formatter={(value) => [`${value} redeemed`, 'Redemptions']}
+                      />
+                      <Bar 
+                        dataKey="redemptions" 
+                        fill="hsl(var(--chart-2))" 
+                        radius={[4, 4, 0, 0]} 
+                        barSize={50}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

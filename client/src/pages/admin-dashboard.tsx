@@ -360,12 +360,12 @@ export default function AdminDashboard() {
                   )}
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-fit">
+              <DialogContent className="max-w-3xl w-full">
                 <DialogHeader>
                   <DialogTitle>Select Date Range</DialogTitle>
                 </DialogHeader>
-                <div className="p-4 border-b">
-                  <div className="flex gap-2 flex-wrap justify-center">
+                <div className="py-4 border-b">
+                  <div className="flex gap-3 flex-wrap justify-center">
                     <Button
                       variant="outline"
                       size="sm"
@@ -392,13 +392,13 @@ export default function AdminDashboard() {
                     </Button>
                   </div>
                 </div>
-                <div className="flex justify-center p-4">
+                <div className="flex justify-center py-6">
                   <Calendar
                     mode="range"
                     selected={dateRange}
                     onSelect={(range) => range && setDateRange(range)}
                     numberOfMonths={2}
-                    className="rounded-md border"
+                    className="rounded-md border p-3"
                     data-testid="calendar-date-range"
                   />
                 </div>

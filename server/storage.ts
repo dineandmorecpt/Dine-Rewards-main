@@ -78,6 +78,7 @@ export interface IStorage {
   getTransactionsByDiner(dinerId: string): Promise<Transaction[]>;
   getTransactionsByDinerAndRestaurant(dinerId: string, restaurantId: string): Promise<Transaction[]>;
   getTransactionsByRestaurant(restaurantId: string, last30Days?: boolean): Promise<Transaction[]>;
+  getTransactionByBillId(restaurantId: string, billId: string): Promise<Transaction | undefined>;
   
   // Voucher Management
   createVoucher(voucher: InsertVoucher): Promise<Voucher>;
@@ -271,6 +272,16 @@ export class DbStorage implements IStorage {
     return await db.select().from(transactions)
       .where(eq(transactions.restaurantId, restaurantId))
       .orderBy(desc(transactions.transactionDate));
+  }
+
+  async getTransactionByBillId(restaurantId: string, billId: string): Promise<Transaction | undefined> {
+    const result = await db.select().from(transactions)
+      .where(and(
+        eq(transactions.restaurantId, restaurantId),
+        eq(transactions.billId, billId)
+      ))
+      .limit(1);
+    return result[0];
   }
 
   // Voucher Methods

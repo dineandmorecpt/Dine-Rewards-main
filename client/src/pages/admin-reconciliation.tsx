@@ -67,15 +67,20 @@ export default function AdminReconciliation() {
   });
 
   const generateReport = (batch: any, records: any[]) => {
-    const headers = ['Bill ID', 'Amount', 'Date', 'Status', 'Voucher Code', 'Voucher Value'];
-    const rows = records.map((r: any) => [
-      r.billId,
-      r.csvAmount || '',
-      r.csvDate || '',
-      r.isMatched ? 'Matched' : 'Unmatched',
-      r.voucherCode || '',
-      r.voucherValue || ''
-    ]);
+    const headers = ['Date', 'Bill ID', 'Customer Phone', 'Recorded Amount', 'POS Amount', 'Variance', 'Status', 'Voucher Code'];
+    const rows = records.map((r: any) => {
+      const varianceNum = r.variance ? parseFloat(r.variance) : null;
+      return [
+        r.csvDate || '',
+        r.billId,
+        r.userPhone || '',
+        r.recordedAmount ? `R${parseFloat(r.recordedAmount).toFixed(2)}` : '',
+        r.csvAmount || '',
+        varianceNum !== null ? `R${varianceNum.toFixed(2)}` : '',
+        r.isMatched ? 'Matched' : 'Unmatched',
+        r.voucherCode || ''
+      ];
+    });
 
     const summaryRows = [
       [],
@@ -268,34 +273,65 @@ export default function AdminReconciliation() {
               </div>
 
               {/* Records Table */}
-              <div className="rounded-md border">
-                <div className="grid grid-cols-4 border-b bg-muted/40 p-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  <div>Bill ID</div>
-                  <div>Amount</div>
-                  <div>Status</div>
-                  <div>Voucher</div>
-                </div>
-                <div className="divide-y max-h-[400px] overflow-y-auto">
-                  {batchDetails.data.records.map((record: any) => (
-                    <div key={record.id} className="grid grid-cols-4 items-center p-3 text-sm">
-                      <div className="font-mono text-xs">{record.billId}</div>
-                      <div>{record.csvAmount || '-'}</div>
-                      <div>
-                        {record.isMatched ? (
-                          <Badge variant="default" className="gap-1 bg-green-600">
-                            <FileCheck className="h-3 w-3" /> Matched
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary" className="gap-1">
-                            <FileX className="h-3 w-3" /> Unmatched
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="text-muted-foreground font-mono text-xs">
-                        {record.voucherCode || '-'}
-                      </div>
-                    </div>
-                  ))}
+              <div className="rounded-md border overflow-x-auto">
+                <div className="min-w-[800px]">
+                  <div className="grid grid-cols-7 border-b bg-muted/40 p-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    <div>Date</div>
+                    <div>Bill ID</div>
+                    <div>Customer</div>
+                    <div className="text-right">Recorded</div>
+                    <div className="text-right">POS (CSV)</div>
+                    <div className="text-right">Variance</div>
+                    <div>Status</div>
+                  </div>
+                  <div className="divide-y max-h-[400px] overflow-y-auto">
+                    {batchDetails.data.records.map((record: any) => {
+                      const varianceNum = record.variance ? parseFloat(record.variance) : null;
+                      const hasVariance = varianceNum !== null && varianceNum !== 0;
+                      
+                      return (
+                        <div key={record.id} className="grid grid-cols-7 items-center p-3 text-sm min-w-[800px]">
+                          <div className="text-xs text-muted-foreground">
+                            {record.csvDate || '-'}
+                          </div>
+                          <div className="font-mono text-xs">{record.billId}</div>
+                          <div className="text-xs">
+                            {record.userPhone || '-'}
+                          </div>
+                          <div className="text-right font-mono text-xs">
+                            {record.recordedAmount ? `R${parseFloat(record.recordedAmount).toFixed(2)}` : '-'}
+                          </div>
+                          <div className="text-right font-mono text-xs">
+                            {record.csvAmount || '-'}
+                          </div>
+                          <div className={`text-right font-mono text-xs ${
+                            hasVariance 
+                              ? varianceNum! < 0 
+                                ? 'text-red-600 font-medium' 
+                                : 'text-amber-600 font-medium'
+                              : 'text-green-600'
+                          }`}>
+                            {varianceNum !== null 
+                              ? varianceNum === 0 
+                                ? 'R0.00'
+                                : `${varianceNum > 0 ? '+' : ''}R${varianceNum.toFixed(2)}`
+                              : '-'}
+                          </div>
+                          <div>
+                            {record.isMatched ? (
+                              <Badge variant="default" className="gap-1 bg-green-600 text-xs">
+                                <FileCheck className="h-3 w-3" /> Matched
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary" className="gap-1 text-xs">
+                                <FileX className="h-3 w-3" /> Unmatched
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             </CardContent>

@@ -21,6 +21,9 @@ export interface EnrichedReconciliationRecord extends ReconciliationRecord {
   voucherCode?: string;
   voucherTitle?: string;
   redeemedAt?: Date | null;
+  recordedAmount?: string;
+  userPhone?: string;
+  variance?: string;
 }
 
 export interface IReconciliationService {
@@ -150,16 +153,44 @@ export class ReconciliationService implements IReconciliationService {
     
     const enrichedRecords: EnrichedReconciliationRecord[] = await Promise.all(
       records.map(async (record) => {
+        let enriched: EnrichedReconciliationRecord = { ...record };
+        
+        // Get transaction by billId to get recorded amount and user info
+        const transaction = await this.storage.getTransactionByBillId(batch.restaurantId, record.billId);
+        if (transaction) {
+          enriched.recordedAmount = transaction.amountSpent;
+          
+          // Get user phone
+          const user = await this.storage.getUser(transaction.dinerId);
+          if (user?.phone) {
+            enriched.userPhone = user.phone;
+          }
+          
+          // Calculate variance if both amounts exist (CSV amount - Recorded amount)
+          // Positive variance = POS shows more than recorded, Negative = POS shows less
+          if (record.csvAmount && transaction.amountSpent) {
+            // Normalize CSV amount: remove currency symbols, spaces, and handle comma decimals
+            const csvClean = record.csvAmount.replace(/[R$,\s]/g, '').replace(',', '.');
+            const csvNum = parseFloat(csvClean);
+            const recordedNum = parseFloat(transaction.amountSpent);
+            if (!isNaN(csvNum) && !isNaN(recordedNum)) {
+              const diff = csvNum - recordedNum;
+              enriched.variance = diff.toFixed(2);
+            }
+          }
+        }
+        
+        // Get voucher details if matched
         if (record.matchedVoucherId) {
           const voucher = await this.storage.getVoucherById(record.matchedVoucherId);
-          return {
-            ...record,
-            voucherCode: voucher?.code,
-            voucherTitle: voucher?.title,
-            redeemedAt: voucher?.redeemedAt
-          };
+          if (voucher) {
+            enriched.voucherCode = voucher.code;
+            enriched.voucherTitle = voucher.title;
+            enriched.redeemedAt = voucher.redeemedAt;
+          }
         }
-        return record;
+        
+        return enriched;
       })
     );
 

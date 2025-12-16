@@ -360,31 +360,31 @@ export default function AdminDashboard() {
                   )}
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-3xl w-full">
+              <DialogContent className="max-w-4xl w-full">
                 <DialogHeader>
                   <DialogTitle>Select Date Range</DialogTitle>
                 </DialogHeader>
                 <div className="py-4 border-b">
-                  <div className="flex gap-3 flex-wrap justify-center">
+                  <div className="flex gap-4 justify-center">
                     <Button
+                      type="button"
                       variant="outline"
-                      size="sm"
                       onClick={() => setDateRange({ from: subDays(new Date(), 7), to: new Date() })}
                       data-testid="button-7-days"
                     >
                       Last 7 days
                     </Button>
                     <Button
+                      type="button"
                       variant="outline"
-                      size="sm"
                       onClick={() => setDateRange({ from: subDays(new Date(), 30), to: new Date() })}
                       data-testid="button-30-days"
                     >
                       Last 30 days
                     </Button>
                     <Button
+                      type="button"
                       variant="outline"
-                      size="sm"
                       onClick={() => setDateRange({ from: subDays(new Date(), 90), to: new Date() })}
                       data-testid="button-90-days"
                     >
@@ -392,13 +392,28 @@ export default function AdminDashboard() {
                     </Button>
                   </div>
                 </div>
-                <div className="flex justify-center py-6">
+                <div className="flex justify-center py-6 px-4">
                   <Calendar
                     mode="range"
                     selected={dateRange}
                     onSelect={(range) => range && setDateRange(range)}
                     numberOfMonths={2}
-                    className="rounded-md border p-3"
+                    className="rounded-md border p-4 w-full max-w-2xl"
+                    classNames={{
+                      months: "flex flex-col sm:flex-row gap-8 w-full justify-center",
+                      month: "space-y-4",
+                      caption: "flex justify-center pt-1 relative items-center",
+                      caption_label: "text-sm font-medium",
+                      nav: "space-x-1 flex items-center",
+                      table: "w-full border-collapse",
+                      head_row: "flex w-full",
+                      head_cell: "text-muted-foreground rounded-md w-10 font-normal text-[0.8rem] flex-1 text-center",
+                      row: "flex w-full mt-2",
+                      cell: "text-center text-sm p-0 relative flex-1 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
+                      day: "h-10 w-full p-0 font-normal aria-selected:opacity-100 hover:bg-accent hover:text-accent-foreground rounded-md",
+                      day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
+                      day_range_middle: "aria-selected:bg-accent aria-selected:text-accent-foreground",
+                    }}
                     data-testid="calendar-date-range"
                   />
                 </div>

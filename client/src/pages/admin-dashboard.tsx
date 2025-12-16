@@ -399,6 +399,7 @@ export default function AdminDashboard() {
                     <Button
                       type="button"
                       variant="outline"
+                      className="hover:bg-primary hover:text-primary-foreground active:scale-95 transition-all"
                       onClick={() => setDateRange({ from: subDays(new Date(), 7), to: new Date() })}
                       data-testid="button-7-days"
                     >
@@ -407,6 +408,7 @@ export default function AdminDashboard() {
                     <Button
                       type="button"
                       variant="outline"
+                      className="hover:bg-primary hover:text-primary-foreground active:scale-95 transition-all"
                       onClick={() => setDateRange({ from: subDays(new Date(), 30), to: new Date() })}
                       data-testid="button-30-days"
                     >
@@ -415,6 +417,7 @@ export default function AdminDashboard() {
                     <Button
                       type="button"
                       variant="outline"
+                      className="hover:bg-primary hover:text-primary-foreground active:scale-95 transition-all"
                       onClick={() => setDateRange({ from: subDays(new Date(), 90), to: new Date() })}
                       data-testid="button-90-days"
                     >

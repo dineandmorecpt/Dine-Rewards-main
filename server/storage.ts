@@ -148,6 +148,7 @@ export interface IStorage {
   // Diner Registration Stats
   getDinerRegistrationsByDateRange(restaurantId: string, startDate: Date, endDate: Date): Promise<{ date: string; count: number }[]>;
   getVoucherRedemptionsByType(restaurantId: string, startDate?: Date, endDate?: Date): Promise<{ voucherTypeName: string; count: number }[]>;
+  getRevenueByDateRange(restaurantId: string, startDate: Date, endDate: Date): Promise<{ date: string; amount: number }[]>;
 }
 
 export class DbStorage implements IStorage {
@@ -609,6 +610,29 @@ export class DbStorage implements IStorage {
       voucherTypeName: row.voucher_type_name,
       count: row.count
     }));
+  }
+
+  async getRevenueByDateRange(restaurantId: string, startDate: Date, endDate: Date): Promise<{ date: string; amount: number }[]> {
+    const result = await db.execute(sql`
+      WITH date_series AS (
+        SELECT generate_series(
+          ${startDate.toISOString()}::date,
+          ${endDate.toISOString()}::date,
+          '1 day'::interval
+        )::date AS date
+      )
+      SELECT 
+        ds.date::text as date,
+        COALESCE(SUM(t.amount_spent::numeric), 0)::float as amount
+      FROM date_series ds
+      LEFT JOIN transactions t ON 
+        t.restaurant_id = ${restaurantId} AND
+        t.transaction_date::date = ds.date
+      GROUP BY ds.date
+      ORDER BY ds.date ASC
+    `);
+    
+    return (result.rows as { date: string; amount: number }[]);
   }
 }
 

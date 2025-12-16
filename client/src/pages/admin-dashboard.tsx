@@ -65,6 +65,11 @@ export default function AdminDashboard() {
     from: subDays(new Date(), 30),
     to: new Date(),
   });
+  
+  const [revenueDateRange, setRevenueDateRange] = useState<DateRange>({
+    from: subDays(new Date(), 30),
+    to: new Date(),
+  });
 
   const { data: stats, isLoading } = useQuery<RestaurantStats>({
     queryKey: ["/api/restaurants", restaurantId, "stats"],
@@ -121,6 +126,31 @@ export default function AdminDashboard() {
       redemptions: item.count,
     }));
   }, [redemptionsByType]);
+
+  const { data: revenueData, isLoading: isLoadingRevenue } = useQuery<{ date: string; amount: number }[]>({
+    queryKey: ["/api/restaurants", restaurantId, "revenue", revenueDateRange.from?.toDateString(), revenueDateRange.to?.toDateString()],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (revenueDateRange.from) params.set('start', format(revenueDateRange.from, 'yyyy-MM-dd'));
+      if (revenueDateRange.to) params.set('end', format(revenueDateRange.to, 'yyyy-MM-dd'));
+      const res = await fetch(`/api/restaurants/${restaurantId}/revenue?${params}`, { credentials: 'include' });
+      if (!res.ok) throw new Error("Failed to fetch revenue");
+      return res.json();
+    },
+    enabled: !!restaurantId && !!revenueDateRange.from && !!revenueDateRange.to,
+  });
+
+  const revenueChartData = useMemo(() => {
+    if (!revenueData) return [];
+    return revenueData.map(item => {
+      const [year, month, day] = item.date.split('-').map(Number);
+      const localDate = new Date(year, month - 1, day);
+      return {
+        date: format(localDate, 'MMM d'),
+        amount: item.amount,
+      };
+    });
+  }, [revenueData]);
 
   const inviteDiner = useMutation({
     mutationFn: async ({ phone }: { phone: string }) => {
@@ -644,6 +674,166 @@ export default function AdminDashboard() {
                       barSize={50}
                     />
                   </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Total Revenue Chart - Full Width */}
+        <Card className="border-none shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <div>
+              <CardTitle className="font-serif text-xl">Total Revenue</CardTitle>
+              <CardDescription>Daily revenue over time</CardDescription>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => downloadCSV(revenueChartData.map(d => ({ Date: d.date, Revenue: `R${d.amount.toFixed(2)}` })), 'revenue.csv')}
+                disabled={revenueChartData.length === 0}
+                data-testid="button-export-revenue"
+              >
+                <Download className="h-4 w-4 mr-1" />
+                Export
+              </Button>
+              <Dialog>
+              <DialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="gap-2 text-sm"
+                  data-testid="button-revenue-date-range"
+                >
+                  <CalendarIcon className="h-4 w-4" />
+                  {revenueDateRange.from && revenueDateRange.to ? (
+                    <>
+                      {format(revenueDateRange.from, "MMM d, yyyy")} - {format(revenueDateRange.to, "MMM d, yyyy")}
+                    </>
+                  ) : (
+                    "Select date range"
+                  )}
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-4xl w-full p-0">
+                <div className="p-6 flex flex-col items-center">
+                  <DialogHeader className="mb-4 text-center w-full">
+                    <DialogTitle className="text-center">Select Date Range</DialogTitle>
+                  </DialogHeader>
+                  <Calendar
+                    mode="range"
+                    selected={revenueDateRange}
+                    onSelect={(range) => range && setRevenueDateRange(range)}
+                    numberOfMonths={2}
+                    showOutsideDays
+                    className="mx-auto mb-6"
+                    classNames={{
+                      root: "relative",
+                      months: "flex flex-col sm:flex-row gap-8 justify-center",
+                      month: "space-y-4",
+                      month_caption: "flex justify-center items-center h-10 mb-2",
+                      caption_label: "text-lg font-medium",
+                      nav: "absolute inset-y-0 inset-x-0 flex items-center justify-between z-10 pointer-events-none",
+                      button_previous: "h-10 w-10 bg-background p-0 opacity-70 hover:opacity-100 inline-flex items-center justify-center rounded-md border border-input hover:bg-accent shadow-sm pointer-events-auto -ml-12",
+                      button_next: "h-10 w-10 bg-background p-0 opacity-70 hover:opacity-100 inline-flex items-center justify-center rounded-md border border-input hover:bg-accent shadow-sm pointer-events-auto -mr-12",
+                      weekdays: "flex",
+                      weekday: "text-muted-foreground text-center text-sm font-normal py-2 w-10",
+                      week: "flex mt-1",
+                      day: "w-10 h-10 text-center relative p-0 focus-within:relative focus-within:z-20",
+                      today: "bg-blue-500 text-white rounded-full",
+                      outside: "text-muted-foreground opacity-50",
+                      disabled: "text-muted-foreground opacity-50",
+                      range_middle: "bg-accent text-accent-foreground rounded-none",
+                      range_start: "bg-primary text-primary-foreground rounded-l-md",
+                      range_end: "bg-primary text-primary-foreground rounded-r-md",
+                      hidden: "invisible",
+                    }}
+                    data-testid="calendar-revenue-date-range"
+                  />
+                  <div className="flex gap-3 w-full justify-center border-t pt-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="hover:bg-primary hover:text-primary-foreground active:scale-95 transition-all"
+                      onClick={() => setRevenueDateRange({ from: subDays(new Date(), 7), to: new Date() })}
+                      data-testid="button-revenue-7-days"
+                    >
+                      Last 7 days
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="hover:bg-primary hover:text-primary-foreground active:scale-95 transition-all"
+                      onClick={() => setRevenueDateRange({ from: subDays(new Date(), 30), to: new Date() })}
+                      data-testid="button-revenue-30-days"
+                    >
+                      Last 30 days
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="hover:bg-primary hover:text-primary-foreground active:scale-95 transition-all"
+                      onClick={() => setRevenueDateRange({ from: subDays(new Date(), 90), to: new Date() })}
+                      data-testid="button-revenue-90-days"
+                    >
+                      Last 90 days
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+            </div>
+          </CardHeader>
+          <CardContent className="pl-0">
+            {isLoadingRevenue ? (
+              <div className="h-[300px] flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : revenueChartData.length === 0 ? (
+              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                No revenue data for this period
+              </div>
+            ) : (
+              <div className="h-[300px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={revenueChartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(var(--chart-3))" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="hsl(var(--chart-3))" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
+                    <XAxis 
+                      dataKey="date" 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} 
+                      dy={10}
+                      interval="preserveStartEnd"
+                    />
+                    <YAxis 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                      tickFormatter={(value) => `R${value}`}
+                    />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: 'hsl(var(--popover))', 
+                        borderColor: 'hsl(var(--border))',
+                        borderRadius: 'var(--radius)' 
+                      }}
+                      formatter={(value: number) => [`R${value.toFixed(2)}`, 'Revenue']}
+                    />
+                    <Area 
+                      type="monotone"
+                      dataKey="amount" 
+                      stroke="hsl(var(--chart-3))" 
+                      strokeWidth={2}
+                      fill="url(#revenueGradient)"
+                    />
+                  </AreaChart>
                 </ResponsiveContainer>
               </div>
             )}

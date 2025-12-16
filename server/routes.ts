@@ -1505,6 +1505,52 @@ export async function registerRoutes(
     }
   });
 
+  // REVENUE BY DATE - Get daily revenue over time with date range filtering
+  app.get("/api/restaurants/:restaurantId/revenue", async (req, res) => {
+    try {
+      if (!req.session.userId || req.session.userType !== 'restaurant_admin') {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { restaurantId } = req.params;
+      
+      const restaurant = await storage.getRestaurant(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+      
+      const isOwner = restaurant.adminUserId === req.session.userId;
+      const portalAccess = await storage.getPortalUserByUserAndRestaurant(req.session.userId, restaurantId);
+      
+      if (!isOwner && !portalAccess) {
+        return res.status(403).json({ error: "You don't have access to this restaurant's stats" });
+      }
+      
+      // Parse date range - expects YYYY-MM-DD format
+      const parseDate = (str: string | undefined, fallback: Date): Date => {
+        if (!str) return fallback;
+        const match = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (!match) return fallback;
+        const [, year, month, day] = match;
+        return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+      };
+      
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const thirtyDaysAgo = new Date(today);
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const endDate = parseDate(req.query.end as string, today);
+      const startDate = parseDate(req.query.start as string, thirtyDaysAgo);
+      
+      const data = await storage.getRevenueByDateRange(restaurantId, startDate, endDate);
+      res.json(data);
+    } catch (error) {
+      console.error("Get revenue error:", error);
+      res.status(500).json({ error: "Failed to fetch revenue data" });
+    }
+  });
+
   // VOUCHER REDEMPTIONS BY TYPE - Get voucher redemptions grouped by voucher type
   app.get("/api/restaurants/:restaurantId/voucher-redemptions-by-type", async (req, res) => {
     try {

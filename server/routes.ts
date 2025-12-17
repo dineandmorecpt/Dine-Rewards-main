@@ -8,6 +8,18 @@ import { insertTransactionSchema } from "@shared/schema";
 import { z } from "zod";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
+import rateLimit from "express-rate-limit";
+
+const authRateLimiter = rateLimit({
+  windowMs: 1000, // 1 second window
+  max: 100, // 100 requests per second
+  message: { error: "Too many attempts. Please try again in a moment." },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    return req.ip || req.headers['x-forwarded-for'] as string || 'unknown';
+  },
+});
 
 const recordTransactionSchema = z.object({
   phone: z.string()
@@ -39,7 +51,7 @@ export async function registerRoutes(
     password: z.string().min(1, "Password is required"),
   });
 
-  app.post("/api/auth/login", async (req, res) => {
+  app.post("/api/auth/login", authRateLimiter, async (req, res) => {
     try {
       const parseResult = loginSchema.safeParse(req.body);
       if (!parseResult.success) {
@@ -201,7 +213,7 @@ export async function registerRoutes(
     email: z.string().email("Invalid email address"),
   });
 
-  app.post("/api/auth/forgot-password", async (req, res) => {
+  app.post("/api/auth/forgot-password", authRateLimiter, async (req, res) => {
     try {
       const parseResult = forgotPasswordSchema.safeParse(req.body);
       if (!parseResult.success) {
@@ -252,7 +264,7 @@ export async function registerRoutes(
     password: z.string().min(6, "Password must be at least 6 characters"),
   });
 
-  app.post("/api/auth/reset-password", async (req, res) => {
+  app.post("/api/auth/reset-password", authRateLimiter, async (req, res) => {
     try {
       const parseResult = resetPasswordSchema.safeParse(req.body);
       if (!parseResult.success) {
@@ -335,7 +347,7 @@ export async function registerRoutes(
     password: z.string().min(6, "Password must be at least 6 characters"),
   });
 
-  app.post("/api/auth/register-diner", async (req, res) => {
+  app.post("/api/auth/register-diner", authRateLimiter, async (req, res) => {
     try {
       const parseResult = selfRegisterDinerSchema.safeParse(req.body);
       if (!parseResult.success) {

@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { createLoyaltyServices } from "./services/loyalty";
 import { sendRegistrationInvite } from "./services/sms";
+import { sendPasswordResetEmail } from "./services/email";
 import { insertTransactionSchema } from "@shared/schema";
 import { z } from "zod";
 import crypto from "crypto";
@@ -193,6 +194,133 @@ export async function registerRoutes(
       res.clearCookie("connect.sid");
       res.json({ success: true });
     });
+  });
+
+  // AUTH - Forgot Password (request reset link)
+  const forgotPasswordSchema = z.object({
+    email: z.string().email("Invalid email address"),
+  });
+
+  app.post("/api/auth/forgot-password", async (req, res) => {
+    try {
+      const parseResult = forgotPasswordSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(422).json({ 
+          error: parseResult.error.errors[0]?.message || "Invalid input" 
+        });
+      }
+
+      const { email } = parseResult.data;
+      const user = await storage.getUserByEmail(email);
+
+      // Always return success to prevent email enumeration
+      if (!user) {
+        console.log(`Password reset requested for non-existent email: ${email}`);
+        return res.json({ success: true, message: "If an account with that email exists, a password reset link has been sent." });
+      }
+
+      // Generate token (32 bytes = 64 hex characters)
+      const token = crypto.randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
+
+      await storage.createPasswordResetToken(user.id, token, expiresAt);
+
+      // Determine the reset link based on user type
+      const baseUrl = process.env.REPLIT_DEV_DOMAIN 
+        ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+        : 'http://localhost:5000';
+      const resetPath = user.userType === 'diner' ? '/reset-password' : '/admin/reset-password';
+      const resetLink = `${baseUrl}${resetPath}?token=${token}`;
+
+      const emailResult = await sendPasswordResetEmail(email, resetLink, user.name);
+      
+      if (!emailResult.success) {
+        console.error('Failed to send password reset email:', emailResult.error);
+        // Don't reveal to user that email failed - still return success for security
+      }
+
+      res.json({ success: true, message: "If an account with that email exists, a password reset link has been sent." });
+    } catch (error: any) {
+      console.error("Forgot password error:", error);
+      res.status(500).json({ error: "Failed to process request" });
+    }
+  });
+
+  // AUTH - Reset Password (set new password using token)
+  const resetPasswordSchema = z.object({
+    token: z.string().min(1, "Token is required"),
+    password: z.string().min(6, "Password must be at least 6 characters"),
+  });
+
+  app.post("/api/auth/reset-password", async (req, res) => {
+    try {
+      const parseResult = resetPasswordSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(422).json({ 
+          error: parseResult.error.errors[0]?.message || "Invalid input" 
+        });
+      }
+
+      const { token, password } = parseResult.data;
+
+      const resetToken = await storage.getPasswordResetToken(token);
+      
+      if (!resetToken) {
+        return res.status(400).json({ error: "Invalid or expired reset link" });
+      }
+
+      if (resetToken.usedAt) {
+        return res.status(400).json({ error: "This reset link has already been used" });
+      }
+
+      if (new Date() > resetToken.expiresAt) {
+        return res.status(400).json({ error: "This reset link has expired" });
+      }
+
+      // Hash the new password
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Update user's password
+      await storage.updateUserPassword(resetToken.userId, hashedPassword);
+
+      // Mark token as used
+      await storage.markPasswordResetTokenUsed(token);
+
+      res.json({ success: true, message: "Password has been reset successfully" });
+    } catch (error: any) {
+      console.error("Reset password error:", error);
+      res.status(500).json({ error: "Failed to reset password" });
+    }
+  });
+
+  // AUTH - Validate reset token (check if token is valid before showing form)
+  app.get("/api/auth/validate-reset-token", async (req, res) => {
+    try {
+      const token = req.query.token as string;
+      
+      if (!token) {
+        return res.json({ valid: false, error: "No token provided" });
+      }
+
+      const resetToken = await storage.getPasswordResetToken(token);
+      
+      if (!resetToken) {
+        return res.json({ valid: false, error: "Invalid reset link" });
+      }
+
+      if (resetToken.usedAt) {
+        return res.json({ valid: false, error: "This reset link has already been used" });
+      }
+
+      if (new Date() > resetToken.expiresAt) {
+        return res.json({ valid: false, error: "This reset link has expired" });
+      }
+
+      res.json({ valid: true });
+    } catch (error: any) {
+      console.error("Validate reset token error:", error);
+      res.json({ valid: false, error: "Failed to validate token" });
+    }
   });
 
   // AUTH - Register diner (self-registration)

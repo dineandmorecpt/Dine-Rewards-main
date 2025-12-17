@@ -149,6 +149,12 @@ export interface IStorage {
   getDinerRegistrationsByDateRange(restaurantId: string, startDate: Date, endDate: Date): Promise<{ date: string; count: number }[]>;
   getVoucherRedemptionsByType(restaurantId: string, startDate?: Date, endDate?: Date): Promise<{ voucherTypeName: string; count: number }[]>;
   getRevenueByDateRange(restaurantId: string, startDate: Date, endDate: Date): Promise<{ date: string; amount: number }[]>;
+  
+  // Password Reset
+  createPasswordResetToken(userId: string, token: string, expiresAt: Date): Promise<void>;
+  getPasswordResetToken(token: string): Promise<{ userId: string; expiresAt: Date; usedAt: Date | null } | undefined>;
+  markPasswordResetTokenUsed(token: string): Promise<void>;
+  updateUserPassword(userId: string, hashedPassword: string): Promise<void>;
 }
 
 export class DbStorage implements IStorage {
@@ -633,6 +639,36 @@ export class DbStorage implements IStorage {
     `);
     
     return (result.rows as { date: string; amount: number }[]);
+  }
+
+  async createPasswordResetToken(userId: string, token: string, expiresAt: Date): Promise<void> {
+    await db.execute(sql`
+      INSERT INTO password_reset_tokens (user_id, token, expires_at)
+      VALUES (${userId}, ${token}, ${expiresAt.toISOString()}::timestamp)
+    `);
+  }
+
+  async getPasswordResetToken(token: string): Promise<{ userId: string; expiresAt: Date; usedAt: Date | null } | undefined> {
+    const result = await db.execute(sql`
+      SELECT user_id, expires_at, used_at FROM password_reset_tokens WHERE token = ${token}
+    `);
+    if (result.rows.length === 0) return undefined;
+    const row = result.rows[0] as { user_id: string; expires_at: Date; used_at: Date | null };
+    return {
+      userId: row.user_id,
+      expiresAt: row.expires_at,
+      usedAt: row.used_at,
+    };
+  }
+
+  async markPasswordResetTokenUsed(token: string): Promise<void> {
+    await db.execute(sql`
+      UPDATE password_reset_tokens SET used_at = NOW() WHERE token = ${token}
+    `);
+  }
+
+  async updateUserPassword(userId: string, hashedPassword: string): Promise<void> {
+    await db.update(users).set({ password: hashedPassword }).where(eq(users.id, userId));
   }
 }
 

@@ -41,3 +41,9 @@ waitForPort = 5000
 [agent]
 mockupState = "FULLSTACK"
 integrations = ["github:1.0.0"]
+
+[userenv]
+
+[userenv.shared]
+BIRD_WORKSPACE_ID = "72743777-1c4f-46f9-b878-bc804262bdaa"
+BIRD_EMAIL_CHANNEL_ID = "133c04e6-a072-4c4a-92c2-89d12d87e6ac"

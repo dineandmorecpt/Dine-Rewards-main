@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -241,6 +241,11 @@ export default function Home() {
                       {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                       Sign In
                     </Button>
+                    <div className="text-center text-sm">
+                      <Link href="/forgot-password" className="text-muted-foreground hover:text-primary hover:underline" data-testid="link-diner-forgot">
+                        Forgot Password?
+                      </Link>
+                    </div>
                     <div className="text-center text-sm text-muted-foreground">
                       Don't have an account?{" "}
                       <button
@@ -368,6 +373,11 @@ export default function Home() {
                   {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                   Sign In as Restaurant
                 </Button>
+                <div className="text-center text-sm">
+                  <Link href="/forgot-password" className="text-muted-foreground hover:text-primary hover:underline" data-testid="link-admin-forgot">
+                    Forgot Password?
+                  </Link>
+                </div>
               </div>
             </TabsContent>
           </Tabs>

@@ -16,9 +16,7 @@ const authRateLimiter = rateLimit({
   message: { error: "Too many attempts. Please try again in a moment." },
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => {
-    return req.ip || req.headers['x-forwarded-for'] as string || 'unknown';
-  },
+  validate: { xForwardedForHeader: false },
 });
 
 const recordTransactionSchema = z.object({

@@ -18,12 +18,16 @@ export async function sendEmail(options: EmailOptions): Promise<{ success: boole
   }
 
   try {
+    const url = `${BIRD_API_URL}/${workspaceId}/channels/${channelId}/messages`;
+    console.log('Bird API request URL:', url);
+    console.log('Bird API key prefix:', apiKey?.substring(0, 10) + '...');
+    
     const response = await fetch(
-      `${BIRD_API_URL}/${workspaceId}/channels/${channelId}/messages`,
+      url,
       {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${apiKey}`,
+          'Authorization': `AccessKey ${apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -38,9 +42,11 @@ export async function sendEmail(options: EmailOptions): Promise<{ success: boole
           body: {
             type: 'html',
             html: {
-              subject: options.subject,
               html: options.htmlContent,
               text: options.textContent || options.htmlContent.replace(/<[^>]*>/g, ''),
+              metadata: {
+                subject: options.subject,
+              },
             },
           },
         }),

@@ -3,6 +3,8 @@ import {
   type InsertUser,
   type Restaurant,
   type InsertRestaurant,
+  type Branch,
+  type InsertBranch,
   type PointsBalance,
   type InsertPointsBalance,
   type Transaction,
@@ -25,6 +27,7 @@ import {
   type InsertActivityLog,
   users,
   restaurants,
+  branches,
   pointsBalances,
   transactions,
   vouchers,
@@ -60,6 +63,15 @@ export interface IStorage {
   getRestaurantsByAdmin(adminUserId: string): Promise<Restaurant[]>;
   createRestaurant(restaurant: InsertRestaurant): Promise<Restaurant>;
   getAllRestaurants(): Promise<Restaurant[]>;
+  
+  // Branch Management
+  getBranch(id: string): Promise<Branch | undefined>;
+  getBranchesByRestaurant(restaurantId: string): Promise<Branch[]>;
+  createBranch(branch: InsertBranch): Promise<Branch>;
+  updateBranch(id: string, updates: Partial<InsertBranch>): Promise<Branch>;
+  deleteBranch(id: string): Promise<void>;
+  getDefaultBranch(restaurantId: string): Promise<Branch | undefined>;
+  setDefaultBranch(restaurantId: string, branchId: string): Promise<void>;
   
   // Points Management
   getPointsBalance(dinerId: string, restaurantId: string): Promise<PointsBalance | undefined>;
@@ -201,6 +213,50 @@ export class DbStorage implements IStorage {
 
   async getAllRestaurants(): Promise<Restaurant[]> {
     return await db.select().from(restaurants);
+  }
+
+  // Branch Methods
+  async getBranch(id: string): Promise<Branch | undefined> {
+    const result = await db.select().from(branches).where(eq(branches.id, id));
+    return result[0];
+  }
+
+  async getBranchesByRestaurant(restaurantId: string): Promise<Branch[]> {
+    return await db.select().from(branches)
+      .where(eq(branches.restaurantId, restaurantId))
+      .orderBy(desc(branches.isDefault), branches.name);
+  }
+
+  async createBranch(branch: InsertBranch): Promise<Branch> {
+    const result = await db.insert(branches).values(branch).returning();
+    return result[0];
+  }
+
+  async updateBranch(id: string, updates: Partial<InsertBranch>): Promise<Branch> {
+    const result = await db.update(branches)
+      .set(updates)
+      .where(eq(branches.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteBranch(id: string): Promise<void> {
+    await db.delete(branches).where(eq(branches.id, id));
+  }
+
+  async getDefaultBranch(restaurantId: string): Promise<Branch | undefined> {
+    const result = await db.select().from(branches)
+      .where(and(eq(branches.restaurantId, restaurantId), eq(branches.isDefault, true)));
+    return result[0];
+  }
+
+  async setDefaultBranch(restaurantId: string, branchId: string): Promise<void> {
+    await db.update(branches)
+      .set({ isDefault: false })
+      .where(eq(branches.restaurantId, restaurantId));
+    await db.update(branches)
+      .set({ isDefault: true })
+      .where(eq(branches.id, branchId));
   }
 
   // Points Balance Methods

@@ -9,22 +9,32 @@ import {
   FileCheck,
   Megaphone,
   CalendarDays,
-  Activity
+  Activity,
+  Building2,
+  ChevronDown
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { BranchProvider, useBranch } from "@/hooks/use-branch";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
 }
 
-export function AdminLayout({ children }: AdminLayoutProps) {
+function AdminLayoutContent({ children }: AdminLayoutProps) {
   const [location] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { logout, restaurant } = useAuth();
+  const { branches, selectedBranch, setSelectedBranchId } = useBranch();
 
   const navigation = [
     { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
@@ -42,8 +52,47 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         <h1 className="text-2xl font-serif font-bold tracking-tight text-primary-foreground">
           Dine<span className="text-sidebar-primary">&</span>More
         </h1>
-        <p className="text-sm text-sidebar-primary font-semibold mt-1">Fancy Frank's</p>
+        <p className="text-sm text-sidebar-primary font-semibold mt-1">{restaurant?.name || 'Restaurant'}</p>
         <p className="text-xs text-sidebar-foreground/60 uppercase tracking-wider font-medium">Restaurant Admin</p>
+        
+        {branches.length > 1 && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="outline" 
+                className="w-full mt-3 justify-between text-left font-normal bg-sidebar-accent/50 border-sidebar-border hover:bg-sidebar-accent"
+                data-testid="button-branch-switcher"
+              >
+                <div className="flex items-center gap-2 truncate">
+                  <Building2 className="h-4 w-4 text-sidebar-primary shrink-0" />
+                  <span className="truncate">{selectedBranch?.name || 'Select branch'}</span>
+                </div>
+                <ChevronDown className="h-4 w-4 text-sidebar-foreground/60 shrink-0" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56">
+              {branches.map((branch) => (
+                <DropdownMenuItem
+                  key={branch.id}
+                  onClick={() => setSelectedBranchId(branch.id)}
+                  className={cn(
+                    "cursor-pointer",
+                    selectedBranch?.id === branch.id && "bg-accent"
+                  )}
+                  data-testid={`menu-branch-${branch.id}`}
+                >
+                  <Building2 className="h-4 w-4 mr-2" />
+                  {branch.name}
+                  {branch.isDefault && (
+                    <Badge variant="secondary" className="ml-auto text-[10px] px-1.5 py-0 h-4">
+                      Default
+                    </Badge>
+                  )}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
 
       <nav className="flex-1 px-4 space-y-1">
@@ -128,5 +177,13 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         </main>
       </div>
     </div>
+  );
+}
+
+export function AdminLayout({ children }: AdminLayoutProps) {
+  return (
+    <BranchProvider>
+      <AdminLayoutContent>{children}</AdminLayoutContent>
+    </BranchProvider>
   );
 }

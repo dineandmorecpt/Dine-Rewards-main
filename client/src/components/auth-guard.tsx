@@ -49,11 +49,35 @@ export function AuthGuard({ children, requiredUserType }: AuthGuardProps) {
 }
 
 export function AdminGuard({ children }: { children: React.ReactNode }) {
-  // Temporarily bypass auth for testing
+  const { user, isLoading, isAuthenticated } = useAuth();
+  const [, navigate] = useLocation();
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (!isAuthenticated) {
+      navigate("/");
+      return;
+    }
+    // Allow both 'admin' and 'restaurant_admin' user types
+    if (user?.userType !== 'admin' && user?.userType !== 'restaurant_admin') {
+      navigate("/diner/dashboard");
+    }
+  }, [isLoading, isAuthenticated, user, navigate]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) return null;
+  if (user?.userType !== 'admin' && user?.userType !== 'restaurant_admin') return null;
+
   return <>{children}</>;
 }
 
 export function DinerGuard({ children }: { children: React.ReactNode }) {
-  // Temporarily bypass auth for testing
-  return <>{children}</>;
+  return <AuthGuard requiredUserType="diner">{children}</AuthGuard>;
 }

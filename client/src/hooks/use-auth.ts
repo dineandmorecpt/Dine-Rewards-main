@@ -7,7 +7,7 @@ interface User {
   name: string;
   lastName?: string;
   phone?: string;
-  userType: 'diner' | 'admin';
+  userType: 'diner' | 'admin' | 'restaurant_admin';
 }
 
 interface Restaurant {

@@ -49,6 +49,25 @@ export const insertRestaurantSchema = createInsertSchema(restaurants).omit({
 export type InsertRestaurant = z.infer<typeof insertRestaurantSchema>;
 export type Restaurant = typeof restaurants.$inferSelect;
 
+// Restaurant branches - different locations under one organization
+export const branches = pgTable("branches", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id),
+  name: text("name").notNull(), // e.g., "Sandton City", "V&A Waterfront"
+  address: text("address"), // Physical address
+  phone: text("phone"), // Branch contact number
+  isActive: boolean("is_active").notNull().default(true),
+  isDefault: boolean("is_default").notNull().default(false), // Default branch for the restaurant
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertBranchSchema = createInsertSchema(branches).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertBranch = z.infer<typeof insertBranchSchema>;
+export type Branch = typeof branches.$inferSelect;
+
 // Points balance per diner per restaurant
 // Rule: Points do not fall away, but reset to 0 after reaching threshold and earning a voucher credit
 export const pointsBalances = pgTable("points_balances", {
@@ -75,6 +94,7 @@ export const transactions = pgTable("transactions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   dinerId: varchar("diner_id").notNull().references(() => users.id),
   restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id),
+  branchId: varchar("branch_id").references(() => branches.id), // Which branch the transaction occurred at
   billId: text("bill_id"), // Bill/Invoice ID from POS
   amountSpent: decimal("amount_spent", { precision: 10, scale: 2 }).notNull(),
   pointsEarned: integer("points_earned").notNull(),
@@ -92,6 +112,7 @@ export type Transaction = typeof transactions.$inferSelect;
 export const voucherTypes = pgTable("voucher_types", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id),
+  branchId: varchar("branch_id").references(() => branches.id), // Branch-specific voucher type (null = org-wide)
   name: text("name").notNull(), // e.g., "R100 Off Your Bill"
   description: text("description"), // Optional details about the voucher
   rewardDetails: text("reward_details"), // Fine print, terms, etc.
@@ -113,6 +134,7 @@ export const vouchers = pgTable("vouchers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   dinerId: varchar("diner_id").notNull().references(() => users.id),
   restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id),
+  branchId: varchar("branch_id").references(() => branches.id), // Branch where voucher was redeemed
   voucherTypeId: varchar("voucher_type_id").references(() => voucherTypes.id), // Which type was selected
   title: text("title").notNull(),
   code: text("code").notNull().unique(),
@@ -134,6 +156,7 @@ export type Voucher = typeof vouchers.$inferSelect;
 export const campaigns = pgTable("campaigns", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id),
+  branchId: varchar("branch_id").references(() => branches.id), // Branch-specific campaign (null = org-wide)
   name: text("name").notNull(),
   voucherTitle: text("voucher_title").notNull(),
   targetAudience: text("target_audience").notNull(), // 'all' | 'vip' | 'new' | 'lapsed'
@@ -154,6 +177,7 @@ export type Campaign = typeof campaigns.$inferSelect;
 export const reconciliationBatches = pgTable("reconciliation_batches", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id),
+  branchId: varchar("branch_id").references(() => branches.id), // Branch this batch belongs to
   fileName: text("file_name").notNull(),
   totalRecords: integer("total_records").notNull().default(0),
   matchedRecords: integer("matched_records").notNull().default(0),
@@ -193,6 +217,7 @@ export type ReconciliationRecord = typeof reconciliationRecords.$inferSelect;
 export const dinerInvitations = pgTable("diner_invitations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id),
+  branchId: varchar("branch_id").references(() => branches.id), // Branch that sent the invitation
   phone: text("phone").notNull(), // Phone number the SMS was sent to
   token: text("token").notNull().unique(), // Unique token for registration link
   status: text("status").notNull().default("pending"), // 'pending' | 'registered' | 'expired'
@@ -231,6 +256,7 @@ export type PortalUser = typeof portalUsers.$inferSelect;
 export const activityLogs = pgTable("activity_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id),
+  branchId: varchar("branch_id").references(() => branches.id), // Branch where action occurred (null = org-level)
   userId: varchar("user_id").references(() => users.id), // Who performed the action (null for system actions)
   action: text("action").notNull(), // Action type: 'voucher_created', 'voucher_redeemed', 'settings_updated', etc.
   details: text("details"), // JSON string with additional context

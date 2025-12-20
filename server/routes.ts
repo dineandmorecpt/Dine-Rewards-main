@@ -884,6 +884,121 @@ export async function registerRoutes(
     }
   });
 
+  // BRANCHES - Get all branches for a restaurant
+  app.get("/api/restaurants/:restaurantId/branches", async (req, res) => {
+    try {
+      const { restaurantId } = req.params;
+      const branchList = await storage.getBranchesByRestaurant(restaurantId);
+      res.json(branchList);
+    } catch (error) {
+      console.error("Get branches error:", error);
+      res.status(500).json({ error: "Failed to fetch branches" });
+    }
+  });
+
+  // BRANCHES - Create a new branch (owner/manager only)
+  const createBranchSchema = z.object({
+    name: z.string().min(1, "Branch name is required"),
+    address: z.string().optional(),
+    phone: z.string().optional(),
+    isDefault: z.boolean().optional().default(false),
+  });
+
+  app.post("/api/restaurants/:restaurantId/branches", async (req, res) => {
+    try {
+      const { restaurantId } = req.params;
+      const parseResult = createBranchSchema.safeParse(req.body);
+      
+      if (!parseResult.success) {
+        return res.status(422).json({ error: parseResult.error.errors[0]?.message });
+      }
+
+      const { name, address, phone, isDefault } = parseResult.data;
+      
+      const branch = await storage.createBranch({
+        restaurantId,
+        name,
+        address,
+        phone,
+        isDefault,
+        isActive: true,
+      });
+
+      if (isDefault) {
+        await storage.setDefaultBranch(restaurantId, branch.id);
+      }
+
+      await storage.createActivityLog({
+        restaurantId,
+        userId: req.session.userId || null,
+        action: 'branch_created',
+        targetType: 'branch',
+        targetId: branch.id,
+        details: JSON.stringify({ name, address }),
+      });
+
+      res.json(branch);
+    } catch (error: any) {
+      console.error("Create branch error:", error);
+      res.status(500).json({ error: error.message || "Failed to create branch" });
+    }
+  });
+
+  // BRANCHES - Update a branch
+  app.patch("/api/restaurants/:restaurantId/branches/:branchId", async (req, res) => {
+    try {
+      const { restaurantId, branchId } = req.params;
+      const updates = req.body;
+
+      const branch = await storage.updateBranch(branchId, updates);
+      
+      if (updates.isDefault) {
+        await storage.setDefaultBranch(restaurantId, branchId);
+      }
+
+      await storage.createActivityLog({
+        restaurantId,
+        userId: req.session.userId || null,
+        action: 'branch_updated',
+        targetType: 'branch',
+        targetId: branchId,
+        details: JSON.stringify(updates),
+      });
+
+      res.json(branch);
+    } catch (error: any) {
+      console.error("Update branch error:", error);
+      res.status(500).json({ error: error.message || "Failed to update branch" });
+    }
+  });
+
+  // BRANCHES - Delete a branch
+  app.delete("/api/restaurants/:restaurantId/branches/:branchId", async (req, res) => {
+    try {
+      const { restaurantId, branchId } = req.params;
+      
+      const branch = await storage.getBranch(branchId);
+      if (branch?.isDefault) {
+        return res.status(400).json({ error: "Cannot delete the default branch. Set another branch as default first." });
+      }
+
+      await storage.deleteBranch(branchId);
+      
+      await storage.createActivityLog({
+        restaurantId,
+        userId: req.session.userId || null,
+        action: 'branch_deleted',
+        targetType: 'branch',
+        targetId: branchId,
+      });
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Delete branch error:", error);
+      res.status(500).json({ error: error.message || "Failed to delete branch" });
+    }
+  });
+
   // VOUCHER TYPES - Get all voucher types for a restaurant (admin)
   app.get("/api/restaurants/:restaurantId/voucher-types", async (req, res) => {
     try {

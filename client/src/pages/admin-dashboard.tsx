@@ -389,16 +389,18 @@ export default function AdminDashboard() {
                   data-testid="button-date-range"
                 >
                   <CalendarIcon className="h-4 w-4" />
-                  <span className="hidden sm:inline">
-                    {dateRange.from && dateRange.to ? (
-                      <>
-                        {format(dateRange.from, "MMM d")} - {format(dateRange.to, "MMM d")}
-                      </>
-                    ) : (
-                      "Select dates"
-                    )}
-                  </span>
-                  <span className="sm:hidden">Dates</span>
+                  {dateRange.from && dateRange.to ? (
+                    <>
+                      <span className="hidden sm:inline">
+                        {format(dateRange.from, "MMM d, yyyy")} - {format(dateRange.to, "MMM d, yyyy")}
+                      </span>
+                      <span className="sm:hidden">
+                        {format(dateRange.from, "M/d")} - {format(dateRange.to, "M/d")}
+                      </span>
+                    </>
+                  ) : (
+                    <span>Select dates</span>
+                  )}
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-[95vw] sm:max-w-4xl w-full p-0 overflow-x-hidden">

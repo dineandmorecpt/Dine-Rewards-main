@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Utensils, Gift, ChevronRight, Clock, AlertCircle, QrCode, Receipt, Sparkles, Star } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Utensils, Gift, ChevronRight, Clock, AlertCircle, QrCode, Receipt, Sparkles, Star, Store } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/hooks/use-toast";
@@ -67,7 +68,7 @@ export default function DinerDashboard() {
   const [activeVoucherTitle, setActiveVoucherTitle] = useState<string>("");
   const [codeExpiresAt, setCodeExpiresAt] = useState<Date | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<string>("");
-  const [selectedRestaurant, setSelectedRestaurant] = useState<PointsBalance | null>(null);
+  const [selectedRestaurantId, setSelectedRestaurantId] = useState<string | null>(null);
   const [transactionHistoryOpen, setTransactionHistoryOpen] = useState(false);
   const [redeemCreditsOpen, setRedeemCreditsOpen] = useState(false);
   const [redeemingRestaurant, setRedeemingRestaurant] = useState<PointsBalance | null>(null);
@@ -110,6 +111,16 @@ export default function DinerDashboard() {
     },
     enabled: !!dinerId,
   });
+
+  // Auto-select first restaurant when balances load
+  useEffect(() => {
+    if (balances.length > 0 && !selectedRestaurantId) {
+      setSelectedRestaurantId(balances[0].restaurantId);
+    }
+  }, [balances, selectedRestaurantId]);
+
+  // Derive selectedRestaurant from balances
+  const selectedRestaurant = balances.find(b => b.restaurantId === selectedRestaurantId) || null;
 
   // Fetch vouchers
   const { data: vouchers = [], isLoading: loadingVouchers } = useQuery<Voucher[]>({
@@ -255,9 +266,36 @@ export default function DinerDashboard() {
   return (
     <DinerLayout>
       <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-        <div className="flex flex-col gap-2">
-          <h1 className="text-3xl font-serif font-bold text-foreground">Welcome back, {user?.name || 'Guest'}</h1>
-          <p className="text-muted-foreground">Manage your loyalty points and vouchers across all restaurants.</p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-serif font-bold text-foreground">Welcome back, {user?.name || 'Guest'}</h1>
+            <p className="text-muted-foreground">Manage your loyalty points and vouchers.</p>
+          </div>
+          
+          {balances.length > 0 && (
+            <div className="flex items-center gap-2">
+              <Store className="h-4 w-4 text-muted-foreground" />
+              <Select
+                value={selectedRestaurantId || ""}
+                onValueChange={(value) => setSelectedRestaurantId(value)}
+              >
+                <SelectTrigger className="w-[200px]" data-testid="select-restaurant">
+                  <SelectValue placeholder="Select restaurant" />
+                </SelectTrigger>
+                <SelectContent>
+                  {balances.map((balance) => (
+                    <SelectItem 
+                      key={balance.restaurantId} 
+                      value={balance.restaurantId}
+                      data-testid={`option-restaurant-${balance.restaurantId}`}
+                    >
+                      {balance.restaurantName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
 
         <Tabs defaultValue="points" className="w-full space-y-6">
@@ -300,7 +338,7 @@ export default function DinerDashboard() {
                   className="overflow-hidden border-none shadow-sm hover:shadow-md transition-all cursor-pointer" 
                   data-testid={`card-restaurant-${rest.restaurantName.toLowerCase().replace(/\s+/g, '-')}`}
                   onClick={() => {
-                    setSelectedRestaurant(rest);
+                    setSelectedRestaurantId(rest.restaurantId);
                     setTransactionHistoryOpen(true);
                   }}
                 >
@@ -343,7 +381,7 @@ export default function DinerDashboard() {
                         className="h-7 text-xs gap-1"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setSelectedRestaurant(rest);
+                          setSelectedRestaurantId(rest.restaurantId);
                           setTransactionHistoryOpen(true);
                         }}
                         data-testid={`button-view-details-${rest.restaurantName.toLowerCase().replace(/\s+/g, '-')}`}
@@ -384,15 +422,30 @@ export default function DinerDashboard() {
           </TabsContent>
 
           <TabsContent value="vouchers" className="space-y-6">
-            {vouchers.length === 0 ? (
-              <Card className="p-12 text-center">
-                <Gift className="h-16 w-16 mx-auto text-muted-foreground/50 mb-4" />
-                <p className="text-lg font-medium text-muted-foreground">You have no active vouchers</p>
-                <p className="text-sm text-muted-foreground mt-2">Spend R1000 to receive your first voucher</p>
-              </Card>
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {vouchers.map((voucher) => (
+            {(() => {
+              const filteredVouchers = selectedRestaurantId 
+                ? vouchers.filter(v => v.restaurantId === selectedRestaurantId)
+                : vouchers;
+              
+              if (filteredVouchers.length === 0) {
+                return (
+                  <Card className="p-12 text-center">
+                    <Gift className="h-16 w-16 mx-auto text-muted-foreground/50 mb-4" />
+                    <p className="text-lg font-medium text-muted-foreground">
+                      {selectedRestaurant ? `No vouchers for ${selectedRestaurant.restaurantName}` : 'You have no vouchers yet'}
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      {selectedRestaurant 
+                        ? `Keep earning points at ${selectedRestaurant.restaurantName} to get vouchers!`
+                        : 'Spend at a restaurant to start earning vouchers'}
+                    </p>
+                  </Card>
+                );
+              }
+              
+              return (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {filteredVouchers.map((voucher) => (
                   <Card 
                     key={voucher.id} 
                     className={`relative overflow-hidden border-dashed border-2 transition-all ${
@@ -446,8 +499,9 @@ export default function DinerDashboard() {
                     </CardFooter>
                   </Card>
                 ))}
-              </div>
-            )}
+                </div>
+              );
+            })()}
           </TabsContent>
         </Tabs>
 

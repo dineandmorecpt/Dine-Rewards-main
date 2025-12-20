@@ -365,12 +365,12 @@ export default function AdminDashboard() {
 
         {/* Diner Registrations Chart - Full Width */}
         <Card className="border-none shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
             <div>
               <CardTitle className="font-serif text-xl">Diner Registrations</CardTitle>
               <CardDescription>New registered diners over time</CardDescription>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button
                 variant="outline"
                 size="sm"
@@ -389,16 +389,19 @@ export default function AdminDashboard() {
                   data-testid="button-date-range"
                 >
                   <CalendarIcon className="h-4 w-4" />
-                  {dateRange.from && dateRange.to ? (
-                    <>
-                      {format(dateRange.from, "MMM d, yyyy")} - {format(dateRange.to, "MMM d, yyyy")}
-                    </>
-                  ) : (
-                    "Select date range"
-                  )}
+                  <span className="hidden sm:inline">
+                    {dateRange.from && dateRange.to ? (
+                      <>
+                        {format(dateRange.from, "MMM d")} - {format(dateRange.to, "MMM d")}
+                      </>
+                    ) : (
+                      "Select dates"
+                    )}
+                  </span>
+                  <span className="sm:hidden">Dates</span>
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-4xl w-full p-0">
+              <DialogContent className="max-w-[95vw] sm:max-w-4xl w-full p-0 overflow-x-hidden">
                 <div className="p-6 flex flex-col items-center">
                   <DialogHeader className="mb-4 text-center w-full">
                     <DialogTitle className="text-center">Select Date Range</DialogTitle>
@@ -433,7 +436,7 @@ export default function AdminDashboard() {
                     }}
                     data-testid="calendar-date-range"
                   />
-                  <div className="flex gap-3 w-full justify-center border-t pt-4">
+                  <div className="flex flex-wrap gap-2 sm:gap-3 w-full justify-center border-t pt-4">
                     <Button
                       type="button"
                       variant="outline"
@@ -558,7 +561,7 @@ export default function AdminDashboard() {
                   )}
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-4xl w-full p-0">
+              <DialogContent className="max-w-[95vw] sm:max-w-4xl w-full p-0 overflow-x-hidden">
                 <div className="p-6 flex flex-col items-center">
                   <DialogHeader className="mb-4 text-center w-full">
                     <DialogTitle className="text-center">Select Date Range</DialogTitle>
@@ -593,7 +596,7 @@ export default function AdminDashboard() {
                     }}
                     data-testid="calendar-redemptions-date-range"
                   />
-                  <div className="flex gap-3 w-full justify-center border-t pt-4">
+                  <div className="flex flex-wrap gap-2 sm:gap-3 w-full justify-center border-t pt-4">
                     <Button
                       type="button"
                       variant="outline"
@@ -715,7 +718,7 @@ export default function AdminDashboard() {
                   )}
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-4xl w-full p-0">
+              <DialogContent className="max-w-[95vw] sm:max-w-4xl w-full p-0 overflow-x-hidden">
                 <div className="p-6 flex flex-col items-center">
                   <DialogHeader className="mb-4 text-center w-full">
                     <DialogTitle className="text-center">Select Date Range</DialogTitle>
@@ -750,7 +753,7 @@ export default function AdminDashboard() {
                     }}
                     data-testid="calendar-revenue-date-range"
                   />
-                  <div className="flex gap-3 w-full justify-center border-t pt-4">
+                  <div className="flex flex-wrap gap-2 sm:gap-3 w-full justify-center border-t pt-4">
                     <Button
                       type="button"
                       variant="outline"

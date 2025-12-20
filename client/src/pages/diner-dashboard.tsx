@@ -261,7 +261,7 @@ export default function DinerDashboard() {
         </div>
 
         <Tabs defaultValue="points" className="w-full space-y-6">
-          <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
+          <TabsList className="grid w-full grid-cols-2 sm:max-w-[400px]">
             <TabsTrigger value="points" data-testid="tab-points">Loyalty Points</TabsTrigger>
             <TabsTrigger value="vouchers" data-testid="tab-vouchers">My Vouchers</TabsTrigger>
           </TabsList>

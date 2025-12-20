@@ -231,11 +231,11 @@ export default function AdminReconciliation() {
         {selectedBatchId && batchDetails.data && (
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <CardTitle className="flex items-center gap-2">
                     <FileCheck className="h-5 w-5" />
-                    {batchDetails.data.batch.fileName}
+                    <span className="break-all">{batchDetails.data.batch.fileName}</span>
                   </CardTitle>
                   <CardDescription className="mt-1">
                     Uploaded on {new Date(batchDetails.data.batch.uploadedAt).toLocaleString()}
@@ -244,12 +244,12 @@ export default function AdminReconciliation() {
                 <div className="flex gap-2">
                   <Button 
                     variant="outline" 
-                    className="gap-2"
+                    className="gap-2 flex-1 sm:flex-none"
                     onClick={() => generateReport(batchDetails.data.batch, batchDetails.data.records)}
                     data-testid="button-download-report"
                   >
                     <Download className="h-4 w-4" />
-                    Download Report
+                    <span className="hidden sm:inline">Download</span> Report
                   </Button>
                   <Button variant="ghost" size="sm" onClick={() => setSelectedBatchId(null)}>
                     Close
@@ -259,7 +259,7 @@ export default function AdminReconciliation() {
             </CardHeader>
             <CardContent>
               {/* Summary Cards */}
-              <div className="grid grid-cols-3 gap-4 mb-6">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                 <div className="bg-muted/50 rounded-lg p-4 text-center">
                   <p className="text-2xl font-bold">{batchDetails.data.summary.total}</p>
                   <p className="text-xs text-muted-foreground uppercase tracking-wide">Total Records</p>

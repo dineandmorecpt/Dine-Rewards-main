@@ -578,7 +578,7 @@ export default function AdminVouchers() {
         </div>
 
         <Tabs defaultValue="capture" className="w-full space-y-6">
-          <TabsList className="grid w-full grid-cols-2 max-w-[300px]">
+          <TabsList className="grid w-full grid-cols-2 sm:max-w-[300px]">
             <TabsTrigger value="capture">Capture</TabsTrigger>
             <TabsTrigger value="vouchers">Vouchers</TabsTrigger>
           </TabsList>

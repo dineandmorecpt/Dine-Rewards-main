@@ -70,10 +70,16 @@ export default function ResetPassword() {
       return;
     }
 
-    if (password.length < 6) {
+    const passwordValid = password.length >= 8 && 
+      /[A-Z]/.test(password) && 
+      /[a-z]/.test(password) && 
+      /[0-9]/.test(password) && 
+      /[^A-Za-z0-9]/.test(password);
+    
+    if (!passwordValid) {
       toast({
-        title: "Password too short",
-        description: "Password must be at least 6 characters.",
+        title: "Password requirements not met",
+        description: "Password must be at least 8 characters with uppercase, lowercase, number, and special character.",
         variant: "destructive",
       });
       return;
@@ -176,6 +182,9 @@ export default function ResetPassword() {
                       onChange={(e) => setPassword(e.target.value)}
                       data-testid="input-new-password"
                     />
+                    <p className="text-xs text-muted-foreground">
+                      At least 8 characters with uppercase, lowercase, number, and special character
+                    </p>
                   </div>
 
                   <div className="space-y-2">

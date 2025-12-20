@@ -97,7 +97,12 @@ export default function Register() {
   };
 
   const isTokenFormValid = name.trim() && lastName.trim() && email.trim() && termsAccepted && privacyAccepted;
-  const isSelfFormValid = name.trim() && lastName.trim() && email.trim() && phone.trim() && password.length >= 6 && termsAccepted && privacyAccepted;
+  const isPasswordValid = password.length >= 8 && 
+    /[A-Z]/.test(password) && 
+    /[a-z]/.test(password) && 
+    /[0-9]/.test(password) && 
+    /[^A-Za-z0-9]/.test(password);
+  const isSelfFormValid = name.trim() && lastName.trim() && email.trim() && phone.trim() && isPasswordValid && termsAccepted && privacyAccepted;
 
   if (registrationComplete) {
     return (
@@ -190,12 +195,15 @@ export default function Register() {
                 <Input
                   id="password"
                   type="password"
-                  placeholder="Create a password (min. 6 characters)"
+                  placeholder="Create a strong password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   data-testid="input-register-password"
                 />
+                <p className="text-xs text-muted-foreground">
+                  At least 8 characters with uppercase, lowercase, number, and special character
+                </p>
               </div>
 
               <div className="space-y-3 pt-2">

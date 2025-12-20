@@ -288,3 +288,42 @@ export const insertPasswordResetTokenSchema = createInsertSchema(passwordResetTo
 });
 export type InsertPasswordResetToken = z.infer<typeof insertPasswordResetTokenSchema>;
 export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
+
+// Account deletion requests - two-step confirmation via email
+export const accountDeletionRequests = pgTable("account_deletion_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  token: text("token").notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(), // Link valid for 24 hours
+  confirmedAt: timestamp("confirmed_at"), // When user clicked email link
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertAccountDeletionRequestSchema = createInsertSchema(accountDeletionRequests).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertAccountDeletionRequest = z.infer<typeof insertAccountDeletionRequestSchema>;
+export type AccountDeletionRequest = typeof accountDeletionRequests.$inferSelect;
+
+// Archived users - data retention before permanent deletion
+export const archivedUsers = pgTable("archived_users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  originalUserId: text("original_user_id").notNull(), // Original user ID for reference
+  email: text("email").notNull(),
+  name: text("name").notNull(),
+  lastName: text("last_name"),
+  phone: text("phone"),
+  userType: text("user_type").notNull(),
+  originalCreatedAt: timestamp("original_created_at").notNull(), // When user originally signed up
+  archivedAt: timestamp("archived_at").defaultNow().notNull(),
+  deletionReason: text("deletion_reason"), // Optional reason provided by user
+  retentionExpiresAt: timestamp("retention_expires_at").notNull(), // When data can be permanently deleted (e.g., 90 days)
+});
+
+export const insertArchivedUserSchema = createInsertSchema(archivedUsers).omit({
+  id: true,
+  archivedAt: true,
+});
+export type InsertArchivedUser = z.infer<typeof insertArchivedUserSchema>;
+export type ArchivedUser = typeof archivedUsers.$inferSelect;

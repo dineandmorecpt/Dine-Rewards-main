@@ -51,7 +51,7 @@ function downloadCSV(data: Record<string, unknown>[], filename: string) {
   URL.revokeObjectURL(url);
 }
 
-export default function AdminDashboard() {
+function AdminDashboardContent() {
   const { toast } = useToast();
   const { restaurant } = useAuth();
   const { selectedBranch, branches } = useBranch();
@@ -210,19 +210,17 @@ export default function AdminDashboard() {
 
   if (isLoading) {
     return (
-      <AdminLayout>
-        <div className="flex items-center justify-center h-96">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Loading dashboard...</p>
-          </div>
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading dashboard...</p>
         </div>
-      </AdminLayout>
+      </div>
     );
   }
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
         {/* Prominent Invite CTA at the top */}
         <Card className="border-2 border-primary/40 bg-gradient-to-r from-primary/10 via-primary/5 to-blue-500/10 shadow-lg">
@@ -856,6 +854,14 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
       </div>
+    </>
+  );
+}
+
+export default function AdminDashboard() {
+  return (
+    <AdminLayout>
+      <AdminDashboardContent />
     </AdminLayout>
   );
 }

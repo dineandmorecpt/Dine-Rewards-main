@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { createLoyaltyServices } from "./services/loyalty";
 import { sendRegistrationInvite } from "./services/sms";
-import { sendPasswordResetEmail } from "./services/email";
+import { sendPasswordResetEmail, sendAccountDeletionConfirmationEmail } from "./services/email";
 import { insertTransactionSchema } from "@shared/schema";
 import { z } from "zod";
 import crypto from "crypto";
@@ -337,6 +337,141 @@ export async function registerRoutes(
       res.json({ valid: true });
     } catch (error: any) {
       console.error("Validate reset token error:", error);
+      res.json({ valid: false, error: "Failed to validate token" });
+    }
+  });
+
+  // ACCOUNT DELETION - Request account deletion (sends confirmation email)
+  const requestDeletionSchema = z.object({
+    reason: z.string().optional(),
+  });
+
+  app.post("/api/account/request-deletion", authRateLimiter, async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Generate confirmation token
+      const token = crypto.randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+      await storage.createAccountDeletionRequest(userId, token, expiresAt);
+
+      // Build confirmation link
+      const baseUrl = process.env.REPLIT_DEV_DOMAIN 
+        ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+        : 'http://localhost:5000';
+      const confirmationPath = user.userType === 'diner' ? '/confirm-account-deletion' : '/admin/confirm-account-deletion';
+      const confirmationLink = `${baseUrl}${confirmationPath}?token=${token}`;
+
+      const emailResult = await sendAccountDeletionConfirmationEmail(
+        user.email,
+        confirmationLink,
+        user.name
+      );
+
+      if (!emailResult.success) {
+        console.error('Failed to send account deletion email:', emailResult.error);
+        return res.status(500).json({ error: "Failed to send confirmation email" });
+      }
+
+      res.json({ 
+        success: true, 
+        message: "A confirmation email has been sent. Please check your inbox to complete the deletion process." 
+      });
+    } catch (error: any) {
+      console.error("Request account deletion error:", error);
+      res.status(500).json({ error: "Failed to process deletion request" });
+    }
+  });
+
+  // ACCOUNT DELETION - Confirm deletion (using token from email)
+  app.post("/api/account/confirm-deletion", authRateLimiter, async (req, res) => {
+    try {
+      const { token, reason } = req.body;
+
+      if (!token) {
+        return res.status(400).json({ error: "Token is required" });
+      }
+
+      const deletionRequest = await storage.getAccountDeletionRequestByToken(token);
+      
+      if (!deletionRequest) {
+        return res.status(400).json({ error: "Invalid deletion link" });
+      }
+
+      if (deletionRequest.confirmedAt) {
+        return res.status(400).json({ error: "This deletion has already been processed" });
+      }
+
+      if (new Date() > deletionRequest.expiresAt) {
+        return res.status(400).json({ error: "This deletion link has expired" });
+      }
+
+      const user = await storage.getUser(deletionRequest.userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Archive user data before deletion
+      await storage.archiveUser(user, reason);
+
+      // Mark deletion request as confirmed
+      await storage.confirmAccountDeletionRequest(token);
+
+      // Delete the user and related data
+      await storage.deleteUser(user.id);
+
+      // Clear session
+      req.session.destroy((err) => {
+        if (err) {
+          console.error("Session destroy error:", err);
+        }
+      });
+
+      res.json({ 
+        success: true, 
+        message: "Your account has been deleted. Your data will be retained for 90 days before permanent removal." 
+      });
+    } catch (error: any) {
+      console.error("Confirm account deletion error:", error);
+      res.status(500).json({ error: "Failed to delete account" });
+    }
+  });
+
+  // ACCOUNT DELETION - Validate deletion token
+  app.get("/api/account/validate-deletion-token", async (req, res) => {
+    try {
+      const token = req.query.token as string;
+      
+      if (!token) {
+        return res.json({ valid: false, error: "No token provided" });
+      }
+
+      const deletionRequest = await storage.getAccountDeletionRequestByToken(token);
+      
+      if (!deletionRequest) {
+        return res.json({ valid: false, error: "Invalid deletion link" });
+      }
+
+      if (deletionRequest.confirmedAt) {
+        return res.json({ valid: false, error: "This deletion has already been processed" });
+      }
+
+      if (new Date() > deletionRequest.expiresAt) {
+        return res.json({ valid: false, error: "This deletion link has expired" });
+      }
+
+      res.json({ valid: true });
+    } catch (error: any) {
+      console.error("Validate deletion token error:", error);
       res.json({ valid: false, error: "Failed to validate token" });
     }
   });

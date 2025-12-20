@@ -17,6 +17,7 @@ import DinerProfile from "@/pages/diner-profile";
 import Register from "@/pages/register";
 import ForgotPassword from "@/pages/forgot-password";
 import ResetPassword from "@/pages/reset-password";
+import ConfirmAccountDeletion from "@/pages/confirm-account-deletion";
 
 function Router() {
   return (
@@ -26,6 +27,8 @@ function Router() {
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/reset-password" component={ResetPassword} />
       <Route path="/admin/reset-password" component={ResetPassword} />
+      <Route path="/confirm-account-deletion" component={ConfirmAccountDeletion} />
+      <Route path="/admin/confirm-account-deletion" component={ConfirmAccountDeletion} />
       
       <Route path="/admin">
         <Redirect to="/admin/dashboard" />

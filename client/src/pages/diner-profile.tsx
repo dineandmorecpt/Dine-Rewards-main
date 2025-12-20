@@ -5,7 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, Mail, Phone, Save, Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertTriangle, User, Mail, Phone, Save, Loader2, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "@/hooks/use-toast";
 
@@ -18,6 +19,8 @@ export default function DinerProfile() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [hasChanges, setHasChanges] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
   useEffect(() => {
     if (user) {
@@ -88,6 +91,48 @@ export default function DinerProfile() {
       return;
     }
     updateProfile.mutate({ name, lastName, email, phone });
+  };
+
+  const requestDeletion = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/account/request-deletion", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to request account deletion");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setDeleteModalOpen(false);
+      setDeleteConfirmText("");
+      toast({
+        title: "Check your email",
+        description: data.message,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Request failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDeleteAccount = () => {
+    if (deleteConfirmText !== "DELETE") {
+      toast({
+        title: "Confirmation required",
+        description: "Please type DELETE to confirm.",
+        variant: "destructive",
+      });
+      return;
+    }
+    requestDeletion.mutate();
   };
 
   if (!user) {
@@ -215,7 +260,104 @@ export default function DinerProfile() {
             </div>
           </CardContent>
         </Card>
+
+        <Card className="max-w-2xl border-destructive/50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Danger Zone
+            </CardTitle>
+            <CardDescription>
+              Irreversible actions that affect your account.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium">Delete Account</p>
+                <p className="text-sm text-muted-foreground">
+                  Permanently delete your account and all associated data.
+                </p>
+              </div>
+              <Button
+                variant="destructive"
+                onClick={() => setDeleteModalOpen(true)}
+                data-testid="button-delete-account"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Account
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
+
+      <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Delete Your Account
+            </DialogTitle>
+            <DialogDescription className="pt-2 space-y-4">
+              <p>
+                This action will permanently delete your account and all your data, including:
+              </p>
+              <ul className="list-disc list-inside text-sm space-y-1">
+                <li>Your profile information</li>
+                <li>All loyalty points</li>
+                <li>All vouchers (including unredeemed ones)</li>
+                <li>Transaction history</li>
+              </ul>
+              <p className="font-medium text-foreground">
+                This action cannot be undone.
+              </p>
+              <p className="text-sm">
+                A confirmation email will be sent to your inbox. You'll need to click the link in that email to complete the deletion.
+              </p>
+              <p className="text-xs text-muted-foreground border-t pt-3 mt-3">
+                <strong>Data Retention:</strong> After deletion, your anonymized data will be retained for 90 days for compliance purposes, then permanently removed.
+              </p>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-4">
+            <Label htmlFor="confirm-delete">
+              Type <span className="font-mono font-bold text-destructive">DELETE</span> to confirm
+            </Label>
+            <Input
+              id="confirm-delete"
+              placeholder="Type DELETE"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value.toUpperCase())}
+              data-testid="input-confirm-delete"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteModalOpen(false);
+                setDeleteConfirmText("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteAccount}
+              disabled={deleteConfirmText !== "DELETE" || requestDeletion.isPending}
+              data-testid="button-confirm-delete"
+            >
+              {requestDeletion.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Trash2 className="h-4 w-4 mr-2" />
+              )}
+              Send Confirmation Email
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DinerLayout>
   );
 }

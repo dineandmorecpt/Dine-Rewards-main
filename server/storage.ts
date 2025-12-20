@@ -25,6 +25,10 @@ import {
   type InsertPortalUser,
   type ActivityLog,
   type InsertActivityLog,
+  type AccountDeletionRequest,
+  type InsertAccountDeletionRequest,
+  type ArchivedUser,
+  type InsertArchivedUser,
   users,
   restaurants,
   branches,
@@ -37,7 +41,9 @@ import {
   reconciliationRecords,
   dinerInvitations,
   portalUsers,
-  activityLogs
+  activityLogs,
+  accountDeletionRequests,
+  archivedUsers
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/node-postgres";
 import pkg from "pg";
@@ -167,6 +173,13 @@ export interface IStorage {
   getPasswordResetToken(token: string): Promise<{ userId: string; expiresAt: Date; usedAt: Date | null } | undefined>;
   markPasswordResetTokenUsed(token: string): Promise<void>;
   updateUserPassword(userId: string, hashedPassword: string): Promise<void>;
+  
+  // Account Deletion
+  createAccountDeletionRequest(userId: string, token: string, expiresAt: Date): Promise<AccountDeletionRequest>;
+  getAccountDeletionRequestByToken(token: string): Promise<AccountDeletionRequest | undefined>;
+  confirmAccountDeletionRequest(token: string): Promise<void>;
+  archiveUser(user: User, reason?: string): Promise<ArchivedUser>;
+  deleteUser(userId: string): Promise<void>;
 }
 
 export class DbStorage implements IStorage {
@@ -727,6 +740,57 @@ export class DbStorage implements IStorage {
 
   async updateUserPassword(userId: string, hashedPassword: string): Promise<void> {
     await db.update(users).set({ password: hashedPassword }).where(eq(users.id, userId));
+  }
+
+  // Account Deletion Methods
+  async createAccountDeletionRequest(userId: string, token: string, expiresAt: Date): Promise<AccountDeletionRequest> {
+    const result = await db.insert(accountDeletionRequests).values({
+      userId,
+      token,
+      expiresAt,
+    }).returning();
+    return result[0];
+  }
+
+  async getAccountDeletionRequestByToken(token: string): Promise<AccountDeletionRequest | undefined> {
+    const result = await db.select().from(accountDeletionRequests).where(eq(accountDeletionRequests.token, token));
+    return result[0];
+  }
+
+  async confirmAccountDeletionRequest(token: string): Promise<void> {
+    await db.update(accountDeletionRequests)
+      .set({ confirmedAt: new Date() })
+      .where(eq(accountDeletionRequests.token, token));
+  }
+
+  async archiveUser(user: User, reason?: string): Promise<ArchivedUser> {
+    const retentionDays = 90; // 90-day retention policy
+    const retentionExpiresAt = new Date();
+    retentionExpiresAt.setDate(retentionExpiresAt.getDate() + retentionDays);
+
+    const result = await db.insert(archivedUsers).values({
+      originalUserId: user.id,
+      email: user.email,
+      name: user.name,
+      lastName: user.lastName,
+      phone: user.phone,
+      userType: user.userType,
+      originalCreatedAt: user.createdAt,
+      deletionReason: reason,
+      retentionExpiresAt,
+    }).returning();
+    return result[0];
+  }
+
+  async deleteUser(userId: string): Promise<void> {
+    // Delete related data first (in order of dependencies)
+    await db.delete(accountDeletionRequests).where(eq(accountDeletionRequests.userId, userId));
+    await db.delete(vouchers).where(eq(vouchers.dinerId, userId));
+    await db.delete(transactions).where(eq(transactions.dinerId, userId));
+    await db.delete(pointsBalances).where(eq(pointsBalances.dinerId, userId));
+    await db.delete(portalUsers).where(eq(portalUsers.userId, userId));
+    // Finally delete the user
+    await db.delete(users).where(eq(users.id, userId));
   }
 }
 

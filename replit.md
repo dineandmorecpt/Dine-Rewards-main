@@ -72,6 +72,13 @@ Core data models:
 - Points reset to 0 after voucher generation (rollover model)
 - Vouchers have configurable validity periods per restaurant
 
+### Account Deletion
+- Two-step confirmation flow: modal requiring "DELETE" text + email confirmation
+- 24-hour token expiry for email confirmation links
+- User data is archived before deletion (90-day retention for compliance)
+- Cascading cleanup of related data: vouchers, transactions, points balances, portal users, invitations
+- Archived data tracked in `archivedUsers` table with `purgeAfter` date for scheduled removal
+
 ## External Dependencies
 
 ### Database

@@ -309,7 +309,7 @@ export default function DinerDashboard() {
             <div className="bg-muted/30 p-4 rounded-lg border border-dashed border-muted-foreground/20">
               <div className="flex items-center gap-2 mb-3 text-sm font-medium text-muted-foreground">
                 <AlertCircle className="h-4 w-4" /> 
-                Simulation: Spend at a restaurant to test the engine (R1 = 1 Point)
+                Simulation: Spend R1000 to earn a voucher (R1 = 1 Point)
               </div>
               <div className="flex gap-2 flex-wrap">
                 {balances.map((balance) => (
@@ -364,7 +364,7 @@ export default function DinerDashboard() {
                       <div className="space-y-1">
                         <Progress value={(rest.currentPoints / rest.pointsThreshold) * 100} className="h-2" />
                         <p className="text-xs text-right text-muted-foreground">
-                          {rest.pointsThreshold - rest.currentPoints} points to next voucher
+                          Spend R{rest.pointsThreshold - rest.currentPoints} more to earn your next voucher
                         </p>
                       </div>
                     </div>
@@ -436,8 +436,8 @@ export default function DinerDashboard() {
                     </p>
                     <p className="text-sm text-muted-foreground mt-2">
                       {selectedRestaurant 
-                        ? `Keep earning points at ${selectedRestaurant.restaurantName} to get vouchers!`
-                        : 'Spend at a restaurant to start earning vouchers'}
+                        ? `Spend R1000 at ${selectedRestaurant.restaurantName} to earn a voucher`
+                        : 'Spend R1000 at a restaurant to earn your first voucher'}
                     </p>
                   </Card>
                 );

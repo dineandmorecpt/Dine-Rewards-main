@@ -18,6 +18,7 @@ interface BranchContextType {
   selectedBranchId: string | null;
   setSelectedBranchId: (id: string | null) => void;
   isLoading: boolean;
+  error: Error | null;
 }
 
 const BranchContext = createContext<BranchContextType | undefined>(undefined);
@@ -26,7 +27,7 @@ export function BranchProvider({ children }: { children: ReactNode }) {
   const { restaurant } = useAuth();
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
 
-  const { data: branches = [], isLoading } = useQuery<Branch[]>({
+  const { data: branches = [], isLoading, error } = useQuery<Branch[], Error>({
     queryKey: ["branches", restaurant?.id],
     queryFn: async () => {
       if (!restaurant?.id) return [];
@@ -44,6 +45,12 @@ export function BranchProvider({ children }: { children: ReactNode }) {
     }
   }, [branches, selectedBranchId]);
 
+  useEffect(() => {
+    if (restaurant?.id) {
+      setSelectedBranchId(null);
+    }
+  }, [restaurant?.id]);
+
   const selectedBranch = branches.find(b => b.id === selectedBranchId) || null;
 
   return (
@@ -53,6 +60,7 @@ export function BranchProvider({ children }: { children: ReactNode }) {
       selectedBranchId,
       setSelectedBranchId,
       isLoading,
+      error: error || null,
     }}>
       {children}
     </BranchContext.Provider>

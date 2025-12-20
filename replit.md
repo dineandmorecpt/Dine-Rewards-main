@@ -50,11 +50,21 @@ The backend uses a storage abstraction pattern (`IStorage` interface) that decou
 
 Core data models:
 - `users` - Both diners and restaurant admins (distinguished by `userType`)
-- `restaurants` - Restaurant entities with configurable loyalty rules
-- `pointsBalances` - Points balance per diner per restaurant
-- `transactions` - Transaction history for points earning
-- `vouchers` - Generated vouchers with codes and expiry dates
+- `restaurants` - Restaurant entities (organization level) with configurable loyalty rules
+- `branches` - Restaurant branches with name, address, phone, isDefault, isActive flags
+- `pointsBalances` - Points balance per diner per restaurant (organization scope)
+- `transactions` - Transaction history for points earning (tracks branchId)
+- `vouchers` - Generated vouchers with codes and expiry dates (tracks branchId)
 - `campaigns` - Marketing campaigns (placeholder)
+
+### Multi-Branch Architecture
+- Restaurants are the organization level; branches are physical locations
+- Each restaurant must have exactly one default branch
+- Data is tracked per-branch (transactions, vouchers, reconciliation) with org-wide roll-ups
+- Diners register at the organization level and can transact at any branch
+- Points balances remain at restaurant scope (not branch-specific)
+- Admin UI includes a branch switcher for multi-branch restaurants
+- Branch context managed via `useBranch` hook in `client/src/hooks/use-branch.tsx`
 
 ### Points System Design
 - Points are earned based on configurable `pointsPerCurrency` rate (default: 1 point per R1 spent)

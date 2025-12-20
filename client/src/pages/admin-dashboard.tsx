@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { StatsCard } from "@/components/dashboard/stats-card";
-import { Users, DollarSign, TicketPercent, UserPlus, Phone, Check, Copy, ExternalLink, Loader2, CalendarIcon, Download } from "lucide-react";
+import { Users, DollarSign, TicketPercent, UserPlus, Phone, Check, Copy, ExternalLink, Loader2, CalendarIcon, Download, Building2 } from "lucide-react";
 import { 
   Bar, 
   BarChart, 
@@ -18,8 +18,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { useBranch } from "@/hooks/use-branch";
 import { Calendar } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { format, subDays } from "date-fns";
@@ -52,6 +54,7 @@ function downloadCSV(data: Record<string, unknown>[], filename: string) {
 export default function AdminDashboard() {
   const { toast } = useToast();
   const { restaurant } = useAuth();
+  const { selectedBranch, branches } = useBranch();
   const restaurantId = restaurant?.id;
   const [invitePhone, setInvitePhone] = useState("");
   const [inviteSuccess, setInviteSuccess] = useState<{phone: string; registrationLink: string; smsSent: boolean} | null>(null);
@@ -331,7 +334,15 @@ export default function AdminDashboard() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-serif font-bold text-foreground">Dashboard</h1>
-            <p className="text-muted-foreground mt-1">Welcome back, Restaurant Admin.</p>
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-muted-foreground">Welcome back, Restaurant Admin.</p>
+              {branches.length > 1 && selectedBranch && (
+                <Badge variant="outline" className="gap-1">
+                  <Building2 className="h-3 w-3" />
+                  {selectedBranch.name}
+                </Badge>
+              )}
+            </div>
           </div>
         </div>
 

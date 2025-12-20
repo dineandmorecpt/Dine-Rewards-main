@@ -251,12 +251,14 @@ export class DbStorage implements IStorage {
   }
 
   async setDefaultBranch(restaurantId: string, branchId: string): Promise<void> {
-    await db.update(branches)
-      .set({ isDefault: false })
-      .where(eq(branches.restaurantId, restaurantId));
-    await db.update(branches)
-      .set({ isDefault: true })
-      .where(eq(branches.id, branchId));
+    await db.transaction(async (tx) => {
+      await tx.update(branches)
+        .set({ isDefault: false })
+        .where(eq(branches.restaurantId, restaurantId));
+      await tx.update(branches)
+        .set({ isDefault: true })
+        .where(and(eq(branches.id, branchId), eq(branches.restaurantId, restaurantId)));
+    });
   }
 
   // Points Balance Methods

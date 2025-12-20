@@ -257,9 +257,17 @@ export async function registerRoutes(
   });
 
   // AUTH - Reset Password (set new password using token)
+  // Strong password validation: 8+ chars, uppercase, lowercase, number, special char
+  const passwordSchema = z.string()
+    .min(8, "Password must be at least 8 characters")
+    .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+    .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+    .regex(/[0-9]/, "Password must contain at least one number")
+    .regex(/[^A-Za-z0-9]/, "Password must contain at least one special character");
+
   const resetPasswordSchema = z.object({
     token: z.string().min(1, "Token is required"),
-    password: z.string().min(6, "Password must be at least 6 characters"),
+    password: passwordSchema,
   });
 
   app.post("/api/auth/reset-password", authRateLimiter, async (req, res) => {
@@ -288,7 +296,7 @@ export async function registerRoutes(
       }
 
       // Hash the new password
-      const hashedPassword = await bcrypt.hash(password, 10);
+      const hashedPassword = await bcrypt.hash(password, 12);
 
       // Update user's password
       await storage.updateUserPassword(resetToken.userId, hashedPassword);
@@ -342,7 +350,7 @@ export async function registerRoutes(
       .transform(val => val.trim().replace(/[\s\-()]/g, ''))
       .refine(val => val.length >= 7, { message: "Phone number must be at least 7 digits" })
       .refine(val => /^[0-9+]+$/.test(val), { message: "Phone number contains invalid characters" }),
-    password: z.string().min(6, "Password must be at least 6 characters"),
+    password: passwordSchema,
   });
 
   app.post("/api/auth/register-diner", authRateLimiter, async (req, res) => {
@@ -369,7 +377,7 @@ export async function registerRoutes(
       }
 
       // Hash password
-      const hashedPassword = await bcrypt.hash(password, 10);
+      const hashedPassword = await bcrypt.hash(password, 12);
 
       // Create user
       const user = await storage.createUser({
@@ -1505,7 +1513,7 @@ export async function registerRoutes(
       
       if (!user) {
         // Create new admin user with random password
-        const hashedPassword = await bcrypt.hash(crypto.randomBytes(16).toString('hex'), 10);
+        const hashedPassword = await bcrypt.hash(crypto.randomBytes(16).toString('hex'), 12);
         user = await storage.createUser({
           email,
           name,

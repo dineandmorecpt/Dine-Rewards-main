@@ -19,6 +19,16 @@ const authRateLimiter = rateLimit({
   validate: { xForwardedForHeader: false },
 });
 
+// Stricter rate limiter for SMS-based endpoints to prevent abuse
+const smsRateLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute window
+  max: 5, // 5 requests per minute per IP
+  message: { error: "Too many SMS requests. Please wait a minute before trying again." },
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { xForwardedForHeader: false },
+});
+
 const recordTransactionSchema = z.object({
   phone: z.string()
     .transform(val => val.trim().replace(/[\s\-()]/g, ''))
@@ -257,6 +267,65 @@ export async function registerRoutes(
       res.json({ success: true, message: "If an account with that email exists, a password reset link has been sent." });
     } catch (error: any) {
       console.error("Forgot password error:", error);
+      res.status(500).json({ error: "Failed to process request" });
+    }
+  });
+
+  // AUTH - Forgot Password via SMS (for diners - sends reset link to phone)
+  const forgotPasswordSmsSchema = z.object({
+    phone: z.string()
+      .transform(val => val.trim().replace(/[\s\-()]/g, ''))
+      .refine(val => val.length >= 7, { message: "Phone number must be at least 7 digits" }),
+  });
+
+  app.post("/api/auth/forgot-password-sms", smsRateLimiter, async (req, res) => {
+    try {
+      const parseResult = forgotPasswordSmsSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(422).json({ 
+          error: parseResult.error.errors[0]?.message || "Invalid input" 
+        });
+      }
+
+      const { phone } = parseResult.data;
+      const user = await storage.getUserByPhone(phone);
+
+      // Always return success to prevent phone number enumeration
+      if (!user) {
+        console.log(`Password reset requested for non-existent phone: ${phone}`);
+        return res.json({ success: true, message: "If an account with that phone number exists, a password reset link has been sent." });
+      }
+
+      // Only allow this for diners
+      if (user.userType !== 'diner') {
+        console.log(`SMS password reset attempted for non-diner account: ${phone}`);
+        return res.json({ success: true, message: "If an account with that phone number exists, a password reset link has been sent." });
+      }
+
+      // Generate token (32 bytes = 64 hex characters)
+      const token = crypto.randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
+
+      await storage.createPasswordResetToken(user.id, token, expiresAt);
+
+      // Build reset link
+      const baseUrl = process.env.REPLIT_DEV_DOMAIN 
+        ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+        : 'http://localhost:5000';
+      const resetLink = `${baseUrl}/reset-password?token=${token}`;
+
+      // Send SMS with reset link
+      const { sendSMS } = await import("./services/sms");
+      const smsResult = await sendSMS(phone, `Reset your Dine&More password: ${resetLink} (expires in 1 hour)`);
+      
+      if (!smsResult.success) {
+        console.error('Failed to send password reset SMS:', smsResult.error);
+        // Don't reveal to user that SMS failed - still return success for security
+      }
+
+      res.json({ success: true, message: "If an account with that phone number exists, a password reset link has been sent." });
+    } catch (error: any) {
+      console.error("Forgot password SMS error:", error);
       res.status(500).json({ error: "Failed to process request" });
     }
   });
@@ -694,7 +763,7 @@ export async function registerRoutes(
       .refine(val => /^[0-9+]+$/.test(val), { message: "Phone number contains invalid characters" }),
   });
 
-  app.post("/api/auth/request-otp", async (req, res) => {
+  app.post("/api/auth/request-otp", smsRateLimiter, async (req, res) => {
     try {
       const parseResult = requestOtpSchema.safeParse(req.body);
       if (!parseResult.success) {
@@ -707,12 +776,15 @@ export async function registerRoutes(
 
       // Check if user exists with this phone
       const user = await storage.getUserByPhone(phone);
-      if (!user) {
-        return res.status(404).json({ error: "No account found with this phone number" });
-      }
-
-      if (user.userType !== 'diner') {
-        return res.status(400).json({ error: "This phone number is not registered as a diner" });
+      
+      // Return generic success message to prevent phone enumeration
+      // Only actually send OTP if user exists and is a diner
+      if (!user || user.userType !== 'diner') {
+        console.log(`OTP request for non-existent or non-diner phone: ${phone}`);
+        return res.json({
+          success: true,
+          message: "If an account with that phone number exists, a code has been sent.",
+        });
       }
 
       // Generate 6-digit OTP
@@ -729,11 +801,7 @@ export async function registerRoutes(
 
       res.json({
         success: true,
-        smsSent: smsResult.success,
-        smsError: smsResult.error,
-        message: smsResult.success 
-          ? "OTP sent to your phone" 
-          : "Could not send SMS. Please try again.",
+        message: "If an account with that phone number exists, a code has been sent.",
       });
     } catch (error: any) {
       console.error("Request OTP error:", error);
@@ -813,7 +881,7 @@ export async function registerRoutes(
   });
 
   // AUTH - Request OTP for registration (phone verification)
-  app.post("/api/auth/request-registration-otp", authRateLimiter, async (req, res) => {
+  app.post("/api/auth/request-registration-otp", smsRateLimiter, async (req, res) => {
     try {
       const parseResult = requestOtpSchema.safeParse(req.body);
       if (!parseResult.success) {

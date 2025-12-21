@@ -3,22 +3,22 @@ import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Loader2, Mail, CheckCircle } from "lucide-react";
+import { ArrowLeft, Loader2, Phone, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function ForgotPassword() {
   const { toast } = useToast();
-  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!email) {
+    if (!phone) {
       toast({
-        title: "Email required",
-        description: "Please enter your email address.",
+        title: "Phone number required",
+        description: "Please enter your phone number.",
         variant: "destructive",
       });
       return;
@@ -26,10 +26,10 @@ export default function ForgotPassword() {
 
     setIsLoading(true);
     try {
-      const response = await fetch("/api/auth/forgot-password", {
+      const response = await fetch("/api/auth/forgot-password-sms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ phone }),
       });
 
       const data = await response.json();
@@ -71,20 +71,20 @@ export default function ForgotPassword() {
                 <div className="space-y-2 text-center">
                   <h2 className="text-2xl font-semibold">Forgot Password?</h2>
                   <p className="text-sm text-muted-foreground">
-                    Enter your email and we'll send you a link to reset your password.
+                    Enter your phone number and we'll send you a link to reset your password.
                   </p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="phone">Phone Number</Label>
                     <Input
-                      id="email"
-                      type="email"
-                      placeholder="your@email.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      data-testid="input-forgot-email"
+                      id="phone"
+                      type="tel"
+                      placeholder="+27 82 123 4567"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      data-testid="input-forgot-phone"
                     />
                   </div>
 
@@ -97,7 +97,7 @@ export default function ForgotPassword() {
                     {isLoading ? (
                       <Loader2 className="w-4 h-4 animate-spin mr-2" />
                     ) : (
-                      <Mail className="w-4 h-4 mr-2" />
+                      <Phone className="w-4 h-4 mr-2" />
                     )}
                     Send Reset Link
                   </Button>
@@ -108,10 +108,9 @@ export default function ForgotPassword() {
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
                   <CheckCircle className="w-8 h-8 text-green-600" />
                 </div>
-                <h2 className="text-2xl font-semibold">Check Your Email</h2>
+                <h2 className="text-2xl font-semibold">Check Your Phone</h2>
                 <p className="text-sm text-muted-foreground">
-                  If an account with that email exists, we've sent a password reset link. 
-                  Please check your inbox and spam folder.
+                  If an account with that phone number exists, we've sent a password reset link via SMS.
                 </p>
                 <p className="text-xs text-muted-foreground">
                   The link will expire in 1 hour.

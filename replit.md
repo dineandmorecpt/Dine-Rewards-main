@@ -114,17 +114,6 @@ Core data models:
 - Cascading cleanup of related data: vouchers, transactions, points balances, portal users, invitations
 - Archived data tracked in `archivedUsers` table with `purgeAfter` date for scheduled removal
 
-### Progressive Web App (PWA)
-- The app is configured as an installable PWA for mobile devices
-- **Manifest file**: `/client/public/manifest.json` - defines app name, icons, theme colors
-- **Service Worker**: `/client/public/sw.js` - handles caching and offline support
-- **Features**:
-  - Installable on home screen (Android & iOS)
-  - Standalone display mode (full-screen, no browser UI)
-  - Offline-first caching for static assets
-  - Network-first strategy for API calls
-- **Apple iOS support**: Includes apple-touch-icon and apple-mobile-web-app-* meta tags
-
 ## External Dependencies
 
 ### Database

@@ -12,6 +12,7 @@ import AdminReconciliation from "@/pages/admin-reconciliation";
 import AdminSettings from "@/pages/admin-settings";
 import AdminActivityLogs from "@/pages/admin-activity-logs";
 import AdminOnboarding from "@/pages/admin-onboarding";
+import AdminUsers from "@/pages/admin-users";
 import DinerDashboard from "@/pages/diner-dashboard";
 import DinerHistory from "@/pages/diner-history";
 import DinerProfile from "@/pages/diner-profile";
@@ -54,6 +55,9 @@ function Router() {
       </Route>
       <Route path="/admin/onboarding">
         <AdminGuard><AdminOnboarding /></AdminGuard>
+      </Route>
+      <Route path="/admin/users">
+        <AdminGuard><AdminUsers /></AdminGuard>
       </Route>
       
       <Route path="/diner">

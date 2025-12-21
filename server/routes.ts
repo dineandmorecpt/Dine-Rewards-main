@@ -2032,165 +2032,6 @@ export async function registerRoutes(
     }
   });
 
-  // PORTAL USERS - Get all portal users for a restaurant
-  app.get("/api/restaurants/:restaurantId/portal-users", async (req, res) => {
-    try {
-      // Require authenticated admin
-      if (!req.session.userId || req.session.userType !== 'admin') {
-        return res.status(401).json({ error: "Unauthorized" });
-      }
-
-      const { restaurantId } = req.params;
-      
-      // Verify user has access to this restaurant (owner or portal user)
-      const restaurant = await storage.getRestaurant(restaurantId);
-      if (!restaurant) {
-        return res.status(404).json({ error: "Restaurant not found" });
-      }
-      
-      const isOwner = restaurant.adminUserId === req.session.userId;
-      const portalAccess = await storage.getPortalUserByUserAndRestaurant(req.session.userId, restaurantId);
-      
-      if (!isOwner && !portalAccess) {
-        return res.status(403).json({ error: "You don't have access to this restaurant" });
-      }
-
-      const portalUsers = await storage.getPortalUsersByRestaurant(restaurantId);
-      res.json(portalUsers);
-    } catch (error) {
-      console.error("Get portal users error:", error);
-      res.status(500).json({ error: "Failed to fetch portal users" });
-    }
-  });
-
-  // PORTAL USERS - Add a new portal user
-  const addPortalUserSchema = z.object({
-    email: z.string().email("Invalid email address"),
-    name: z.string().min(1, "Name is required"),
-    role: z.enum(["manager", "staff"]).default("staff"),
-  });
-
-  app.post("/api/restaurants/:restaurantId/portal-users", async (req, res) => {
-    try {
-      // Require authenticated admin
-      if (!req.session.userId || req.session.userType !== 'admin') {
-        return res.status(401).json({ error: "Unauthorized" });
-      }
-
-      const { restaurantId } = req.params;
-      
-      // Verify user is owner of this restaurant (only owners can add portal users)
-      const restaurant = await storage.getRestaurant(restaurantId);
-      if (!restaurant) {
-        return res.status(404).json({ error: "Restaurant not found" });
-      }
-      
-      if (restaurant.adminUserId !== req.session.userId) {
-        return res.status(403).json({ error: "Only restaurant owners can add portal users" });
-      }
-
-      const parseResult = addPortalUserSchema.safeParse(req.body);
-      if (!parseResult.success) {
-        return res.status(422).json({ 
-          error: parseResult.error.errors[0]?.message || "Invalid input" 
-        });
-      }
-
-      const { email, name, role } = parseResult.data;
-
-      // Check if user already exists
-      let user = await storage.getUserByEmail(email);
-      
-      if (!user) {
-        // Create new admin user with random password
-        const hashedPassword = await bcrypt.hash(crypto.randomBytes(16).toString('hex'), 12);
-        user = await storage.createUser({
-          email,
-          name,
-          password: hashedPassword,
-          userType: 'admin',
-        });
-      }
-
-      // Check if already a portal user for this restaurant
-      const existingPortalUser = await storage.getPortalUserByUserAndRestaurant(user.id, restaurantId);
-      if (existingPortalUser) {
-        return res.status(400).json({ error: "This user already has access to this restaurant" });
-      }
-
-      // Add as portal user
-      const portalUser = await storage.addPortalUser({
-        restaurantId,
-        userId: user.id,
-        role,
-        addedBy: req.session.userId || null,
-      });
-
-      // Log activity
-      await storage.createActivityLog({
-        restaurantId,
-        userId: req.session.userId,
-        action: 'portal_user_added',
-        targetType: 'portal_user',
-        targetId: portalUser.id,
-        details: JSON.stringify({ email, name, role }),
-      });
-
-      res.json({
-        success: true,
-        portalUser: {
-          ...portalUser,
-          user: {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-          }
-        }
-      });
-    } catch (error: any) {
-      console.error("Add portal user error:", error);
-      res.status(500).json({ error: error.message || "Failed to add user" });
-    }
-  });
-
-  // PORTAL USERS - Remove a portal user
-  app.delete("/api/restaurants/:restaurantId/portal-users/:portalUserId", async (req, res) => {
-    try {
-      // Require authenticated admin
-      if (!req.session.userId || req.session.userType !== 'admin') {
-        return res.status(401).json({ error: "Unauthorized" });
-      }
-
-      const { restaurantId, portalUserId } = req.params;
-      
-      // Verify user is owner of this restaurant (only owners can remove portal users)
-      const restaurant = await storage.getRestaurant(restaurantId);
-      if (!restaurant) {
-        return res.status(404).json({ error: "Restaurant not found" });
-      }
-      
-      if (restaurant.adminUserId !== req.session.userId) {
-        return res.status(403).json({ error: "Only restaurant owners can remove portal users" });
-      }
-
-      await storage.removePortalUser(portalUserId);
-      
-      // Log activity
-      await storage.createActivityLog({
-        restaurantId,
-        userId: req.session.userId,
-        action: 'portal_user_removed',
-        targetType: 'portal_user',
-        targetId: portalUserId,
-        details: null,
-      });
-      
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Remove portal user error:", error);
-      res.status(500).json({ error: "Failed to remove user" });
-    }
-  });
 
   // DINER REGISTRATIONS STATS - Get diner registrations by date range for charts
   app.get("/api/restaurants/:restaurantId/diner-registrations", async (req, res) => {
@@ -2325,6 +2166,167 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Get voucher redemptions by type error:", error);
       res.status(500).json({ error: "Failed to fetch voucher redemptions" });
+    }
+  });
+
+  // REGISTERED DINERS - Get all registered diners for a restaurant
+  app.get("/api/restaurants/:restaurantId/diners", async (req, res) => {
+    try {
+      if (!req.session.userId || req.session.userType !== 'restaurant_admin') {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { restaurantId } = req.params;
+      
+      const restaurant = await storage.getRestaurant(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+      
+      const isOwner = restaurant.adminUserId === req.session.userId;
+      const portalAccess = await storage.getPortalUserByUserAndRestaurant(req.session.userId, restaurantId);
+      
+      if (!isOwner && !portalAccess) {
+        return res.status(403).json({ error: "You don't have access to this restaurant" });
+      }
+      
+      const diners = await storage.getRegisteredDinersByRestaurant(restaurantId);
+      res.json(diners);
+    } catch (error) {
+      console.error("Get registered diners error:", error);
+      res.status(500).json({ error: "Failed to fetch registered diners" });
+    }
+  });
+
+  // PORTAL USERS - Get all portal users (staff) for a restaurant
+  app.get("/api/restaurants/:restaurantId/portal-users", async (req, res) => {
+    try {
+      if (!req.session.userId || req.session.userType !== 'restaurant_admin') {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { restaurantId } = req.params;
+      
+      const restaurant = await storage.getRestaurant(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+      
+      const isOwner = restaurant.adminUserId === req.session.userId;
+      if (!isOwner) {
+        return res.status(403).json({ error: "Only the restaurant owner can manage staff" });
+      }
+      
+      const portalUsersList = await storage.getPortalUsersByRestaurant(restaurantId);
+      res.json(portalUsersList);
+    } catch (error) {
+      console.error("Get portal users error:", error);
+      res.status(500).json({ error: "Failed to fetch staff members" });
+    }
+  });
+
+  // PORTAL USERS - Add a new portal user (staff member)
+  const addStaffUserSchema = z.object({
+    email: z.string().email("Valid email is required"),
+    role: z.enum(["manager", "staff"]).default("staff"),
+  });
+
+  app.post("/api/restaurants/:restaurantId/portal-users", async (req, res) => {
+    try {
+      if (!req.session.userId || req.session.userType !== 'restaurant_admin') {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { restaurantId } = req.params;
+      
+      const restaurant = await storage.getRestaurant(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+      
+      const isOwner = restaurant.adminUserId === req.session.userId;
+      if (!isOwner) {
+        return res.status(403).json({ error: "Only the restaurant owner can add staff" });
+      }
+      
+      const parseResult = addStaffUserSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(422).json({ error: parseResult.error.errors[0]?.message });
+      }
+      
+      const { email, role } = parseResult.data;
+      
+      const existingUser = await storage.getUserByEmail(email);
+      if (!existingUser) {
+        return res.status(404).json({ error: "No user found with that email. They must register first." });
+      }
+      
+      if (existingUser.userType !== 'restaurant_admin') {
+        return res.status(400).json({ error: "This email belongs to a diner account, not a restaurant admin." });
+      }
+      
+      const existingPortalUser = await storage.getPortalUserByUserAndRestaurant(existingUser.id, restaurantId);
+      if (existingPortalUser) {
+        return res.status(400).json({ error: "This user is already a staff member of this restaurant." });
+      }
+      
+      const portalUser = await storage.addPortalUser({
+        restaurantId,
+        userId: existingUser.id,
+        role,
+        addedBy: req.session.userId,
+      });
+      
+      await storage.createActivityLog({
+        restaurantId,
+        userId: req.session.userId,
+        action: 'staff_added',
+        targetType: 'portal_user',
+        targetId: portalUser.id,
+        details: JSON.stringify({ email, role }),
+      });
+      
+      res.json({ ...portalUser, user: existingUser });
+    } catch (error: any) {
+      console.error("Add portal user error:", error);
+      res.status(500).json({ error: error.message || "Failed to add staff member" });
+    }
+  });
+
+  // PORTAL USERS - Remove a portal user (staff member)
+  app.delete("/api/restaurants/:restaurantId/portal-users/:portalUserId", async (req, res) => {
+    try {
+      if (!req.session.userId || req.session.userType !== 'restaurant_admin') {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { restaurantId, portalUserId } = req.params;
+      
+      const restaurant = await storage.getRestaurant(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+      
+      const isOwner = restaurant.adminUserId === req.session.userId;
+      if (!isOwner) {
+        return res.status(403).json({ error: "Only the restaurant owner can remove staff" });
+      }
+      
+      await storage.removePortalUser(portalUserId);
+      
+      await storage.createActivityLog({
+        restaurantId,
+        userId: req.session.userId,
+        action: 'staff_removed',
+        targetType: 'portal_user',
+        targetId: portalUserId,
+        details: null,
+      });
+      
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Remove portal user error:", error);
+      res.status(500).json({ error: error.message || "Failed to remove staff member" });
     }
   });
 

@@ -11,7 +11,8 @@ import {
   CalendarDays,
   Activity,
   Building2,
-  ChevronDown
+  ChevronDown,
+  Users
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -56,6 +57,7 @@ function AdminLayoutContent({ children }: AdminLayoutProps) {
   const navigation = [
     { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
     { name: "Vouchers", href: "/admin/vouchers", icon: Ticket },
+    { name: "Users", href: "/admin/users", icon: Users },
     { name: "Reconciliation", href: "/admin/reconciliation", icon: FileCheck },
     { name: "Activity Logs", href: "/admin/activity-logs", icon: Activity },
     { name: "Reservations", href: null, icon: CalendarDays, comingSoon: true },

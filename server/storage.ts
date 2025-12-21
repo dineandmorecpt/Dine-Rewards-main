@@ -48,7 +48,7 @@ import {
 import { drizzle } from "drizzle-orm/node-postgres";
 import pkg from "pg";
 const { Pool } = pkg;
-import { eq, and, desc, sql, gte } from "drizzle-orm";
+import { eq, and, desc, sql, gte, inArray } from "drizzle-orm";
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -174,6 +174,20 @@ export interface IStorage {
   
   // Stats
   countAllDiners(): Promise<number>;
+  
+  // Registered Diners for Restaurant
+  getRegisteredDinersByRestaurant(restaurantId: string): Promise<{
+    id: string;
+    name: string;
+    lastName: string | null;
+    email: string;
+    phone: string | null;
+    currentPoints: number;
+    totalVouchersGenerated: number;
+    availableVoucherCredits: number;
+    lastTransactionDate: Date | null;
+    createdAt: Date;
+  }[]>;
   
   // Portal User Management
   getPortalUsersByRestaurant(restaurantId: string): Promise<(PortalUser & { user: User })[]>;
@@ -655,6 +669,57 @@ export class DbStorage implements IStorage {
       .from(users)
       .where(eq(users.userType, 'diner'));
     return result[0]?.count || 0;
+  }
+
+  async getRegisteredDinersByRestaurant(restaurantId: string): Promise<{
+    id: string;
+    name: string;
+    lastName: string | null;
+    email: string;
+    phone: string | null;
+    currentPoints: number;
+    totalVouchersGenerated: number;
+    availableVoucherCredits: number;
+    lastTransactionDate: Date | null;
+    createdAt: Date;
+  }[]> {
+    const results = await db.select({
+      id: users.id,
+      name: users.name,
+      lastName: users.lastName,
+      email: users.email,
+      phone: users.phone,
+      currentPoints: pointsBalances.currentPoints,
+      totalVouchersGenerated: pointsBalances.totalVouchersGenerated,
+      availableVoucherCredits: pointsBalances.availableVoucherCredits,
+      createdAt: users.createdAt,
+    })
+      .from(pointsBalances)
+      .innerJoin(users, eq(pointsBalances.dinerId, users.id))
+      .where(eq(pointsBalances.restaurantId, restaurantId))
+      .orderBy(desc(users.createdAt));
+    
+    const dinerIds = results.map(r => r.id);
+    
+    const lastTransactions = dinerIds.length > 0 
+      ? await db.select({
+          dinerId: transactions.dinerId,
+          lastDate: sql<Date>`max(${transactions.transactionDate})`.as('last_date'),
+        })
+        .from(transactions)
+        .where(and(
+          eq(transactions.restaurantId, restaurantId),
+          inArray(transactions.dinerId, dinerIds)
+        ))
+        .groupBy(transactions.dinerId)
+      : [];
+    
+    const lastTxMap = new Map(lastTransactions.map(t => [t.dinerId, t.lastDate]));
+    
+    return results.map(r => ({
+      ...r,
+      lastTransactionDate: lastTxMap.get(r.id) || null,
+    }));
   }
 
   async getPortalUsersByRestaurant(restaurantId: string): Promise<(PortalUser & { user: User })[]> {

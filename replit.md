@@ -52,7 +52,7 @@ Core data models:
 - `users` - Both diners and restaurant admins (distinguished by `userType`)
 - `restaurants` - Restaurant entities (organization level) with configurable loyalty rules
 - `branches` - Restaurant branches with name, address, phone, isDefault, isActive flags
-- `pointsBalances` - Points balance per diner per restaurant (organization scope)
+- `pointsBalances` - Points balance per diner per restaurant (tracks branchId when loyaltyScope='branch')
 - `transactions` - Transaction history for points earning (tracks branchId)
 - `vouchers` - Generated vouchers with codes and expiry dates (tracks branchId)
 - `campaigns` - Marketing campaigns (placeholder)
@@ -62,9 +62,19 @@ Core data models:
 - Each restaurant must have exactly one default branch
 - Data is tracked per-branch (transactions, vouchers, reconciliation) with org-wide roll-ups
 - Diners register at the organization level and can transact at any branch
-- Points balances remain at restaurant scope (not branch-specific)
 - Admin UI includes a branch switcher for multi-branch restaurants
 - Branch context managed via `useBranch` hook in `client/src/hooks/use-branch.tsx`
+
+### Loyalty Scope Configuration
+- Restaurants can choose between two loyalty modes via the `loyaltyScope` field:
+  - **Organization-wide** (`loyaltyScope: 'organization'`): Points and vouchers work across all branches. This is the default mode. Points balances are tracked at the restaurant level (branchId is null).
+  - **Branch-specific** (`loyaltyScope: 'branch'`): Points and vouchers are tied to specific branches. Each branch has its own separate points balance for each diner.
+- When branch-specific mode is enabled:
+  - Transactions require a branchId parameter
+  - Points balances are tracked per-branch (branchId is set)
+  - Voucher redemption requires branchId context
+  - Diner dashboard shows branch name on balance cards
+- Admin settings page allows restaurant owners to configure the loyalty scope
 
 ### Points System Design
 - Points are earned based on configurable `pointsPerCurrency` rate (default: 1 point per R1 spent)

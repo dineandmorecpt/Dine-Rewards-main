@@ -6,7 +6,8 @@ export interface RestaurantSettings {
   voucherValidityDays?: number;
   pointsPerCurrency?: number;
   pointsThreshold?: number;
-  loyaltyScope?: 'organization' | 'branch'; // Points/vouchers work org-wide or per-branch
+  loyaltyScope?: 'organization' | 'branch'; // Points accumulation scope: org-wide or per-branch
+  voucherScope?: 'organization' | 'branch'; // Voucher redemption scope: all branches or branch-specific
 }
 
 export interface IConfigService {
@@ -54,6 +55,12 @@ export class ConfigService implements IConfigService {
     if (settings.loyaltyScope !== undefined) {
       if (settings.loyaltyScope !== 'organization' && settings.loyaltyScope !== 'branch') {
         errors.push("Loyalty scope must be 'organization' or 'branch'");
+      }
+    }
+
+    if (settings.voucherScope !== undefined) {
+      if (settings.voucherScope !== 'organization' && settings.voucherScope !== 'branch') {
+        errors.push("Voucher scope must be 'organization' or 'branch'");
       }
     }
 

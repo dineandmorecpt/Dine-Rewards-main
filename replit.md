@@ -66,15 +66,17 @@ Core data models:
 - Branch context managed via `useBranch` hook in `client/src/hooks/use-branch.tsx`
 
 ### Loyalty Scope Configuration
-- Restaurants can choose between two loyalty modes via the `loyaltyScope` field:
-  - **Organization-wide** (`loyaltyScope: 'organization'`): Points and vouchers work across all branches. This is the default mode. Points balances are tracked at the restaurant level (branchId is null).
-  - **Branch-specific** (`loyaltyScope: 'branch'`): Points and vouchers are tied to specific branches. Each branch has its own separate points balance for each diner.
-- When branch-specific mode is enabled:
+- **Points Accumulation** (`loyaltyScope` field):
+  - **Organization-wide** (`loyaltyScope: 'organization'`): Points earned at any branch count towards the same balance. This is the default mode. Points balances are tracked at the restaurant level (branchId is null).
+  - **Branch-specific** (`loyaltyScope: 'branch'`): Each branch tracks its own separate points balance. Diners have different point balances per branch.
+- **Voucher Redemption** (`voucherScope` field):
+  - **Organization-wide** (`voucherScope: 'organization'`): Vouchers can be redeemed at any branch. This is the default mode.
+  - **Branch-specific** (`voucherScope: 'branch'`): Vouchers can only be redeemed at the branch where they were earned.
+- When branch-specific points mode is enabled:
   - Transactions require a branchId parameter
   - Points balances are tracked per-branch (branchId is set)
-  - Voucher redemption requires branchId context
   - Diner dashboard shows branch name on balance cards
-- Admin settings page allows restaurant owners to configure the loyalty scope
+- Admin settings page (`/admin/settings`) allows restaurant owners to configure both scopes
 
 ### Points System Design
 - Points are earned based on configurable `pointsPerCurrency` rate (default: 1 point per R1 spent)

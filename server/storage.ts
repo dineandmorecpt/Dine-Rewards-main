@@ -127,6 +127,7 @@ export interface IStorage {
       pointsPerCurrency?: number; 
       pointsThreshold?: number;
       loyaltyScope?: string; // 'organization' | 'branch'
+      voucherScope?: string; // 'organization' | 'branch'
     }
   ): Promise<Restaurant>;
   
@@ -553,6 +554,7 @@ export class DbStorage implements IStorage {
       pointsPerCurrency?: number; 
       pointsThreshold?: number;
       loyaltyScope?: string; // 'organization' | 'branch'
+      voucherScope?: string; // 'organization' | 'branch'
     }
   ): Promise<Restaurant> {
     const result = await db.update(restaurants)

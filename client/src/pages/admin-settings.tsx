@@ -20,6 +20,7 @@ export default function AdminSettings() {
   const [pointsPerCurrency, setPointsPerCurrency] = useState<number | string>(1);
   const [pointsThreshold, setPointsThreshold] = useState<number | string>(1000);
   const [loyaltyScope, setLoyaltyScope] = useState<"organization" | "branch">("organization");
+  const [voucherScope, setVoucherScope] = useState<"organization" | "branch">("organization");
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
   const { portalRole, restaurant } = useAuth();
@@ -128,6 +129,7 @@ export default function AdminSettings() {
           setPointsPerCurrency(data.pointsPerCurrency || 1);
           setPointsThreshold(data.pointsThreshold || 1000);
           setLoyaltyScope(data.loyaltyScope || "organization");
+          setVoucherScope(data.voucherScope || "organization");
         }
       })
       .catch(err => console.error("Failed to load settings:", err));
@@ -144,7 +146,8 @@ export default function AdminSettings() {
           voucherValidityDays,
           pointsPerCurrency,
           pointsThreshold,
-          loyaltyScope
+          loyaltyScope,
+          voucherScope
         })
       });
       if (response.ok) {
@@ -277,7 +280,7 @@ export default function AdminSettings() {
                     </p>
                   </div>
                   <div className="grid gap-2 pt-2 border-t">
-                    <Label htmlFor="loyalty-scope">Loyalty Scope</Label>
+                    <Label htmlFor="loyalty-scope">Points Accumulation</Label>
                     <Select
                       value={loyaltyScope}
                       onValueChange={(value: "organization" | "branch") => setLoyaltyScope(value)}
@@ -286,14 +289,34 @@ export default function AdminSettings() {
                         <SelectValue placeholder="Select scope" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="organization">Organization-wide</SelectItem>
-                        <SelectItem value="branch">Branch-specific</SelectItem>
+                        <SelectItem value="organization">Across all branches</SelectItem>
+                        <SelectItem value="branch">Per branch only</SelectItem>
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-muted-foreground">
                       {loyaltyScope === "organization" 
-                        ? "Points and vouchers work across all branches" 
-                        : "Points and vouchers are specific to each branch"}
+                        ? "Points earned at any branch count towards the same balance" 
+                        : "Each branch tracks its own separate points balance"}
+                    </p>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="voucher-scope">Voucher Redemption</Label>
+                    <Select
+                      value={voucherScope}
+                      onValueChange={(value: "organization" | "branch") => setVoucherScope(value)}
+                    >
+                      <SelectTrigger id="voucher-scope" data-testid="select-voucher-scope">
+                        <SelectValue placeholder="Select scope" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="organization">Redeemable at all branches</SelectItem>
+                        <SelectItem value="branch">Only at issuing branch</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      {voucherScope === "organization" 
+                        ? "Vouchers can be redeemed at any of your branches" 
+                        : "Vouchers can only be redeemed at the branch where they were earned"}
                     </p>
                   </div>
                 </CardContent>

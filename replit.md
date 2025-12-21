@@ -90,6 +90,15 @@ Core data models:
 - Only restaurant owners can add or remove staff members
 - Search functionality for filtering diners by name, email, or phone
 
+### Business Profile Management
+- Restaurant admins can manage their business profile via the Profile page (`/admin/profile`)
+- Profile fields include:
+  - Business Details: Legal name, trading name, description, cuisine type, registration number, VAT number
+  - Business Address: Street address, city, province, postal code, country
+  - Contact Information: Contact person name, email, phone, business hours
+  - Online Presence: Website URL, Facebook, Instagram, Twitter links
+- All profile data is stored in the restaurants table
+
 ### Diner Profile Management
 - Diners can edit their profile via the Profile page (`/diner/profile`)
 - Transaction history shows full earning/redemption details (`/diner/history`)

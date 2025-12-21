@@ -82,6 +82,20 @@ Core data models:
 - Points reset to 0 after voucher generation (rollover model)
 - Vouchers have configurable validity periods per restaurant
 
+### Admin User Management
+- Restaurant admins can view all registered diners via the Users page (`/admin/users`)
+- Diners list displays: name, contact info, points, credits, vouchers, last visit, join date
+- Staff management allows owners to add/remove portal users (managers and staff)
+- Portal users are restaurant-level access grants for multiple team members
+- Only restaurant owners can add or remove staff members
+- Search functionality for filtering diners by name, email, or phone
+
+### Diner Profile Management
+- Diners can edit their profile via the Profile page (`/diner/profile`)
+- Transaction history shows full earning/redemption details (`/diner/history`)
+- Profile includes name, email, phone number fields
+- Diners can view their points balances across multiple restaurants
+
 ### Account Deletion
 - Two-step confirmation flow: modal requiring "DELETE" text + email confirmation
 - 24-hour token expiry for email confirmation links

@@ -55,6 +55,16 @@ export const restaurants = pgTable("restaurants", {
   hasAdditionalBranches: boolean("has_additional_branches").default(false),
   logoUrl: text("logo_url"),
   onboardingCompletedAt: timestamp("onboarding_completed_at"),
+  // Business profile fields
+  tradingName: text("trading_name"), // Trading name if different from legal name
+  description: text("description"), // About the business
+  cuisineType: text("cuisine_type"), // Type of cuisine/food
+  websiteUrl: text("website_url"),
+  vatNumber: text("vat_number"),
+  facebookUrl: text("facebook_url"),
+  instagramUrl: text("instagram_url"),
+  twitterUrl: text("twitter_url"),
+  businessHours: text("business_hours"), // JSON string with hours per day
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

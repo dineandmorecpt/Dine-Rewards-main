@@ -150,6 +150,33 @@ export interface IStorage {
     }
   ): Promise<Restaurant>;
   
+  // Restaurant Profile
+  updateRestaurantProfile(
+    id: string,
+    data: {
+      name?: string;
+      tradingName?: string;
+      description?: string;
+      cuisineType?: string;
+      websiteUrl?: string;
+      vatNumber?: string;
+      registrationNumber?: string;
+      streetAddress?: string;
+      city?: string;
+      province?: string;
+      postalCode?: string;
+      country?: string;
+      contactName?: string;
+      contactEmail?: string;
+      contactPhone?: string;
+      facebookUrl?: string;
+      instagramUrl?: string;
+      twitterUrl?: string;
+      businessHours?: string;
+      logoUrl?: string;
+    }
+  ): Promise<Restaurant>;
+  
   // Voucher Code Management
   getVoucherByCode(code: string): Promise<Voucher | undefined>;
   getVoucherById(id: string): Promise<Voucher | undefined>;
@@ -551,6 +578,38 @@ export class DbStorage implements IStorage {
       logoUrl?: string;
       onboardingStatus?: string;
       onboardingCompletedAt?: Date | null;
+    }
+  ): Promise<Restaurant> {
+    const result = await db.update(restaurants)
+      .set(data)
+      .where(eq(restaurants.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async updateRestaurantProfile(
+    id: string,
+    data: {
+      name?: string;
+      tradingName?: string;
+      description?: string;
+      cuisineType?: string;
+      websiteUrl?: string;
+      vatNumber?: string;
+      registrationNumber?: string;
+      streetAddress?: string;
+      city?: string;
+      province?: string;
+      postalCode?: string;
+      country?: string;
+      contactName?: string;
+      contactEmail?: string;
+      contactPhone?: string;
+      facebookUrl?: string;
+      instagramUrl?: string;
+      twitterUrl?: string;
+      businessHours?: string;
+      logoUrl?: string;
     }
   ): Promise<Restaurant> {
     const result = await db.update(restaurants)

@@ -62,6 +62,7 @@ function AdminLayoutContent({ children }: AdminLayoutProps) {
     { name: "Activity Logs", href: "/admin/activity-logs", icon: Activity },
     { name: "Reservations", href: null, icon: CalendarDays, comingSoon: true },
     { name: "Campaigns", href: null, icon: Megaphone, comingSoon: true },
+    { name: "Business Profile", href: "/admin/profile", icon: Building2 },
     { name: "Settings", href: "/admin/settings", icon: Settings },
   ];
 

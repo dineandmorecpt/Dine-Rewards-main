@@ -1211,6 +1211,73 @@ export async function registerRoutes(
     }
   });
 
+  // RESTAURANT PROFILE - Update business profile information
+  const profileSchema = z.object({
+    name: z.string().min(1).optional(),
+    tradingName: z.string().optional(),
+    description: z.string().optional(),
+    cuisineType: z.string().optional(),
+    websiteUrl: z.string().url().optional().or(z.literal('')),
+    vatNumber: z.string().optional(),
+    registrationNumber: z.string().optional(),
+    streetAddress: z.string().optional(),
+    city: z.string().optional(),
+    province: z.string().optional(),
+    postalCode: z.string().optional(),
+    country: z.string().optional(),
+    contactName: z.string().optional(),
+    contactEmail: z.string().email().optional().or(z.literal('')),
+    contactPhone: z.string().optional(),
+    facebookUrl: z.string().url().optional().or(z.literal('')),
+    instagramUrl: z.string().url().optional().or(z.literal('')),
+    twitterUrl: z.string().url().optional().or(z.literal('')),
+    businessHours: z.string().optional(),
+    logoUrl: z.string().optional(),
+  });
+
+  app.patch("/api/restaurants/:restaurantId/profile", async (req, res) => {
+    try {
+      const { restaurantId } = req.params;
+      
+      if (!req.session.userId || req.session.userType !== 'restaurant_admin') {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const restaurant = await storage.getRestaurant(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+
+      const isOwner = restaurant.adminUserId === req.session.userId;
+      const portalAccess = await storage.getPortalUserByUserAndRestaurant(req.session.userId, restaurantId);
+      
+      if (!isOwner && !portalAccess) {
+        return res.status(403).json({ error: "You don't have access to this restaurant" });
+      }
+
+      const parseResult = profileSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(422).json({ error: parseResult.error.errors[0]?.message });
+      }
+
+      const updatedRestaurant = await storage.updateRestaurantProfile(restaurantId, parseResult.data);
+      
+      await storage.createActivityLog({
+        restaurantId,
+        userId: req.session.userId,
+        action: 'profile_updated',
+        targetType: 'restaurant',
+        targetId: restaurantId,
+        details: JSON.stringify({ fields: Object.keys(parseResult.data) }),
+      });
+
+      res.json(updatedRestaurant);
+    } catch (error: any) {
+      console.error("Update restaurant profile error:", error);
+      res.status(400).json({ error: error.message || "Failed to update profile" });
+    }
+  });
+
   // RESTAURANT ONBOARDING - Save onboarding data (draft or submit)
   const onboardingSchema = z.object({
     registrationNumber: z.string().optional(),

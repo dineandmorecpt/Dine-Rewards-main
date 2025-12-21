@@ -297,9 +297,9 @@ export async function registerRoutes(
         return res.json({ success: true, message: "If an account with that phone number exists, a password reset link has been sent." });
       }
 
-      // Only allow this for diners
-      if (user.userType !== 'diner') {
-        console.log(`SMS password reset attempted for non-diner account: ${phone}`);
+      // Allow SMS password reset for both diners and restaurant admins
+      if (user.userType !== 'diner' && user.userType !== 'restaurant_admin') {
+        console.log(`SMS password reset attempted for unsupported account type: ${phone}`);
         return res.json({ success: true, message: "If an account with that phone number exists, a password reset link has been sent." });
       }
 

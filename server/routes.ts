@@ -139,6 +139,11 @@ export async function registerRoutes(
 
   // AUTH - Get current user (for session check)
   app.get("/api/auth/me", async (req, res) => {
+    // Disable caching to ensure fresh session state
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    
     try {
       if (!req.session.userId) {
         return res.json({ user: null, restaurant: null, portalRole: null });

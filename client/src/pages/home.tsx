@@ -56,8 +56,12 @@ export default function Home() {
         throw new Error("This account is not registered as a diner.");
       }
 
-      // Refetch auth cache and wait for it to complete before navigating
-      await queryClient.refetchQueries({ queryKey: ["auth"] });
+      // Set auth data directly in cache to avoid race conditions
+      queryClient.setQueryData(["auth"], {
+        user: data.user,
+        restaurant: data.restaurant,
+        portalRole: data.portalRole,
+      });
       
       toast({
         title: "Welcome back!",
@@ -107,7 +111,12 @@ export default function Home() {
         throw new Error(data.error || "Registration failed");
       }
 
-      await queryClient.refetchQueries({ queryKey: ["auth"] });
+      // Set auth data directly in cache
+      queryClient.setQueryData(["auth"], {
+        user: data.user,
+        restaurant: null,
+        portalRole: null,
+      });
 
       toast({
         title: "Registration successful!",
@@ -155,8 +164,12 @@ export default function Home() {
         throw new Error("This account is not registered as a restaurant admin.");
       }
 
-      // Refetch auth cache and wait for it to complete before navigating
-      await queryClient.refetchQueries({ queryKey: ["auth"] });
+      // Set auth data directly in cache to avoid race conditions
+      queryClient.setQueryData(["auth"], {
+        user: data.user,
+        restaurant: data.restaurant,
+        portalRole: data.portalRole,
+      });
       
       toast({
         title: "Welcome back!",

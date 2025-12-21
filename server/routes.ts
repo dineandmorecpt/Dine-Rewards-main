@@ -504,13 +504,18 @@ export async function registerRoutes(
 
       const { name, lastName, email, phone, password } = parseResult.data;
 
+      // Verify that the phone number was verified via OTP
+      if (!req.session.verifiedPhone || req.session.verifiedPhone !== phone) {
+        return res.status(400).json({ error: "Phone number must be verified before registration" });
+      }
+
       // Check if email already exists
       const existingEmail = await storage.getUserByEmail(email);
       if (existingEmail) {
         return res.status(400).json({ error: "An account with this email already exists" });
       }
 
-      // Check if phone already exists
+      // Check if phone already exists (double-check in case of race condition)
       const existingPhone = await storage.getUserByPhone(phone);
       if (existingPhone) {
         return res.status(400).json({ error: "An account with this phone number already exists" });
@@ -529,9 +534,10 @@ export async function registerRoutes(
         userType: 'diner',
       });
 
-      // Set session
+      // Set session and clear verified phone
       req.session.userId = user.id;
       req.session.userType = user.userType;
+      delete req.session.verifiedPhone;
 
       // Explicitly save session before responding
       req.session.save((err) => {
@@ -803,6 +809,100 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Verify OTP error:", error);
       res.status(500).json({ error: "Login failed" });
+    }
+  });
+
+  // AUTH - Request OTP for registration (phone verification)
+  app.post("/api/auth/request-registration-otp", authRateLimiter, async (req, res) => {
+    try {
+      const parseResult = requestOtpSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(422).json({ 
+          error: parseResult.error.errors[0]?.message || "Invalid phone number" 
+        });
+      }
+
+      const { phone } = parseResult.data;
+
+      // Check if phone is already registered
+      const existingUser = await storage.getUserByPhone(phone);
+      if (existingUser) {
+        return res.status(400).json({ error: "This phone number is already registered" });
+      }
+
+      // Generate 6-digit OTP
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      
+      // Store OTP with 5-minute expiry (using same store with prefix to differentiate)
+      const expiresAt = new Date();
+      expiresAt.setMinutes(expiresAt.getMinutes() + 5);
+      otpStore.set(`reg_${phone}`, { otp, expiresAt });
+
+      // Send OTP via SMS
+      const { sendSMS } = await import("./services/sms");
+      const smsResult = await sendSMS(phone, `Your Dine&More verification code is: ${otp}. Valid for 5 minutes.`);
+
+      res.json({
+        success: true,
+        smsSent: smsResult.success,
+        smsError: smsResult.error,
+        message: smsResult.success 
+          ? "Verification code sent to your phone" 
+          : "Could not send SMS. Please try again.",
+      });
+    } catch (error: any) {
+      console.error("Request registration OTP error:", error);
+      res.status(500).json({ error: "Failed to send verification code" });
+    }
+  });
+
+  // AUTH - Verify OTP for registration (stores verified phone in session)
+  app.post("/api/auth/verify-registration-otp", async (req, res) => {
+    try {
+      const parseResult = verifyOtpSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(422).json({ 
+          error: parseResult.error.errors[0]?.message || "Invalid input" 
+        });
+      }
+
+      const { phone, otp } = parseResult.data;
+
+      // Check stored OTP (with registration prefix)
+      const storedOtp = otpStore.get(`reg_${phone}`);
+      if (!storedOtp) {
+        return res.status(400).json({ error: "No verification code found. Please request a new one." });
+      }
+
+      if (new Date() > storedOtp.expiresAt) {
+        otpStore.delete(`reg_${phone}`);
+        return res.status(400).json({ error: "Verification code has expired. Please request a new one." });
+      }
+
+      if (storedOtp.otp !== otp) {
+        return res.status(401).json({ error: "Invalid verification code" });
+      }
+
+      // OTP is valid - clear it and store verified phone in session
+      otpStore.delete(`reg_${phone}`);
+      
+      // Store verified phone in session (valid for 15 minutes)
+      req.session.verifiedPhone = phone;
+      
+      req.session.save((err) => {
+        if (err) {
+          console.error("Session save error:", err);
+          return res.status(500).json({ error: "Verification failed" });
+        }
+        res.json({
+          success: true,
+          message: "Phone number verified successfully",
+          verifiedPhone: phone,
+        });
+      });
+    } catch (error: any) {
+      console.error("Verify registration OTP error:", error);
+      res.status(500).json({ error: "Verification failed" });
     }
   });
 

@@ -20,6 +20,7 @@ declare module "express-session" {
   interface SessionData {
     userId: string;
     userType: string;
+    verifiedPhone?: string; // Phone number verified via OTP during registration
   }
 }
 

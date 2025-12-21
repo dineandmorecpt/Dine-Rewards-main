@@ -18,11 +18,15 @@ export default function Home() {
   const [dinerEmail, setDinerEmail] = useState("");
   const [dinerPassword, setDinerPassword] = useState("");
   
+  // Registration flow: 1 = phone entry, 2 = OTP verification, 3 = details form
+  const [registerStep, setRegisterStep] = useState<1 | 2 | 3>(1);
   const [registerName, setRegisterName] = useState("");
   const [registerLastName, setRegisterLastName] = useState("");
   const [registerEmail, setRegisterEmail] = useState("");
   const [registerPhone, setRegisterPhone] = useState("");
   const [registerPassword, setRegisterPassword] = useState("");
+  const [registerOtp, setRegisterOtp] = useState("");
+  const [verifiedPhone, setVerifiedPhone] = useState("");
   
   const [adminEmail, setAdminEmail] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
@@ -80,13 +84,108 @@ export default function Home() {
     }
   };
 
+  const handleRequestRegistrationOtp = async () => {
+    if (!registerPhone) {
+      toast({
+        title: "Missing information",
+        description: "Please enter your phone number.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await fetch("/api/auth/request-registration-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ phone: registerPhone }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to send verification code");
+      }
+
+      toast({
+        title: "Verification code sent",
+        description: "Please check your phone for the code.",
+      });
+
+      setRegisterStep(2);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVerifyRegistrationOtp = async () => {
+    if (!registerOtp || registerOtp.length !== 6) {
+      toast({
+        title: "Invalid code",
+        description: "Please enter the 6-digit verification code.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await fetch("/api/auth/verify-registration-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ phone: registerPhone, otp: registerOtp }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Verification failed");
+      }
+
+      toast({
+        title: "Phone verified",
+        description: "Please complete your registration.",
+      });
+
+      setVerifiedPhone(registerPhone);
+      setRegisterStep(3);
+    } catch (error: any) {
+      toast({
+        title: "Verification failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleDinerRegister = async () => {
-    if (!registerName || !registerLastName || !registerEmail || !registerPhone || !registerPassword) {
+    if (!registerName || !registerLastName || !registerEmail || !registerPassword) {
       toast({
         title: "Missing information",
         description: "Please fill in all fields.",
         variant: "destructive",
       });
+      return;
+    }
+
+    if (!verifiedPhone) {
+      toast({
+        title: "Phone not verified",
+        description: "Please verify your phone number first.",
+        variant: "destructive",
+      });
+      setRegisterStep(1);
       return;
     }
 
@@ -100,7 +199,7 @@ export default function Home() {
           name: registerName,
           lastName: registerLastName,
           email: registerEmail,
-          phone: registerPhone,
+          phone: verifiedPhone,
           password: registerPassword,
         }),
       });
@@ -264,7 +363,13 @@ export default function Home() {
                       <button
                         type="button"
                         className="text-primary hover:underline font-medium"
-                        onClick={() => setShowRegister(true)}
+                        onClick={() => {
+                          setShowRegister(true);
+                          setRegisterStep(1);
+                          setRegisterPhone("");
+                          setRegisterOtp("");
+                          setVerifiedPhone("");
+                        }}
                         data-testid="button-show-register"
                       >
                         Register
@@ -273,75 +378,154 @@ export default function Home() {
                   </>
                 ) : (
                   <>
-                    <div className="space-y-2">
-                      <Label htmlFor="register-name">First Name</Label>
-                      <Input
-                        id="register-name"
-                        placeholder="Enter your first name"
-                        value={registerName}
-                        onChange={(e) => setRegisterName(e.target.value)}
-                        data-testid="input-register-name"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="register-lastname">Surname</Label>
-                      <Input
-                        id="register-lastname"
-                        placeholder="Enter your surname"
-                        value={registerLastName}
-                        onChange={(e) => setRegisterLastName(e.target.value)}
-                        data-testid="input-register-lastname"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="register-email">Email</Label>
-                      <Input
-                        id="register-email"
-                        type="email"
-                        placeholder="your@email.com"
-                        value={registerEmail}
-                        onChange={(e) => setRegisterEmail(e.target.value)}
-                        data-testid="input-register-email"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="register-phone">Phone Number</Label>
-                      <Input
-                        id="register-phone"
-                        type="tel"
-                        placeholder="+27 82 123 4567"
-                        value={registerPhone}
-                        onChange={(e) => setRegisterPhone(e.target.value)}
-                        data-testid="input-register-phone"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="register-password">Password</Label>
-                      <Input
-                        id="register-password"
-                        type="password"
-                        placeholder="Create a password"
-                        value={registerPassword}
-                        onChange={(e) => setRegisterPassword(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleDinerRegister()}
-                        data-testid="input-register-password"
-                      />
-                    </div>
-                    <Button 
-                      className="w-full" 
-                      onClick={handleDinerRegister}
-                      disabled={isLoading}
-                      data-testid="button-diner-register"
-                    >
-                      {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                      Register
-                    </Button>
+                    {registerStep === 1 && (
+                      <>
+                        <div className="text-center mb-2">
+                          <p className="text-sm text-muted-foreground">Step 1 of 3: Verify your phone number</p>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="register-phone">Phone Number</Label>
+                          <Input
+                            id="register-phone"
+                            type="tel"
+                            placeholder="+27 82 123 4567"
+                            value={registerPhone}
+                            onChange={(e) => setRegisterPhone(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleRequestRegistrationOtp()}
+                            data-testid="input-register-phone"
+                          />
+                        </div>
+                        <Button 
+                          className="w-full" 
+                          onClick={handleRequestRegistrationOtp}
+                          disabled={isLoading}
+                          data-testid="button-request-otp"
+                        >
+                          {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                          Send Verification Code
+                        </Button>
+                      </>
+                    )}
+
+                    {registerStep === 2 && (
+                      <>
+                        <div className="text-center mb-2">
+                          <p className="text-sm text-muted-foreground">Step 2 of 3: Enter verification code</p>
+                          <p className="text-xs text-muted-foreground mt-1">Sent to {registerPhone}</p>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="register-otp">Verification Code</Label>
+                          <Input
+                            id="register-otp"
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={6}
+                            placeholder="Enter 6-digit code"
+                            value={registerOtp}
+                            onChange={(e) => setRegisterOtp(e.target.value.replace(/\D/g, ''))}
+                            onKeyDown={(e) => e.key === 'Enter' && handleVerifyRegistrationOtp()}
+                            data-testid="input-register-otp"
+                          />
+                        </div>
+                        <Button 
+                          className="w-full" 
+                          onClick={handleVerifyRegistrationOtp}
+                          disabled={isLoading}
+                          data-testid="button-verify-otp"
+                        >
+                          {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                          Verify
+                        </Button>
+                        <button
+                          type="button"
+                          className="text-sm text-muted-foreground hover:text-primary hover:underline w-full text-center"
+                          onClick={() => {
+                            setRegisterStep(1);
+                            setRegisterOtp("");
+                          }}
+                          data-testid="button-change-phone"
+                        >
+                          Use a different phone number
+                        </button>
+                      </>
+                    )}
+
+                    {registerStep === 3 && (
+                      <>
+                        <div className="text-center mb-2">
+                          <p className="text-sm text-muted-foreground">Step 3 of 3: Complete your profile</p>
+                          <p className="text-xs text-green-600 mt-1">Phone verified: {verifiedPhone}</p>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="register-name">First Name</Label>
+                          <Input
+                            id="register-name"
+                            placeholder="Enter your first name"
+                            value={registerName}
+                            onChange={(e) => setRegisterName(e.target.value)}
+                            data-testid="input-register-name"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="register-lastname">Surname</Label>
+                          <Input
+                            id="register-lastname"
+                            placeholder="Enter your surname"
+                            value={registerLastName}
+                            onChange={(e) => setRegisterLastName(e.target.value)}
+                            data-testid="input-register-lastname"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="register-email">Email</Label>
+                          <Input
+                            id="register-email"
+                            type="email"
+                            placeholder="your@email.com"
+                            value={registerEmail}
+                            onChange={(e) => setRegisterEmail(e.target.value)}
+                            data-testid="input-register-email"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="register-password">Password</Label>
+                          <Input
+                            id="register-password"
+                            type="password"
+                            placeholder="Create a password"
+                            value={registerPassword}
+                            onChange={(e) => setRegisterPassword(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleDinerRegister()}
+                            data-testid="input-register-password"
+                          />
+                        </div>
+                        <Button 
+                          className="w-full" 
+                          onClick={handleDinerRegister}
+                          disabled={isLoading}
+                          data-testid="button-diner-register"
+                        >
+                          {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                          Complete Registration
+                        </Button>
+                      </>
+                    )}
                     <div className="text-center text-sm text-muted-foreground">
                       Already have an account?{" "}
                       <button
                         type="button"
                         className="text-primary hover:underline font-medium"
-                        onClick={() => setShowRegister(false)}
+                        onClick={() => {
+                          setShowRegister(false);
+                          setRegisterStep(1);
+                          setRegisterPhone("");
+                          setRegisterOtp("");
+                          setVerifiedPhone("");
+                          setRegisterName("");
+                          setRegisterLastName("");
+                          setRegisterEmail("");
+                          setRegisterPassword("");
+                        }}
                         data-testid="button-show-login"
                       >
                         Sign In

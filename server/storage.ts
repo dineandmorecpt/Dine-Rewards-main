@@ -130,6 +130,26 @@ export interface IStorage {
     }
   ): Promise<Restaurant>;
   
+  // Restaurant Onboarding
+  updateRestaurantOnboarding(
+    id: string,
+    data: {
+      registrationNumber?: string;
+      streetAddress?: string;
+      city?: string;
+      province?: string;
+      postalCode?: string;
+      country?: string;
+      contactName?: string;
+      contactEmail?: string;
+      contactPhone?: string;
+      hasAdditionalBranches?: boolean;
+      logoUrl?: string;
+      onboardingStatus?: string;
+      onboardingCompletedAt?: Date | null;
+    }
+  ): Promise<Restaurant>;
+  
   // Voucher Code Management
   getVoucherByCode(code: string): Promise<Voucher | undefined>;
   getVoucherById(id: string): Promise<Voucher | undefined>;
@@ -496,6 +516,31 @@ export class DbStorage implements IStorage {
   ): Promise<Restaurant> {
     const result = await db.update(restaurants)
       .set(settings)
+      .where(eq(restaurants.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async updateRestaurantOnboarding(
+    id: string,
+    data: {
+      registrationNumber?: string;
+      streetAddress?: string;
+      city?: string;
+      province?: string;
+      postalCode?: string;
+      country?: string;
+      contactName?: string;
+      contactEmail?: string;
+      contactPhone?: string;
+      hasAdditionalBranches?: boolean;
+      logoUrl?: string;
+      onboardingStatus?: string;
+      onboardingCompletedAt?: Date | null;
+    }
+  ): Promise<Restaurant> {
+    const result = await db.update(restaurants)
+      .set(data)
       .where(eq(restaurants.id, id))
       .returning();
     return result[0];

@@ -22,19 +22,36 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { BranchProvider, useBranch } from "@/hooks/use-branch";
+import { useQuery } from "@tanstack/react-query";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
 }
 
 function AdminLayoutContent({ children }: AdminLayoutProps) {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { logout, restaurant } = useAuth();
   const { branches, selectedBranch, setSelectedBranchId } = useBranch();
+
+  const { data: restaurantData } = useQuery({
+    queryKey: ["/api/restaurants", restaurant?.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/restaurants/${restaurant?.id}`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!restaurant?.id,
+  });
+
+  useEffect(() => {
+    if (restaurantData && restaurantData.onboardingStatus !== 'active' && !location.startsWith('/admin/onboarding')) {
+      setLocation('/admin/onboarding');
+    }
+  }, [restaurantData, location, setLocation]);
 
   const navigation = [
     { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },

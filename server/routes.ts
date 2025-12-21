@@ -1211,6 +1211,141 @@ export async function registerRoutes(
     }
   });
 
+  // RESTAURANT ONBOARDING - Save onboarding data (draft or submit)
+  const onboardingSchema = z.object({
+    registrationNumber: z.string().optional(),
+    streetAddress: z.string().optional(),
+    city: z.string().optional(),
+    province: z.string().optional(),
+    postalCode: z.string().optional(),
+    country: z.string().optional(),
+    contactName: z.string().optional(),
+    contactEmail: z.string().email().optional().or(z.literal('')),
+    contactPhone: z.string().optional(),
+    hasAdditionalBranches: z.boolean().optional(),
+    logoUrl: z.string().optional(),
+  });
+
+  app.patch("/api/restaurants/:restaurantId/onboarding", async (req, res) => {
+    try {
+      const { restaurantId } = req.params;
+      
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const parseResult = onboardingSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(422).json({ error: parseResult.error.errors[0]?.message });
+      }
+
+      const updatedRestaurant = await storage.updateRestaurantOnboarding(restaurantId, parseResult.data);
+      
+      await storage.createActivityLog({
+        restaurantId,
+        userId: req.session.userId,
+        action: 'onboarding_updated',
+        targetType: 'restaurant',
+        targetId: restaurantId,
+        details: JSON.stringify({ fields: Object.keys(parseResult.data) }),
+      });
+
+      res.json(updatedRestaurant);
+    } catch (error: any) {
+      console.error("Update onboarding error:", error);
+      res.status(400).json({ error: error.message || "Failed to update onboarding data" });
+    }
+  });
+
+  // RESTAURANT ONBOARDING - Submit for activation
+  app.post("/api/restaurants/:restaurantId/onboarding/submit", async (req, res) => {
+    try {
+      const { restaurantId } = req.params;
+      
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const restaurant = await storage.getRestaurant(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+
+      // Validate state transition - only allow draft -> submitted
+      if (restaurant.onboardingStatus !== 'draft') {
+        return res.status(422).json({ error: "Restaurant has already been submitted or is active" });
+      }
+
+      // Validate required fields
+      if (!restaurant.registrationNumber) {
+        return res.status(422).json({ error: "Registration number is required" });
+      }
+      if (!restaurant.streetAddress || !restaurant.city) {
+        return res.status(422).json({ error: "Address details are required" });
+      }
+      if (!restaurant.contactName || !restaurant.contactEmail || !restaurant.contactPhone) {
+        return res.status(422).json({ error: "Contact details are required" });
+      }
+
+      const updatedRestaurant = await storage.updateRestaurantOnboarding(restaurantId, {
+        onboardingStatus: 'submitted',
+      });
+
+      await storage.createActivityLog({
+        restaurantId,
+        userId: req.session.userId,
+        action: 'onboarding_submitted',
+        targetType: 'restaurant',
+        targetId: restaurantId,
+        details: null,
+      });
+
+      res.json(updatedRestaurant);
+    } catch (error: any) {
+      console.error("Submit onboarding error:", error);
+      res.status(400).json({ error: error.message || "Failed to submit onboarding" });
+    }
+  });
+
+  // RESTAURANT ONBOARDING - Activate (go live)
+  app.post("/api/restaurants/:restaurantId/onboarding/activate", async (req, res) => {
+    try {
+      const { restaurantId } = req.params;
+      
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const restaurant = await storage.getRestaurant(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+
+      if (restaurant.onboardingStatus !== 'submitted') {
+        return res.status(422).json({ error: "Restaurant must be submitted before activation" });
+      }
+
+      const updatedRestaurant = await storage.updateRestaurantOnboarding(restaurantId, {
+        onboardingStatus: 'active',
+        onboardingCompletedAt: new Date(),
+      });
+
+      await storage.createActivityLog({
+        restaurantId,
+        userId: req.session.userId,
+        action: 'restaurant_activated',
+        targetType: 'restaurant',
+        targetId: restaurantId,
+        details: null,
+      });
+
+      res.json(updatedRestaurant);
+    } catch (error: any) {
+      console.error("Activate restaurant error:", error);
+      res.status(400).json({ error: error.message || "Failed to activate restaurant" });
+    }
+  });
+
   // BRANCHES - Get all branches for a restaurant
   app.get("/api/restaurants/:restaurantId/branches", async (req, res) => {
     try {
@@ -1766,6 +1901,11 @@ export async function registerRoutes(
       // Get restaurant details
       const restaurant = await storage.getRestaurant(invitation.restaurantId);
       
+      // Check if restaurant is active (completed onboarding)
+      if (!restaurant || restaurant.onboardingStatus !== 'active') {
+        return res.status(400).json({ error: "This restaurant is not yet accepting registrations" });
+      }
+      
       res.json({
         valid: true,
         phone: invitation.phone,
@@ -1813,6 +1953,12 @@ export async function registerRoutes(
       
       if (invitation.status === 'registered') {
         return res.status(400).json({ error: "This invitation has already been used" });
+      }
+      
+      // Check if restaurant is active (completed onboarding)
+      const restaurant = await storage.getRestaurant(invitation.restaurantId);
+      if (!restaurant || restaurant.onboardingStatus !== 'active') {
+        return res.status(400).json({ error: "This restaurant is not yet accepting registrations" });
       }
       
       // Check if email already exists

@@ -41,6 +41,20 @@ export const restaurants = pgTable("restaurants", {
   pointsThreshold: integer("points_threshold").notNull().default(1000), // Points needed to generate a voucher
   // Loyalty scope: 'organization' = points/vouchers work across all branches, 'branch' = branch-specific
   loyaltyScope: text("loyalty_scope").notNull().default("organization"), // 'organization' | 'branch'
+  // Onboarding fields
+  onboardingStatus: text("onboarding_status").notNull().default("draft"), // 'draft' | 'submitted' | 'active'
+  registrationNumber: text("registration_number"),
+  streetAddress: text("street_address"),
+  city: text("city"),
+  province: text("province"),
+  postalCode: text("postal_code"),
+  country: text("country").default("South Africa"),
+  contactName: text("contact_name"),
+  contactEmail: text("contact_email"),
+  contactPhone: text("contact_phone"),
+  hasAdditionalBranches: boolean("has_additional_branches").default(false),
+  logoUrl: text("logo_url"),
+  onboardingCompletedAt: timestamp("onboarding_completed_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

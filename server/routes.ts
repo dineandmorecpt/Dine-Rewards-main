@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { createLoyaltyServices } from "./services/loyalty";
 import { sendRegistrationInvite } from "./services/sms";
 import { sendPasswordResetEmail, sendAccountDeletionConfirmationEmail } from "./services/email";
+import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { insertTransactionSchema } from "@shared/schema";
 import { z } from "zod";
 import crypto from "crypto";
@@ -47,6 +48,9 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  
+  // Register object storage routes for file uploads
+  registerObjectStorageRoutes(app);
   
   // SHORT REGISTRATION REDIRECT - /r/:token redirects to /register?token=...
   app.get("/r/:token", (req, res) => {

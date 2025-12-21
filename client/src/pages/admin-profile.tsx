@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,9 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Building2, MapPin, Phone, Globe, Facebook, Instagram, Twitter, Save, Loader2 } from "lucide-react";
+import { Building2, MapPin, Phone, Globe, Facebook, Instagram, Twitter, Save, Loader2, Upload, Image as ImageIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { useUpload } from "@/hooks/use-upload";
 
 const cuisineTypes = [
   "African",
@@ -61,6 +62,25 @@ export default function AdminProfile() {
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [logoUrl, setLogoUrl] = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { uploadFile, isUploading } = useUpload({
+    onSuccess: (response) => {
+      setLogoUrl(response.objectPath);
+      toast({
+        title: "Logo Uploaded",
+        description: "Your logo has been uploaded successfully.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Upload Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   const [formData, setFormData] = useState({
     name: "",
@@ -115,6 +135,7 @@ export default function AdminProfile() {
             twitterUrl: data.twitterUrl || "",
             businessHours: data.businessHours || "",
           });
+          setLogoUrl(data.logoUrl || "");
         }
         setIsLoading(false);
       })
@@ -136,7 +157,7 @@ export default function AdminProfile() {
       const res = await fetch(`/api/restaurants/${restaurantId}/profile`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, logoUrl }),
       });
 
       if (!res.ok) {
@@ -220,6 +241,64 @@ export default function AdminProfile() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>Business Logo</Label>
+                <div className="flex items-center gap-4">
+                  <div className="h-20 w-20 rounded-lg border-2 border-dashed border-muted-foreground/25 flex items-center justify-center bg-muted/50 overflow-hidden">
+                    {logoUrl ? (
+                      <img 
+                        src={logoUrl} 
+                        alt="Business logo" 
+                        className="h-full w-full object-cover"
+                        data-testid="img-logo-preview"
+                      />
+                    ) : (
+                      <ImageIcon className="h-8 w-8 text-muted-foreground/50" />
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          uploadFile(file);
+                        }
+                      }}
+                      data-testid="input-logo-file"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploading}
+                      data-testid="button-upload-logo"
+                    >
+                      {isUploading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="mr-2 h-4 w-4" />
+                          Upload Logo
+                        </>
+                      )}
+                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                      Recommended: 200x200px, PNG or JPG
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
               <div className="space-y-2">
                 <Label htmlFor="name">Business Name *</Label>
                 <Input

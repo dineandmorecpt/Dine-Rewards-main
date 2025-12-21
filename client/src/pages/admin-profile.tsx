@@ -7,7 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Building2, MapPin, Phone, Globe, Facebook, Instagram, Twitter, Save, Loader2, Upload, Image as ImageIcon } from "lucide-react";
+import { Building2, MapPin, Phone, Globe, Facebook, Instagram, Twitter, Save, Loader2, Upload, Image as ImageIcon, Plus, Pencil, Trash2, Star, X } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useUpload } from "@/hooks/use-upload";
@@ -55,6 +59,33 @@ const provinces = [
   "Northern Cape",
   "Western Cape"
 ];
+
+interface Branch {
+  id: string;
+  restaurantId: string;
+  name: string;
+  address: string | null;
+  phone: string | null;
+  isDefault: boolean;
+  isActive: boolean;
+  createdAt: string;
+}
+
+interface BranchFormData {
+  name: string;
+  address: string;
+  phone: string;
+  isDefault: boolean;
+  isActive: boolean;
+}
+
+const emptyBranchForm: BranchFormData = {
+  name: "",
+  address: "",
+  phone: "",
+  isDefault: false,
+  isActive: true,
+};
 
 export default function AdminProfile() {
   const { restaurant } = useAuth();
@@ -104,6 +135,147 @@ export default function AdminProfile() {
     businessHours: "",
   });
 
+  // Branch management state
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [isLoadingBranches, setIsLoadingBranches] = useState(true);
+  const [branchDialogOpen, setBranchDialogOpen] = useState(false);
+  const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
+  const [branchForm, setBranchForm] = useState<BranchFormData>(emptyBranchForm);
+  const [isSavingBranch, setIsSavingBranch] = useState(false);
+  const [deleteBranchId, setDeleteBranchId] = useState<string | null>(null);
+  const [isDeletingBranch, setIsDeletingBranch] = useState(false);
+
+  const loadBranches = async () => {
+    if (!restaurantId) return;
+    setIsLoadingBranches(true);
+    try {
+      const res = await fetch(`/api/restaurants/${restaurantId}/branches`);
+      const data = await res.json();
+      setBranches(data);
+    } catch (err) {
+      console.error("Failed to load branches:", err);
+    } finally {
+      setIsLoadingBranches(false);
+    }
+  };
+
+  const handleOpenBranchDialog = (branch?: Branch) => {
+    if (branch) {
+      setEditingBranch(branch);
+      setBranchForm({
+        name: branch.name,
+        address: branch.address || "",
+        phone: branch.phone || "",
+        isDefault: branch.isDefault,
+        isActive: branch.isActive,
+      });
+    } else {
+      setEditingBranch(null);
+      setBranchForm(emptyBranchForm);
+    }
+    setBranchDialogOpen(true);
+  };
+
+  const handleSaveBranch = async () => {
+    if (!restaurantId || !branchForm.name.trim()) return;
+    
+    setIsSavingBranch(true);
+    try {
+      const url = editingBranch
+        ? `/api/restaurants/${restaurantId}/branches/${editingBranch.id}`
+        : `/api/restaurants/${restaurantId}/branches`;
+      
+      const res = await fetch(url, {
+        method: editingBranch ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(branchForm),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to save branch");
+      }
+
+      toast({
+        title: editingBranch ? "Branch Updated" : "Branch Created",
+        description: `${branchForm.name} has been ${editingBranch ? "updated" : "created"} successfully.`,
+      });
+
+      setBranchDialogOpen(false);
+      loadBranches();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingBranch(false);
+    }
+  };
+
+  const handleDeleteBranch = async () => {
+    if (!restaurantId || !deleteBranchId) return;
+    
+    setIsDeletingBranch(true);
+    try {
+      const res = await fetch(`/api/restaurants/${restaurantId}/branches/${deleteBranchId}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to delete branch");
+      }
+
+      toast({
+        title: "Branch Deleted",
+        description: "The branch has been deleted successfully.",
+      });
+
+      setDeleteBranchId(null);
+      loadBranches();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeletingBranch(false);
+    }
+  };
+
+  const handleSetDefault = async (branchId: string) => {
+    if (!restaurantId) return;
+    
+    try {
+      const res = await fetch(`/api/restaurants/${restaurantId}/branches/${branchId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isDefault: true }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to set default branch");
+      }
+
+      toast({
+        title: "Default Branch Updated",
+        description: "The default branch has been updated.",
+      });
+
+      loadBranches();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   useEffect(() => {
     if (!restaurantId) {
       setIsLoading(false);
@@ -143,6 +315,13 @@ export default function AdminProfile() {
         console.error("Failed to load restaurant data:", err);
         setIsLoading(false);
       });
+  }, [restaurantId]);
+
+  // Load branches
+  useEffect(() => {
+    if (restaurantId) {
+      loadBranches();
+    }
   }, [restaurantId]);
 
   const handleInputChange = (field: string, value: string) => {
@@ -591,6 +770,107 @@ export default function AdminProfile() {
           </Card>
         </div>
 
+        {/* Branch Management Section */}
+        <Card className="mt-6">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <MapPin className="h-5 w-5" />
+                  Branch Locations
+                </CardTitle>
+                <CardDescription>
+                  Manage your restaurant's branch locations
+                </CardDescription>
+              </div>
+              <Button onClick={() => handleOpenBranchDialog()} data-testid="button-add-branch">
+                <Plus className="mr-2 h-4 w-4" />
+                Add Branch
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {isLoadingBranches ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : branches.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <MapPin className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p>No branches found. Add your first branch location.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {branches.map((branch) => (
+                  <div
+                    key={branch.id}
+                    className="flex items-center justify-between p-4 border rounded-lg bg-card"
+                    data-testid={`branch-item-${branch.id}`}
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{branch.name}</span>
+                        {branch.isDefault && (
+                          <Badge variant="secondary" className="text-xs">
+                            <Star className="h-3 w-3 mr-1" />
+                            Default
+                          </Badge>
+                        )}
+                        {!branch.isActive && (
+                          <Badge variant="outline" className="text-xs text-muted-foreground">
+                            Inactive
+                          </Badge>
+                        )}
+                      </div>
+                      {branch.address && (
+                        <p className="text-sm text-muted-foreground mt-1">{branch.address}</p>
+                      )}
+                      {branch.phone && (
+                        <p className="text-sm text-muted-foreground flex items-center gap-1">
+                          <Phone className="h-3 w-3" />
+                          {branch.phone}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {!branch.isDefault && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleSetDefault(branch.id)}
+                          title="Set as default"
+                          data-testid={`button-set-default-${branch.id}`}
+                        >
+                          <Star className="h-4 w-4" />
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleOpenBranchDialog(branch)}
+                        data-testid={`button-edit-branch-${branch.id}`}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      {!branch.isDefault && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setDeleteBranchId(branch.id)}
+                          className="text-destructive hover:text-destructive"
+                          data-testid={`button-delete-branch-${branch.id}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         <div className="flex justify-end">
           <Button onClick={handleSave} disabled={isSaving} size="lg" data-testid="button-save-profile-bottom">
             {isSaving ? (
@@ -607,6 +887,139 @@ export default function AdminProfile() {
           </Button>
         </div>
       </div>
+
+      {/* Branch Dialog */}
+      <Dialog open={branchDialogOpen} onOpenChange={setBranchDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {editingBranch ? "Edit Branch" : "Add New Branch"}
+            </DialogTitle>
+            <DialogDescription>
+              {editingBranch
+                ? "Update the branch details below."
+                : "Enter the details for your new branch location."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="branchName">Branch Name *</Label>
+              <Input
+                id="branchName"
+                value={branchForm.name}
+                onChange={(e) => setBranchForm({ ...branchForm, name: e.target.value })}
+                placeholder="e.g., Sandton City Branch"
+                data-testid="input-branch-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="branchAddress">Address</Label>
+              <Input
+                id="branchAddress"
+                value={branchForm.address}
+                onChange={(e) => setBranchForm({ ...branchForm, address: e.target.value })}
+                placeholder="e.g., 123 Main Street, Sandton"
+                data-testid="input-branch-address"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="branchPhone">Phone Number</Label>
+              <Input
+                id="branchPhone"
+                value={branchForm.phone}
+                onChange={(e) => setBranchForm({ ...branchForm, phone: e.target.value })}
+                placeholder="e.g., 011 123 4567"
+                data-testid="input-branch-phone"
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="branchActive">Active Branch</Label>
+                <p className="text-sm text-muted-foreground">
+                  Inactive branches won't accept transactions
+                </p>
+              </div>
+              <Switch
+                id="branchActive"
+                checked={branchForm.isActive}
+                onCheckedChange={(checked) => setBranchForm({ ...branchForm, isActive: checked })}
+                data-testid="switch-branch-active"
+              />
+            </div>
+            {!editingBranch && branches.length === 0 && (
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="branchDefault">Set as Default</Label>
+                  <p className="text-sm text-muted-foreground">
+                    First branch will be set as default
+                  </p>
+                </div>
+                <Switch
+                  id="branchDefault"
+                  checked={branchForm.isDefault || branches.length === 0}
+                  disabled={branches.length === 0}
+                  onCheckedChange={(checked) => setBranchForm({ ...branchForm, isDefault: checked })}
+                  data-testid="switch-branch-default"
+                />
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setBranchDialogOpen(false)}
+              data-testid="button-cancel-branch"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveBranch}
+              disabled={isSavingBranch || !branchForm.name.trim()}
+              data-testid="button-save-branch"
+            >
+              {isSavingBranch ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                editingBranch ? "Update Branch" : "Create Branch"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Branch Confirmation */}
+      <AlertDialog open={!!deleteBranchId} onOpenChange={(open) => !open && setDeleteBranchId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Branch</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this branch? This action cannot be undone.
+              All transactions and data associated with this branch will be preserved but the branch will be removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete-branch">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteBranch}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={isDeletingBranch}
+              data-testid="button-confirm-delete-branch"
+            >
+              {isDeletingBranch ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete Branch"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AdminLayout>
   );
 }

@@ -39,6 +39,8 @@ export const restaurants = pgTable("restaurants", {
   // Configurable points calculation rules per restaurant
   pointsPerCurrency: integer("points_per_currency").notNull().default(1), // Points earned per R1 spent
   pointsThreshold: integer("points_threshold").notNull().default(1000), // Points needed to generate a voucher
+  // Loyalty scope: 'organization' = points/vouchers work across all branches, 'branch' = branch-specific
+  loyaltyScope: text("loyalty_scope").notNull().default("organization"), // 'organization' | 'branch'
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -68,12 +70,13 @@ export const insertBranchSchema = createInsertSchema(branches).omit({
 export type InsertBranch = z.infer<typeof insertBranchSchema>;
 export type Branch = typeof branches.$inferSelect;
 
-// Points balance per diner per restaurant
+// Points balance per diner per restaurant (or per branch when loyaltyScope='branch')
 // Rule: Points do not fall away, but reset to 0 after reaching threshold and earning a voucher credit
 export const pointsBalances = pgTable("points_balances", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   dinerId: varchar("diner_id").notNull().references(() => users.id),
   restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id),
+  branchId: varchar("branch_id").references(() => branches.id), // null = org-wide, set when loyaltyScope='branch'
   currentPoints: integer("current_points").notNull().default(0),
   totalPointsEarned: integer("total_points_earned").notNull().default(0),
   totalVouchersGenerated: integer("total_vouchers_generated").notNull().default(0),

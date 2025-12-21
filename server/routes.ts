@@ -35,6 +35,7 @@ const recordTransactionSchema = z.object({
     .refine(val => val.length >= 7, { message: "Phone number must be at least 7 digits" })
     .refine(val => /^[0-9+]+$/.test(val), { message: "Phone number contains invalid characters" }),
   billId: z.string().optional(),
+  branchId: z.string().optional(), // Optional branch ID for branch-specific tracking
   amountSpent: z.coerce.number()
     .refine(val => !isNaN(val), { message: "Amount must be a valid number" })
     .refine(val => val > 0, { message: "Amount must be greater than zero" })
@@ -977,11 +978,15 @@ export async function registerRoutes(
   // TRANSACTIONS - Record a transaction and calculate points
   app.post("/api/transactions", async (req, res) => {
     try {
-      const { dinerId, restaurantId, amountSpent } = insertTransactionSchema.parse(req.body);
+      const { dinerId, restaurantId, amountSpent, branchId } = insertTransactionSchema.extend({
+        branchId: z.string().optional()
+      }).parse(req.body);
       const result = await services.loyalty.recordTransaction(
         dinerId, 
         restaurantId, 
-        Number(amountSpent)
+        Number(amountSpent),
+        undefined, // billId
+        branchId
       );
       res.json(result);
     } catch (error: any) {
@@ -1495,6 +1500,7 @@ export async function registerRoutes(
   // DINER REDEEM VOUCHER CREDIT - Diner selects a voucher type to redeem their credit
   const redeemVoucherCreditSchema = z.object({
     voucherTypeId: z.string().min(1, "Voucher type is required"),
+    branchId: z.string().optional(),
   });
 
   app.post("/api/diners/:dinerId/restaurants/:restaurantId/redeem-credit", async (req, res) => {
@@ -1516,8 +1522,8 @@ export async function registerRoutes(
         });
       }
 
-      const { voucherTypeId } = parseResult.data;
-      const result = await services.loyalty.redeemVoucherCredit(dinerId, restaurantId, voucherTypeId);
+      const { voucherTypeId, branchId } = parseResult.data;
+      const result = await services.loyalty.redeemVoucherCredit(dinerId, restaurantId, voucherTypeId, branchId);
       res.json(result);
     } catch (error: any) {
       console.error("Redeem voucher credit error:", error);
@@ -1550,7 +1556,7 @@ export async function registerRoutes(
         });
       }
       
-      const { phone, billId, amountSpent } = parseResult.data;
+      const { phone, billId, branchId, amountSpent } = parseResult.data;
       
       // Look up diner by phone
       const diner = await storage.getUserByPhone(phone);
@@ -1562,12 +1568,13 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Phone number is not registered as a diner" });
       }
       
-      // Record the transaction
+      // Record the transaction with optional branchId for branch-specific tracking
       const result = await services.loyalty.recordTransaction(
         diner.id,
         restaurantId,
         amountSpent,
-        billId || undefined
+        billId || undefined,
+        branchId || undefined
       );
       
       res.json({

@@ -22,10 +22,13 @@ interface PointsBalance {
   restaurantName: string;
   restaurantColor: string;
   restaurantId: string;
+  branchId: string | null;
+  branchName: string | null;
   pointsPerCurrency: number;
   pointsThreshold: number;
   availableVoucherCredits: number;
   totalVoucherCreditsEarned: number;
+  loyaltyScope: string;
 }
 
 interface VoucherType {
@@ -157,11 +160,11 @@ export default function DinerDashboard() {
 
   // Redeem credit for voucher
   const redeemCredit = useMutation({
-    mutationFn: async ({ restaurantId, voucherTypeId }: { restaurantId: string; voucherTypeId: string }) => {
+    mutationFn: async ({ restaurantId, voucherTypeId, branchId }: { restaurantId: string; voucherTypeId: string; branchId?: string | null }) => {
       const res = await fetch(`/api/diners/${dinerId}/restaurants/${restaurantId}/redeem-credit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ voucherTypeId }),
+        body: JSON.stringify({ voucherTypeId, branchId: branchId || undefined }),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -190,7 +193,7 @@ export default function DinerDashboard() {
 
   // Create transaction mutation (simulates spending)
   const createTransaction = useMutation({
-    mutationFn: async ({ restaurantId, amountSpent }: { restaurantId: string; amountSpent: string }) => {
+    mutationFn: async ({ restaurantId, amountSpent, branchId }: { restaurantId: string; amountSpent: string; branchId?: string | null }) => {
       const res = await fetch("/api/transactions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -199,9 +202,13 @@ export default function DinerDashboard() {
           restaurantId,
           amountSpent,
           pointsEarned: Math.floor(Number(amountSpent)),
+          branchId: branchId || undefined,
         }),
       });
-      if (!res.ok) throw new Error("Transaction failed");
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Transaction failed");
+      }
       return res.json();
     },
     onSuccess: (data) => {
@@ -319,12 +326,13 @@ export default function DinerDashboard() {
                       size="sm" 
                       onClick={() => createTransaction.mutate({ 
                         restaurantId: balance.restaurantId, 
-                        amountSpent: "50" 
+                        amountSpent: "50",
+                        branchId: balance.branchId
                       })}
                       disabled={createTransaction.isPending}
                       data-testid={`button-spend-${balance.restaurantName.toLowerCase().replace(/\s+/g, '-')}`}
                     >
-                      Spend R50 at {balance.restaurantName}
+                      Spend R50 at {balance.restaurantName}{balance.branchName && balance.loyaltyScope === "branch" ? ` (${balance.branchName})` : ''}
                     </Button>
                   </div>
                 ))}
@@ -344,7 +352,12 @@ export default function DinerDashboard() {
                 >
                   <div className={`h-2 w-full ${rest.restaurantColor}`} />
                   <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-lg font-bold font-serif">{rest.restaurantName}</CardTitle>
+                    <div>
+                      <CardTitle className="text-lg font-bold font-serif">{rest.restaurantName}</CardTitle>
+                      {rest.branchName && rest.loyaltyScope === "branch" && (
+                        <p className="text-xs text-muted-foreground mt-0.5">{rest.branchName} branch</p>
+                      )}
+                    </div>
                     <div className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center">
                       <Utensils className="h-4 w-4 text-secondary-foreground" />
                     </div>
@@ -647,7 +660,11 @@ export default function DinerDashboard() {
                         className={`p-4 cursor-pointer transition-all ${canAfford ? 'hover:border-primary hover:shadow-md' : 'opacity-50 cursor-not-allowed'}`}
                         onClick={() => {
                           if (canAfford && redeemingRestaurant) {
-                            redeemCredit.mutate({ restaurantId: redeemingRestaurant.restaurantId, voucherTypeId: vt.id });
+                            redeemCredit.mutate({ 
+                              restaurantId: redeemingRestaurant.restaurantId, 
+                              voucherTypeId: vt.id,
+                              branchId: redeemingRestaurant.branchId
+                            });
                           }
                         }}
                         data-testid={`card-select-voucher-type-${vt.id}`}

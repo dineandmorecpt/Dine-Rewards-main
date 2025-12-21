@@ -80,7 +80,7 @@ export interface IStorage {
   setDefaultBranch(restaurantId: string, branchId: string): Promise<void>;
   
   // Points Management
-  getPointsBalance(dinerId: string, restaurantId: string): Promise<PointsBalance | undefined>;
+  getPointsBalance(dinerId: string, restaurantId: string, branchId?: string | null): Promise<PointsBalance | undefined>;
   createPointsBalance(balance: InsertPointsBalance): Promise<PointsBalance>;
   updatePointsBalance(id: string, updates: { 
     currentPoints?: number; 
@@ -90,6 +90,7 @@ export interface IStorage {
     totalVoucherCreditsEarned?: number;
   }): Promise<PointsBalance>;
   getPointsBalancesByDiner(dinerId: string): Promise<PointsBalance[]>;
+  getPointsBalancesByDinerAndRestaurant(dinerId: string, restaurantId: string): Promise<PointsBalance[]>;
   
   // Transaction Management
   createTransaction(transaction: InsertTransaction): Promise<Transaction>;
@@ -124,7 +125,8 @@ export interface IStorage {
       voucherValue?: string; 
       voucherValidityDays?: number; 
       pointsPerCurrency?: number; 
-      pointsThreshold?: number 
+      pointsThreshold?: number;
+      loyaltyScope?: string; // 'organization' | 'branch'
     }
   ): Promise<Restaurant>;
   
@@ -275,13 +277,36 @@ export class DbStorage implements IStorage {
   }
 
   // Points Balance Methods
-  async getPointsBalance(dinerId: string, restaurantId: string): Promise<PointsBalance | undefined> {
-    const result = await db.select().from(pointsBalances)
-      .where(and(
-        eq(pointsBalances.dinerId, dinerId),
-        eq(pointsBalances.restaurantId, restaurantId)
-      ));
-    return result[0];
+  async getPointsBalance(dinerId: string, restaurantId: string, branchId?: string | null): Promise<PointsBalance | undefined> {
+    // If branchId is explicitly provided (including null for org-wide), filter by it
+    if (branchId === undefined) {
+      // Legacy behavior: get org-wide balance (branchId is null)
+      const result = await db.select().from(pointsBalances)
+        .where(and(
+          eq(pointsBalances.dinerId, dinerId),
+          eq(pointsBalances.restaurantId, restaurantId),
+          sql`${pointsBalances.branchId} IS NULL`
+        ));
+      return result[0];
+    } else if (branchId === null) {
+      // Explicitly looking for org-wide balance
+      const result = await db.select().from(pointsBalances)
+        .where(and(
+          eq(pointsBalances.dinerId, dinerId),
+          eq(pointsBalances.restaurantId, restaurantId),
+          sql`${pointsBalances.branchId} IS NULL`
+        ));
+      return result[0];
+    } else {
+      // Looking for branch-specific balance
+      const result = await db.select().from(pointsBalances)
+        .where(and(
+          eq(pointsBalances.dinerId, dinerId),
+          eq(pointsBalances.restaurantId, restaurantId),
+          eq(pointsBalances.branchId, branchId)
+        ));
+      return result[0];
+    }
   }
 
   async createPointsBalance(balance: InsertPointsBalance): Promise<PointsBalance> {
@@ -311,6 +336,14 @@ export class DbStorage implements IStorage {
 
   async getPointsBalancesByDiner(dinerId: string): Promise<PointsBalance[]> {
     return await db.select().from(pointsBalances).where(eq(pointsBalances.dinerId, dinerId));
+  }
+
+  async getPointsBalancesByDinerAndRestaurant(dinerId: string, restaurantId: string): Promise<PointsBalance[]> {
+    return await db.select().from(pointsBalances)
+      .where(and(
+        eq(pointsBalances.dinerId, dinerId),
+        eq(pointsBalances.restaurantId, restaurantId)
+      ));
   }
 
   // Transaction Methods
@@ -457,7 +490,8 @@ export class DbStorage implements IStorage {
       voucherValue?: string; 
       voucherValidityDays?: number; 
       pointsPerCurrency?: number; 
-      pointsThreshold?: number 
+      pointsThreshold?: number;
+      loyaltyScope?: string; // 'organization' | 'branch'
     }
   ): Promise<Restaurant> {
     const result = await db.update(restaurants)

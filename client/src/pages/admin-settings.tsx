@@ -19,6 +19,7 @@ export default function AdminSettings() {
   const [voucherValidityDays, setVoucherValidityDays] = useState<number | string>(30);
   const [pointsPerCurrency, setPointsPerCurrency] = useState<number | string>(1);
   const [pointsThreshold, setPointsThreshold] = useState<number | string>(1000);
+  const [loyaltyScope, setLoyaltyScope] = useState<"organization" | "branch">("organization");
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
   const { portalRole, restaurant } = useAuth();
@@ -126,6 +127,7 @@ export default function AdminSettings() {
           setVoucherValidityDays(data.voucherValidityDays || 30);
           setPointsPerCurrency(data.pointsPerCurrency || 1);
           setPointsThreshold(data.pointsThreshold || 1000);
+          setLoyaltyScope(data.loyaltyScope || "organization");
         }
       })
       .catch(err => console.error("Failed to load settings:", err));
@@ -141,7 +143,8 @@ export default function AdminSettings() {
           voucherValue,
           voucherValidityDays,
           pointsPerCurrency,
-          pointsThreshold
+          pointsThreshold,
+          loyaltyScope
         })
       });
       if (response.ok) {
@@ -271,6 +274,26 @@ export default function AdminSettings() {
                     />
                     <p className="text-xs text-muted-foreground">
                       Points required to automatically generate a voucher
+                    </p>
+                  </div>
+                  <div className="grid gap-2 pt-2 border-t">
+                    <Label htmlFor="loyalty-scope">Loyalty Scope</Label>
+                    <Select
+                      value={loyaltyScope}
+                      onValueChange={(value: "organization" | "branch") => setLoyaltyScope(value)}
+                    >
+                      <SelectTrigger id="loyalty-scope" data-testid="select-loyalty-scope">
+                        <SelectValue placeholder="Select scope" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="organization">Organization-wide</SelectItem>
+                        <SelectItem value="branch">Branch-specific</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      {loyaltyScope === "organization" 
+                        ? "Points and vouchers work across all branches" 
+                        : "Points and vouchers are specific to each branch"}
                     </p>
                   </div>
                 </CardContent>

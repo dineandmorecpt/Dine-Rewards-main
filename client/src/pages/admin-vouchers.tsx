@@ -215,12 +215,27 @@ export default function AdminVouchers() {
   const selectCategory = (category: "rand_value" | "percentage" | "free_item") => {
     setVoucherTypeCategory(category);
     setCategorySelectionStep(false);
+    // Reset mutually exclusive fields when switching categories
+    if (category === "free_item") {
+      setVoucherTypeValue("");
+    } else {
+      setVoucherTypeFreeItemType("");
+      setVoucherTypeFreeItemDescription("");
+    }
     // Set default name based on category
     if (!voucherTypeName) {
       if (category === "rand_value") setVoucherTypeName("R__ Off Your Bill");
       else if (category === "percentage") setVoucherTypeName("__% Off Your Bill");
       else if (category === "free_item") setVoucherTypeName("Free Item");
     }
+  };
+  
+  const isSaveDisabled = () => {
+    if (!voucherTypeName.trim() || !voucherTypeCategory) return true;
+    if (voucherTypeCategory === "rand_value" && !voucherTypeValue) return true;
+    if (voucherTypeCategory === "percentage" && !voucherTypeValue) return true;
+    if (voucherTypeCategory === "free_item" && !voucherTypeFreeItemType) return true;
+    return createVoucherType.isPending || updateVoucherType.isPending;
   };
   
   const createVoucherType = useMutation({
@@ -1211,7 +1226,7 @@ export default function AdminVouchers() {
                       </Button>
                       <Button 
                         onClick={handleSaveVoucherType}
-                        disabled={!voucherTypeName.trim() || !voucherTypeCategory || createVoucherType.isPending || updateVoucherType.isPending}
+                        disabled={isSaveDisabled()}
                         data-testid="button-save-voucher-type"
                       >
                         {(createVoucherType.isPending || updateVoucherType.isPending) ? "Saving..." : (editingVoucherType ? "Update" : "Create")}

@@ -1572,7 +1572,7 @@ export async function registerRoutes(
 
   app.post("/api/restaurants/:restaurantId/voucher-types", async (req, res) => {
     try {
-      if (!req.session.userId || req.session.userType !== 'admin') {
+      if (!req.session.userId || req.session.userType !== 'restaurant_admin') {
         return res.status(401).json({ error: "Unauthorized" });
       }
 
@@ -1622,7 +1622,7 @@ export async function registerRoutes(
   // VOUCHER TYPES - Update voucher type (owner/manager only)
   app.patch("/api/restaurants/:restaurantId/voucher-types/:voucherTypeId", async (req, res) => {
     try {
-      if (!req.session.userId || req.session.userType !== 'admin') {
+      if (!req.session.userId || req.session.userType !== 'restaurant_admin') {
         return res.status(401).json({ error: "Unauthorized" });
       }
 
@@ -1667,7 +1667,7 @@ export async function registerRoutes(
   // VOUCHER TYPES - Delete voucher type (owner/manager only)
   app.delete("/api/restaurants/:restaurantId/voucher-types/:voucherTypeId", async (req, res) => {
     try {
-      if (!req.session.userId || req.session.userType !== 'admin') {
+      if (!req.session.userId || req.session.userType !== 'restaurant_admin') {
         return res.status(401).json({ error: "Unauthorized" });
       }
 

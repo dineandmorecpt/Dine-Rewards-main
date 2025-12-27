@@ -43,7 +43,10 @@ import {
   portalUsers,
   activityLogs,
   accountDeletionRequests,
-  archivedUsers
+  archivedUsers,
+  registrationVoucherStatus,
+  type InsertRegistrationVoucherStatus,
+  type RegistrationVoucherStatus
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/node-postgres";
 import pkg from "pg";
@@ -113,6 +116,12 @@ export interface IStorage {
   getVoucherType(id: string): Promise<VoucherType | undefined>;
   updateVoucherType(id: string, updates: Partial<InsertVoucherType>): Promise<VoucherType>;
   deleteVoucherType(id: string): Promise<void>;
+  
+  // Registration Voucher Status (one per diner per restaurant lifetime)
+  getRegistrationVoucherStatus(dinerId: string, restaurantId: string): Promise<RegistrationVoucherStatus | undefined>;
+  createRegistrationVoucherStatus(status: InsertRegistrationVoucherStatus): Promise<RegistrationVoucherStatus>;
+  markRegistrationVoucherRedeemed(dinerId: string, restaurantId: string): Promise<void>;
+  getRegistrationVoucherType(restaurantId: string): Promise<VoucherType | undefined>;
   
   // Campaign Management
   createCampaign(campaign: InsertCampaign): Promise<Campaign>;
@@ -532,6 +541,40 @@ export class DbStorage implements IStorage {
 
   async deleteVoucherType(id: string): Promise<void> {
     await db.delete(voucherTypes).where(eq(voucherTypes.id, id));
+  }
+
+  // Registration Voucher Status Methods
+  async getRegistrationVoucherStatus(dinerId: string, restaurantId: string): Promise<RegistrationVoucherStatus | undefined> {
+    const result = await db.select().from(registrationVoucherStatus)
+      .where(and(
+        eq(registrationVoucherStatus.dinerId, dinerId),
+        eq(registrationVoucherStatus.restaurantId, restaurantId)
+      ));
+    return result[0];
+  }
+
+  async createRegistrationVoucherStatus(status: InsertRegistrationVoucherStatus): Promise<RegistrationVoucherStatus> {
+    const result = await db.insert(registrationVoucherStatus).values(status).returning();
+    return result[0];
+  }
+
+  async markRegistrationVoucherRedeemed(dinerId: string, restaurantId: string): Promise<void> {
+    await db.update(registrationVoucherStatus)
+      .set({ redeemedAt: new Date() })
+      .where(and(
+        eq(registrationVoucherStatus.dinerId, dinerId),
+        eq(registrationVoucherStatus.restaurantId, restaurantId)
+      ));
+  }
+
+  async getRegistrationVoucherType(restaurantId: string): Promise<VoucherType | undefined> {
+    const result = await db.select().from(voucherTypes)
+      .where(and(
+        eq(voucherTypes.restaurantId, restaurantId),
+        eq(voucherTypes.category, "registration"),
+        eq(voucherTypes.isActive, true)
+      ));
+    return result[0];
   }
 
   // Campaign Methods

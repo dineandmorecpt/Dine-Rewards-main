@@ -16,7 +16,8 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -178,6 +179,10 @@ function AdminLayoutContent({ children }: AdminLayoutProps) {
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="p-0 w-72 border-r-0">
+            <VisuallyHidden>
+              <SheetTitle>Admin Navigation</SheetTitle>
+              <SheetDescription>Admin navigation menu for restaurant management</SheetDescription>
+            </VisuallyHidden>
             <SidebarContent />
           </SheetContent>
         </Sheet>

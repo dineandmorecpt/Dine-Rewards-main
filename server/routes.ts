@@ -1833,17 +1833,17 @@ export async function registerRoutes(
     }
   });
 
-  // RECONCILIATION - Upload CSV for bill matching (owner/manager only, staff cannot upload)
+  // RECONCILIATION - Upload CSV for bill matching (any user with restaurant access)
   app.post("/api/restaurants/:restaurantId/reconciliation/upload", async (req, res) => {
     try {
-      // Require authenticated admin
-      if (!req.session.userId || req.session.userType !== 'restaurant_admin') {
+      // Require authenticated user
+      if (!req.session.userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
 
       const { restaurantId } = req.params;
       
-      // Check user's role for this restaurant
+      // Check user's access to this restaurant
       const restaurant = await storage.getRestaurant(restaurantId);
       if (!restaurant) {
         return res.status(404).json({ error: "Restaurant not found" });
@@ -1852,9 +1852,9 @@ export async function registerRoutes(
       const isOwner = restaurant.adminUserId === req.session.userId;
       const portalAccess = await storage.getPortalUserByUserAndRestaurant(req.session.userId, restaurantId);
       
-      // Staff cannot upload reconciliation files - only owner/manager
-      if (!isOwner && (!portalAccess || portalAccess.role === 'staff')) {
-        return res.status(403).json({ error: "You don't have permission to upload reconciliation files" });
+      // Allow any user with access to the restaurant (owner, manager, or staff)
+      if (!isOwner && !portalAccess) {
+        return res.status(403).json({ error: "You don't have access to this restaurant" });
       }
 
       const { fileName, csvContent } = req.body;
@@ -1871,10 +1871,28 @@ export async function registerRoutes(
     }
   });
 
-  // RECONCILIATION - Get all batches for a restaurant
+  // RECONCILIATION - Get all batches for a restaurant (any user with restaurant access)
   app.get("/api/restaurants/:restaurantId/reconciliation/batches", async (req, res) => {
     try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
       const { restaurantId } = req.params;
+      
+      // Check user's access to this restaurant
+      const restaurant = await storage.getRestaurant(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+      
+      const isOwner = restaurant.adminUserId === req.session.userId;
+      const portalAccess = await storage.getPortalUserByUserAndRestaurant(req.session.userId, restaurantId);
+      
+      if (!isOwner && !portalAccess) {
+        return res.status(403).json({ error: "You don't have access to this restaurant" });
+      }
+      
       const batches = await services.reconciliation.getBatches(restaurantId);
       res.json(batches);
     } catch (error) {
@@ -1883,9 +1901,28 @@ export async function registerRoutes(
     }
   });
 
-  // RECONCILIATION - Get batch details
+  // RECONCILIATION - Get batch details (any user with restaurant access)
   app.get("/api/restaurants/:restaurantId/reconciliation/batches/:batchId", async (req, res) => {
     try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const { restaurantId } = req.params;
+      
+      // Check user's access to this restaurant
+      const restaurant = await storage.getRestaurant(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+      
+      const isOwner = restaurant.adminUserId === req.session.userId;
+      const portalAccess = await storage.getPortalUserByUserAndRestaurant(req.session.userId, restaurantId);
+      
+      if (!isOwner && !portalAccess) {
+        return res.status(403).json({ error: "You don't have access to this restaurant" });
+      }
+      
       const { batchId } = req.params;
       const result = await services.reconciliation.getBatchDetails(batchId);
       if (!result) {

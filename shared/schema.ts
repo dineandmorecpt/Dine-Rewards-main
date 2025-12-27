@@ -138,12 +138,13 @@ export type InsertTransaction = z.infer<typeof insertTransactionSchema>;
 export type Transaction = typeof transactions.$inferSelect;
 
 // Voucher types - templates created by restaurant owners that diners can choose from
-// Voucher categories: 'rand_value' | 'percentage' | 'free_item'
+// Voucher categories: 'rand_value' | 'percentage' | 'free_item' | 'registration'
+// Registration vouchers: issued once per diner per restaurant on first visit, rand value off bill
 export const voucherTypes = pgTable("voucher_types", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id),
   branchId: varchar("branch_id").references(() => branches.id), // Branch-specific voucher type (null = org-wide)
-  category: text("category").notNull().default("rand_value"), // 'rand_value' | 'percentage' | 'free_item'
+  category: text("category").notNull().default("rand_value"), // 'rand_value' | 'percentage' | 'free_item' | 'registration'
   name: text("name").notNull(), // e.g., "R100 Off Your Bill"
   description: text("description"), // Optional details about the voucher
   rewardDetails: text("reward_details"), // Fine print, terms, etc.
@@ -185,6 +186,23 @@ export const insertVoucherSchema = createInsertSchema(vouchers).omit({
 });
 export type InsertVoucher = z.infer<typeof insertVoucherSchema>;
 export type Voucher = typeof vouchers.$inferSelect;
+
+// Registration voucher tracking - ensures one registration voucher per diner per restaurant
+export const registrationVoucherStatus = pgTable("registration_voucher_status", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  dinerId: varchar("diner_id").notNull().references(() => users.id),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id),
+  voucherId: varchar("voucher_id").references(() => vouchers.id), // The registration voucher issued
+  issuedAt: timestamp("issued_at").defaultNow().notNull(),
+  redeemedAt: timestamp("redeemed_at"), // When the voucher was used (first visit)
+});
+
+export const insertRegistrationVoucherStatusSchema = createInsertSchema(registrationVoucherStatus).omit({
+  id: true,
+  issuedAt: true,
+});
+export type InsertRegistrationVoucherStatus = z.infer<typeof insertRegistrationVoucherStatusSchema>;
+export type RegistrationVoucherStatus = typeof registrationVoucherStatus.$inferSelect;
 
 // Campaign for pushing vouchers to diners
 export const campaigns = pgTable("campaigns", {

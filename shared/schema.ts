@@ -151,6 +151,8 @@ export const voucherTypes = pgTable("voucher_types", {
   value: integer("value"), // Rand amount or percentage value (null for free_item)
   freeItemType: text("free_item_type"), // 'beverage' | 'starter' | 'main' | 'dessert' | 'side' | 'other' (only for free_item category)
   freeItemDescription: text("free_item_description"), // Specific item description for free_item category
+  redemptionScope: text("redemption_scope").notNull().default("all_branches"), // 'all_branches' | 'specific_branches'
+  redeemableBranchIds: text("redeemable_branch_ids").array(), // Array of branch IDs where voucher can be redeemed (only used when redemptionScope = 'specific_branches')
   creditsCost: integer("credits_cost").notNull().default(1), // How many credits to redeem this voucher
   validityDays: integer("validity_days").notNull().default(30), // Days until voucher expires
   isActive: boolean("is_active").notNull().default(true), // Can diners select this?

@@ -77,6 +77,8 @@ export default function AdminVouchers() {
   const [voucherTypeCreditsCost, setVoucherTypeCreditsCost] = useState<number | string>(1);
   const [voucherTypeValidityDays, setVoucherTypeValidityDays] = useState<number | string>(30);
   const [voucherTypeIsActive, setVoucherTypeIsActive] = useState(true);
+  const [voucherTypeRedemptionScope, setVoucherTypeRedemptionScope] = useState<"all_branches" | "specific_branches">("all_branches");
+  const [voucherTypeRedeemableBranchIds, setVoucherTypeRedeemableBranchIds] = useState<string[]>([]);
   const [categorySelectionStep, setCategorySelectionStep] = useState(true); // Show category selection first
   
   // QR code ref for download
@@ -181,6 +183,20 @@ export default function AdminVouchers() {
     enabled: !!restaurantId
   });
   
+  // Fetch branches for redemption scope selection
+  const branchesQuery = useQuery({
+    queryKey: ['branches', restaurantId],
+    queryFn: async () => {
+      const res = await fetch(`/api/restaurants/${restaurantId}/branches`);
+      if (!res.ok) throw new Error('Failed to fetch branches');
+      return res.json();
+    },
+    enabled: !!restaurantId
+  });
+  
+  const branches = branchesQuery.data || [];
+  const hasMultipleBranches = branches.length > 1;
+  
   const resetVoucherTypeForm = () => {
     setVoucherTypeCategory("");
     setVoucherTypeName("");
@@ -192,6 +208,8 @@ export default function AdminVouchers() {
     setVoucherTypeCreditsCost(1);
     setVoucherTypeValidityDays(30);
     setVoucherTypeIsActive(true);
+    setVoucherTypeRedemptionScope("all_branches");
+    setVoucherTypeRedeemableBranchIds([]);
     setEditingVoucherType(null);
     setCategorySelectionStep(true);
   };
@@ -208,6 +226,8 @@ export default function AdminVouchers() {
     setVoucherTypeCreditsCost(vt.creditsCost);
     setVoucherTypeValidityDays(vt.validityDays);
     setVoucherTypeIsActive(vt.isActive);
+    setVoucherTypeRedemptionScope(vt.redemptionScope || "all_branches");
+    setVoucherTypeRedeemableBranchIds(vt.redeemableBranchIds || []);
     setCategorySelectionStep(false); // Go straight to details when editing
     setVoucherTypeDialogOpen(true);
   };
@@ -240,6 +260,7 @@ export default function AdminVouchers() {
     if (voucherTypeCategory === "percentage" && !voucherTypeValue) return true;
     if (voucherTypeCategory === "free_item" && !voucherTypeFreeItemType) return true;
     if (voucherTypeCategory === "registration" && !voucherTypeValue) return true;
+    if (voucherTypeRedemptionScope === "specific_branches" && voucherTypeRedeemableBranchIds.length === 0) return true;
     return createVoucherType.isPending || updateVoucherType.isPending;
   };
   
@@ -341,6 +362,8 @@ export default function AdminVouchers() {
       value: voucherTypeValue ? Number(voucherTypeValue) : undefined,
       freeItemType: voucherTypeFreeItemType || undefined,
       freeItemDescription: voucherTypeFreeItemDescription || undefined,
+      redemptionScope: voucherTypeRedemptionScope,
+      redeemableBranchIds: voucherTypeRedemptionScope === "specific_branches" ? voucherTypeRedeemableBranchIds : undefined,
       creditsCost: Number(voucherTypeCreditsCost),
       validityDays: Number(voucherTypeValidityDays),
       isActive: voucherTypeIsActive
@@ -1244,6 +1267,61 @@ export default function AdminVouchers() {
                           data-testid="input-voucher-type-reward-details"
                         />
                       </div>
+                      
+                      {/* Branch Redemption Scope */}
+                      {hasMultipleBranches && (
+                        <div className="grid gap-3">
+                          <Label>Where can this voucher be redeemed?</Label>
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              variant={voucherTypeRedemptionScope === "all_branches" ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => {
+                                setVoucherTypeRedemptionScope("all_branches");
+                                setVoucherTypeRedeemableBranchIds([]);
+                              }}
+                              data-testid="button-redemption-all-branches"
+                            >
+                              All Branches
+                            </Button>
+                            <Button
+                              type="button"
+                              variant={voucherTypeRedemptionScope === "specific_branches" ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setVoucherTypeRedemptionScope("specific_branches")}
+                              data-testid="button-redemption-specific-branches"
+                            >
+                              Specific Branches
+                            </Button>
+                          </div>
+                          {voucherTypeRedemptionScope === "specific_branches" && (
+                            <div className="grid gap-2 pl-2 border-l-2 border-muted">
+                              <p className="text-sm text-muted-foreground">Select branches where this voucher can be redeemed:</p>
+                              {branches.map((branch: any) => (
+                                <label key={branch.id} className="flex items-center gap-2 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={voucherTypeRedeemableBranchIds.includes(branch.id)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setVoucherTypeRedeemableBranchIds([...voucherTypeRedeemableBranchIds, branch.id]);
+                                      } else {
+                                        setVoucherTypeRedeemableBranchIds(voucherTypeRedeemableBranchIds.filter((id: string) => id !== branch.id));
+                                      }
+                                    }}
+                                    className="h-4 w-4 rounded border-gray-300"
+                                    data-testid={`checkbox-branch-${branch.id}`}
+                                  />
+                                  <span className="text-sm">{branch.name}</span>
+                                  {branch.isDefault && <Badge variant="secondary" className="text-xs">Default</Badge>}
+                                </label>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
                       <div className="flex items-center justify-between">
                         <Label htmlFor="vt-active">Active (visible to diners)</Label>
                         <Button

@@ -17,10 +17,16 @@ interface Restaurant {
 
 type PortalRole = 'owner' | 'manager' | 'staff' | null;
 
+interface BranchAccess {
+  branchIds: string[];
+  hasAllAccess: boolean;
+}
+
 interface AuthResponse {
   user: User | null;
   restaurant: Restaurant | null;
   portalRole: PortalRole;
+  branchAccess: BranchAccess | null;
 }
 
 async function fetchAuthStatus(): Promise<AuthResponse> {
@@ -28,7 +34,7 @@ async function fetchAuthStatus(): Promise<AuthResponse> {
     credentials: "include",
   });
   if (!response.ok) {
-    return { user: null, restaurant: null, portalRole: null };
+    return { user: null, restaurant: null, portalRole: null, branchAccess: null };
   }
   return response.json();
 }
@@ -52,29 +58,35 @@ export function useAuth() {
     } catch (error) {
       console.error("Logout error:", error);
     }
-    queryClient.setQueryData(["auth"], { user: null, restaurant: null, portalRole: null });
+    queryClient.setQueryData(["auth"], { user: null, restaurant: null, portalRole: null, branchAccess: null });
     window.location.href = "/";
   }, [queryClient]);
 
   const user = data?.user ?? null;
   const restaurant = data?.restaurant ?? null;
   const portalRole = data?.portalRole ?? null;
+  const branchAccess = data?.branchAccess ?? null;
   const isAuthenticated = !!user;
   const isDiner = user?.userType === 'diner';
   const isAdmin = user?.userType === 'admin';
   const isOwnerOrManager = portalRole === 'owner' || portalRole === 'manager';
   const isStaff = portalRole === 'staff';
+  const hasAllBranchAccess = branchAccess?.hasAllAccess ?? false;
+  const accessibleBranchIds = branchAccess?.branchIds ?? [];
 
   return {
     user,
     restaurant,
     portalRole,
+    branchAccess,
     isLoading,
     isAuthenticated,
     isDiner,
     isAdmin,
     isOwnerOrManager,
     isStaff,
+    hasAllBranchAccess,
+    accessibleBranchIds,
     logout,
     refetch,
   };

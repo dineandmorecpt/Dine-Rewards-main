@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useMemo, ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "./use-auth";
 
@@ -14,6 +14,7 @@ interface Branch {
 
 interface BranchContextType {
   branches: Branch[];
+  accessibleBranches: Branch[];
   selectedBranch: Branch | null;
   selectedBranchId: string | null;
   setSelectedBranchId: (id: string | null) => void;
@@ -21,6 +22,7 @@ interface BranchContextType {
   error: Error | null;
   isAllBranchesView: boolean;
   hasMultipleBranches: boolean;
+  canViewAllBranches: boolean;
 }
 
 const BranchContext = createContext<BranchContextType | undefined>(undefined);
@@ -28,7 +30,7 @@ const BranchContext = createContext<BranchContextType | undefined>(undefined);
 const ALL_BRANCHES_KEY = "dinemore_all_branches_view";
 
 export function BranchProvider({ children }: { children: ReactNode }) {
-  const { restaurant } = useAuth();
+  const { restaurant, hasAllBranchAccess, accessibleBranchIds } = useAuth();
   const [selectedBranchId, setSelectedBranchIdState] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
 
@@ -43,9 +45,20 @@ export function BranchProvider({ children }: { children: ReactNode }) {
     enabled: !!restaurant?.id,
   });
 
+  const accessibleBranches = useMemo(() => {
+    if (hasAllBranchAccess) {
+      return branches;
+    }
+    return branches.filter(b => accessibleBranchIds.includes(b.id));
+  }, [branches, hasAllBranchAccess, accessibleBranchIds]);
+
   const hasMultipleBranches = branches.length > 1;
+  const canViewAllBranches = hasAllBranchAccess;
 
   const setSelectedBranchId = (id: string | null) => {
+    if (id === null && !canViewAllBranches && accessibleBranches.length > 0) {
+      id = accessibleBranches[0].id;
+    }
     setSelectedBranchIdState(id);
     if (restaurant?.id) {
       const key = `${ALL_BRANCHES_KEY}_${restaurant.id}`;
@@ -62,21 +75,27 @@ export function BranchProvider({ children }: { children: ReactNode }) {
       const key = `${ALL_BRANCHES_KEY}_${restaurant.id}`;
       const saved = localStorage.getItem(key);
       
-      if (saved === "all" && hasMultipleBranches) {
-        setSelectedBranchIdState(null);
-      } else if (saved && branches.find(b => b.id === saved)) {
-        setSelectedBranchIdState(saved);
-      } else {
-        if (hasMultipleBranches) {
+      if (canViewAllBranches) {
+        if (saved === "all" && hasMultipleBranches) {
+          setSelectedBranchIdState(null);
+        } else if (saved && branches.find(b => b.id === saved)) {
+          setSelectedBranchIdState(saved);
+        } else if (hasMultipleBranches) {
           setSelectedBranchIdState(null);
         } else {
           const defaultBranch = branches.find(b => b.isDefault);
           setSelectedBranchIdState(defaultBranch?.id || branches[0].id);
         }
+      } else {
+        if (saved && accessibleBranches.find(b => b.id === saved)) {
+          setSelectedBranchIdState(saved);
+        } else if (accessibleBranches.length > 0) {
+          setSelectedBranchIdState(accessibleBranches[0].id);
+        }
       }
       setInitialized(true);
     }
-  }, [branches, restaurant?.id, hasMultipleBranches, initialized]);
+  }, [branches, restaurant?.id, hasMultipleBranches, initialized, canViewAllBranches, accessibleBranches]);
 
   useEffect(() => {
     if (restaurant?.id) {
@@ -86,11 +105,12 @@ export function BranchProvider({ children }: { children: ReactNode }) {
   }, [restaurant?.id]);
 
   const selectedBranch = branches.find(b => b.id === selectedBranchId) || null;
-  const isAllBranchesView = hasMultipleBranches && selectedBranchId === null;
+  const isAllBranchesView = hasMultipleBranches && selectedBranchId === null && canViewAllBranches;
 
   return (
     <BranchContext.Provider value={{
       branches,
+      accessibleBranches,
       selectedBranch,
       selectedBranchId,
       setSelectedBranchId,
@@ -98,6 +118,7 @@ export function BranchProvider({ children }: { children: ReactNode }) {
       error: error || null,
       isAllBranchesView,
       hasMultipleBranches,
+      canViewAllBranches,
     }}>
       {children}
     </BranchContext.Provider>

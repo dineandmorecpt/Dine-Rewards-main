@@ -41,6 +41,7 @@ import {
   reconciliationRecords,
   dinerInvitations,
   portalUsers,
+  portalUserBranches,
   activityLogs,
   accountDeletionRequests,
   archivedUsers,
@@ -231,6 +232,12 @@ export interface IStorage {
   addPortalUser(portalUser: InsertPortalUser): Promise<PortalUser>;
   removePortalUser(id: string): Promise<void>;
   getPortalUserByUserAndRestaurant(userId: string, restaurantId: string): Promise<PortalUser | undefined>;
+  updatePortalUser(id: string, updates: { hasAllBranchAccess?: boolean; role?: string }): Promise<PortalUser>;
+  
+  // Portal User Branch Access Management
+  getPortalUserBranches(portalUserId: string): Promise<string[]>;
+  setPortalUserBranches(portalUserId: string, branchIds: string[]): Promise<void>;
+  getAccessibleBranchIds(userId: string, restaurantId: string): Promise<{ branchIds: string[]; hasAllAccess: boolean }>;
   
   // Activity Log Management
   createActivityLog(log: InsertActivityLog): Promise<ActivityLog>;
@@ -865,6 +872,55 @@ export class DbStorage implements IStorage {
     const result = await db.select().from(portalUsers)
       .where(and(eq(portalUsers.userId, userId), eq(portalUsers.restaurantId, restaurantId)));
     return result[0];
+  }
+
+  async updatePortalUser(id: string, updates: { hasAllBranchAccess?: boolean; role?: string }): Promise<PortalUser> {
+    const result = await db.update(portalUsers)
+      .set(updates)
+      .where(eq(portalUsers.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async getPortalUserBranches(portalUserId: string): Promise<string[]> {
+    const results = await db.select({ branchId: portalUserBranches.branchId })
+      .from(portalUserBranches)
+      .where(eq(portalUserBranches.portalUserId, portalUserId));
+    return results.map(r => r.branchId);
+  }
+
+  async setPortalUserBranches(portalUserId: string, branchIds: string[]): Promise<void> {
+    await db.delete(portalUserBranches).where(eq(portalUserBranches.portalUserId, portalUserId));
+    if (branchIds.length > 0) {
+      await db.insert(portalUserBranches).values(
+        branchIds.map(branchId => ({ portalUserId, branchId }))
+      );
+    }
+  }
+
+  async getAccessibleBranchIds(userId: string, restaurantId: string): Promise<{ branchIds: string[]; hasAllAccess: boolean }> {
+    const restaurant = await this.getRestaurant(restaurantId);
+    if (!restaurant) {
+      return { branchIds: [], hasAllAccess: false };
+    }
+    
+    if (restaurant.adminUserId === userId) {
+      const allBranches = await this.getBranchesByRestaurant(restaurantId);
+      return { branchIds: allBranches.map(b => b.id), hasAllAccess: true };
+    }
+    
+    const portalUser = await this.getPortalUserByUserAndRestaurant(userId, restaurantId);
+    if (!portalUser) {
+      return { branchIds: [], hasAllAccess: false };
+    }
+    
+    if (portalUser.hasAllBranchAccess) {
+      const allBranches = await this.getBranchesByRestaurant(restaurantId);
+      return { branchIds: allBranches.map(b => b.id), hasAllAccess: true };
+    }
+    
+    const assignedBranchIds = await this.getPortalUserBranches(portalUser.id);
+    return { branchIds: assignedBranchIds, hasAllAccess: false };
   }
 
   // Activity Log Methods

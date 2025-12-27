@@ -295,6 +295,7 @@ export const portalUsers = pgTable("portal_users", {
   restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id),
   userId: varchar("user_id").notNull().references(() => users.id),
   role: text("role").notNull().default("staff"), // 'owner' | 'manager' | 'staff'
+  hasAllBranchAccess: boolean("has_all_branch_access").notNull().default(false), // Owners typically have all access
   addedBy: varchar("added_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -305,6 +306,21 @@ export const insertPortalUserSchema = createInsertSchema(portalUsers).omit({
 });
 export type InsertPortalUser = z.infer<typeof insertPortalUserSchema>;
 export type PortalUser = typeof portalUsers.$inferSelect;
+
+// Portal user branch assignments - which branches a portal user can access
+export const portalUserBranches = pgTable("portal_user_branches", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  portalUserId: varchar("portal_user_id").notNull().references(() => portalUsers.id, { onDelete: 'cascade' }),
+  branchId: varchar("branch_id").notNull().references(() => branches.id, { onDelete: 'cascade' }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertPortalUserBranchSchema = createInsertSchema(portalUserBranches).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertPortalUserBranch = z.infer<typeof insertPortalUserBranchSchema>;
+export type PortalUserBranch = typeof portalUserBranches.$inferSelect;
 
 // Activity logs - audit trail for important actions
 export const activityLogs = pgTable("activity_logs", {

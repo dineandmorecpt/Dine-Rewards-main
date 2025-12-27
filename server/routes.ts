@@ -172,6 +172,7 @@ export async function registerRoutes(
 
       let restaurant = null;
       let portalRole = null; // 'owner' | 'manager' | 'staff' | null
+      let branchAccess: { branchIds: string[]; hasAllAccess: boolean } | null = null;
       
       if (user.userType === 'restaurant_admin') {
         // Check if user owns any restaurants
@@ -180,6 +181,7 @@ export async function registerRoutes(
         if (ownedRestaurants.length > 0) {
           restaurant = ownedRestaurants[0];
           portalRole = 'owner'; // Restaurant owner has full permissions
+          branchAccess = await storage.getAccessibleBranchIds(user.id, restaurant.id);
         } else {
           // Check if user has portal access to any restaurant
           const allRestaurants = await storage.getAllRestaurants();
@@ -188,6 +190,7 @@ export async function registerRoutes(
             if (portalAccess) {
               restaurant = r;
               portalRole = portalAccess.role; // 'manager' or 'staff'
+              branchAccess = await storage.getAccessibleBranchIds(user.id, r.id);
               break;
             }
           }
@@ -208,6 +211,7 @@ export async function registerRoutes(
           name: restaurant.name,
         } : null,
         portalRole, // 'owner' | 'manager' | 'staff' | null
+        branchAccess, // { branchIds: string[], hasAllAccess: boolean }
       });
     } catch (error) {
       console.error("Get current user error:", error);

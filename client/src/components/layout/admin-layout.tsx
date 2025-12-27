@@ -37,7 +37,7 @@ function AdminLayoutContent({ children }: AdminLayoutProps) {
   const [location, setLocation] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { logout, restaurant } = useAuth();
-  const { branches, selectedBranch, setSelectedBranchId, isAllBranchesView, hasMultipleBranches } = useBranch();
+  const { branches, accessibleBranches, selectedBranch, setSelectedBranchId, isAllBranchesView, hasMultipleBranches, canViewAllBranches } = useBranch();
 
   const { data: restaurantData } = useQuery({
     queryKey: ["/api/restaurants", restaurant?.id],
@@ -76,7 +76,7 @@ function AdminLayoutContent({ children }: AdminLayoutProps) {
         <p className="text-sm text-sidebar-primary font-semibold mt-1">{restaurant?.name || 'Restaurant'}</p>
         <p className="text-xs text-sidebar-foreground/60 uppercase tracking-wider font-medium">Restaurant Admin</p>
         
-        {hasMultipleBranches && (
+        {(hasMultipleBranches || accessibleBranches.length > 0) && accessibleBranches.length > 0 && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button 
@@ -92,19 +92,23 @@ function AdminLayoutContent({ children }: AdminLayoutProps) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-56">
-              <DropdownMenuItem
-                onClick={() => setSelectedBranchId(null)}
-                className={cn(
-                  "cursor-pointer",
-                  isAllBranchesView && "bg-accent"
-                )}
-                data-testid="menu-branch-all"
-              >
-                <Building2 className="h-4 w-4 mr-2" />
-                All Branches
-              </DropdownMenuItem>
-              <div className="h-px bg-border my-1" />
-              {branches.map((branch) => (
+              {canViewAllBranches && hasMultipleBranches && (
+                <>
+                  <DropdownMenuItem
+                    onClick={() => setSelectedBranchId(null)}
+                    className={cn(
+                      "cursor-pointer",
+                      isAllBranchesView && "bg-accent"
+                    )}
+                    data-testid="menu-branch-all"
+                  >
+                    <Building2 className="h-4 w-4 mr-2" />
+                    All Branches
+                  </DropdownMenuItem>
+                  <div className="h-px bg-border my-1" />
+                </>
+              )}
+              {accessibleBranches.map((branch) => (
                 <DropdownMenuItem
                   key={branch.id}
                   onClick={() => setSelectedBranchId(branch.id)}

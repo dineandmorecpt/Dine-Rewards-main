@@ -138,13 +138,18 @@ export type InsertTransaction = z.infer<typeof insertTransactionSchema>;
 export type Transaction = typeof transactions.$inferSelect;
 
 // Voucher types - templates created by restaurant owners that diners can choose from
+// Voucher categories: 'rand_value' | 'percentage' | 'free_item'
 export const voucherTypes = pgTable("voucher_types", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id),
   branchId: varchar("branch_id").references(() => branches.id), // Branch-specific voucher type (null = org-wide)
+  category: text("category").notNull().default("rand_value"), // 'rand_value' | 'percentage' | 'free_item'
   name: text("name").notNull(), // e.g., "R100 Off Your Bill"
   description: text("description"), // Optional details about the voucher
   rewardDetails: text("reward_details"), // Fine print, terms, etc.
+  value: integer("value"), // Rand amount or percentage value (null for free_item)
+  freeItemType: text("free_item_type"), // 'beverage' | 'starter' | 'main' | 'dessert' | 'side' | 'other' (only for free_item category)
+  freeItemDescription: text("free_item_description"), // Specific item description for free_item category
   creditsCost: integer("credits_cost").notNull().default(1), // How many credits to redeem this voucher
   validityDays: integer("validity_days").notNull().default(30), // Days until voucher expires
   isActive: boolean("is_active").notNull().default(true), // Can diners select this?

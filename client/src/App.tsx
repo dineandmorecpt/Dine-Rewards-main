@@ -17,6 +17,7 @@ import AdminProfile from "@/pages/admin-profile";
 import DinerDashboard from "@/pages/diner-dashboard";
 import DinerHistory from "@/pages/diner-history";
 import DinerProfile from "@/pages/diner-profile";
+import MobilePreview from "@/pages/mobile-preview";
 import Register from "@/pages/register";
 import ForgotPassword from "@/pages/forgot-password";
 import ResetPassword from "@/pages/reset-password";
@@ -27,6 +28,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/register" component={Register} />
+      <Route path="/mobile-preview" component={MobilePreview} />
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/reset-password" component={ResetPassword} />
       <Route path="/admin/reset-password" component={ResetPassword} />

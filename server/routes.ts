@@ -1741,7 +1741,8 @@ export async function registerRoutes(
   app.get("/api/restaurants/:restaurantId/stats", async (req, res) => {
     try {
       const { restaurantId } = req.params;
-      const stats = await services.stats.getRestaurantStats(restaurantId);
+      const branchId = req.query.branchId as string | undefined;
+      const stats = await services.stats.getRestaurantStats(restaurantId, branchId || null);
       res.json(stats);
     } catch (error) {
       console.error("Get restaurant stats error:", error);
@@ -2144,8 +2145,9 @@ export async function registerRoutes(
       
       const endDate = parseDate(req.query.end as string, today);
       const startDate = parseDate(req.query.start as string, thirtyDaysAgo);
+      const branchId = req.query.branchId as string | undefined;
       
-      const data = await storage.getDinerRegistrationsByDateRange(restaurantId, startDate, endDate);
+      const data = await storage.getDinerRegistrationsByDateRange(restaurantId, startDate, endDate, branchId || null);
       res.json(data);
     } catch (error) {
       console.error("Get diner registrations error:", error);
@@ -2190,8 +2192,9 @@ export async function registerRoutes(
       
       const endDate = parseDate(req.query.end as string, today);
       const startDate = parseDate(req.query.start as string, thirtyDaysAgo);
+      const branchId = req.query.branchId as string | undefined;
       
-      const data = await storage.getRevenueByDateRange(restaurantId, startDate, endDate);
+      const data = await storage.getRevenueByDateRange(restaurantId, startDate, endDate, branchId || null);
       res.json(data);
     } catch (error) {
       console.error("Get revenue error:", error);
@@ -2231,8 +2234,9 @@ export async function registerRoutes(
       
       const startDate = parseDate(req.query.start as string);
       const endDate = parseDate(req.query.end as string);
+      const branchId = req.query.branchId as string | undefined;
       
-      const data = await storage.getVoucherRedemptionsByType(restaurantId, startDate, endDate);
+      const data = await storage.getVoucherRedemptionsByType(restaurantId, startDate, endDate, branchId || null);
       res.json(data);
     } catch (error) {
       console.error("Get voucher redemptions by type error:", error);

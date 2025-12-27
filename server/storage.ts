@@ -99,13 +99,13 @@ export interface IStorage {
   createTransaction(transaction: InsertTransaction): Promise<Transaction>;
   getTransactionsByDiner(dinerId: string): Promise<Transaction[]>;
   getTransactionsByDinerAndRestaurant(dinerId: string, restaurantId: string): Promise<Transaction[]>;
-  getTransactionsByRestaurant(restaurantId: string, last30Days?: boolean): Promise<Transaction[]>;
+  getTransactionsByRestaurant(restaurantId: string, last30Days?: boolean, branchId?: string | null): Promise<Transaction[]>;
   getTransactionByBillId(restaurantId: string, billId: string): Promise<Transaction | undefined>;
   
   // Voucher Management
   createVoucher(voucher: InsertVoucher): Promise<Voucher>;
   getVouchersByDiner(dinerId: string): Promise<Voucher[]>;
-  getVouchersByRestaurant(restaurantId: string): Promise<Voucher[]>;
+  getVouchersByRestaurant(restaurantId: string, branchId?: string | null): Promise<Voucher[]>;
   redeemVoucher(voucherId: string, billId?: string): Promise<Voucher>;
   getVoucherByBillId(restaurantId: string, billId: string): Promise<Voucher | undefined>;
   
@@ -237,9 +237,9 @@ export interface IStorage {
   getActivityLogsByRestaurant(restaurantId: string, limit?: number): Promise<(ActivityLog & { user?: User })[]>;
   
   // Diner Registration Stats
-  getDinerRegistrationsByDateRange(restaurantId: string, startDate: Date, endDate: Date): Promise<{ date: string; count: number }[]>;
-  getVoucherRedemptionsByType(restaurantId: string, startDate?: Date, endDate?: Date): Promise<{ voucherTypeName: string; count: number }[]>;
-  getRevenueByDateRange(restaurantId: string, startDate: Date, endDate: Date): Promise<{ date: string; amount: number }[]>;
+  getDinerRegistrationsByDateRange(restaurantId: string, startDate: Date, endDate: Date, branchId?: string | null): Promise<{ date: string; count: number }[]>;
+  getVoucherRedemptionsByType(restaurantId: string, startDate?: Date, endDate?: Date, branchId?: string | null): Promise<{ voucherTypeName: string; count: number }[]>;
+  getRevenueByDateRange(restaurantId: string, startDate: Date, endDate: Date, branchId?: string | null): Promise<{ date: string; amount: number }[]>;
   
   // Password Reset
   createPasswordResetToken(userId: string, token: string, expiresAt: Date): Promise<void>;
@@ -438,21 +438,21 @@ export class DbStorage implements IStorage {
       .orderBy(desc(transactions.transactionDate));
   }
 
-  async getTransactionsByRestaurant(restaurantId: string, last30Days = false): Promise<Transaction[]> {
+  async getTransactionsByRestaurant(restaurantId: string, last30Days = false, branchId?: string | null): Promise<Transaction[]> {
+    const conditions = [eq(transactions.restaurantId, restaurantId)];
+    
+    if (branchId) {
+      conditions.push(eq(transactions.branchId, branchId));
+    }
+    
     if (last30Days) {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      
-      return await db.select().from(transactions)
-        .where(and(
-          eq(transactions.restaurantId, restaurantId),
-          gte(transactions.transactionDate, thirtyDaysAgo)
-        ))
-        .orderBy(desc(transactions.transactionDate));
+      conditions.push(gte(transactions.transactionDate, thirtyDaysAgo));
     }
     
     return await db.select().from(transactions)
-      .where(eq(transactions.restaurantId, restaurantId))
+      .where(and(...conditions))
       .orderBy(desc(transactions.transactionDate));
   }
 
@@ -478,7 +478,15 @@ export class DbStorage implements IStorage {
       .orderBy(desc(vouchers.generatedAt));
   }
 
-  async getVouchersByRestaurant(restaurantId: string): Promise<Voucher[]> {
+  async getVouchersByRestaurant(restaurantId: string, branchId?: string | null): Promise<Voucher[]> {
+    if (branchId) {
+      return await db.select().from(vouchers)
+        .where(and(
+          eq(vouchers.restaurantId, restaurantId),
+          eq(vouchers.branchId, branchId)
+        ))
+        .orderBy(desc(vouchers.generatedAt));
+    }
     return await db.select().from(vouchers)
       .where(eq(vouchers.restaurantId, restaurantId))
       .orderBy(desc(vouchers.generatedAt));
@@ -880,8 +888,9 @@ export class DbStorage implements IStorage {
   }
 
   // Diner Registration Stats
-  async getDinerRegistrationsByDateRange(restaurantId: string, startDate: Date, endDate: Date): Promise<{ date: string; count: number }[]> {
+  async getDinerRegistrationsByDateRange(restaurantId: string, startDate: Date, endDate: Date, branchId?: string | null): Promise<{ date: string; count: number }[]> {
     // Use SQL to get day-by-day counts of diner registrations (via invitations consumed)
+    // Note: Registrations are at restaurant level, not branch level, so branchId is not used here
     const result = await db.execute(sql`
       WITH date_series AS (
         SELECT generate_series(
@@ -905,8 +914,10 @@ export class DbStorage implements IStorage {
     return (result.rows as { date: string; count: number }[]);
   }
 
-  async getVoucherRedemptionsByType(restaurantId: string, startDate?: Date, endDate?: Date): Promise<{ voucherTypeName: string; count: number }[]> {
+  async getVoucherRedemptionsByType(restaurantId: string, startDate?: Date, endDate?: Date, branchId?: string | null): Promise<{ voucherTypeName: string; count: number }[]> {
     let query;
+    const branchCondition = branchId ? sql` AND v.branch_id = ${branchId}` : sql``;
+    
     if (startDate && endDate) {
       query = sql`
         SELECT 
@@ -918,6 +929,7 @@ export class DbStorage implements IStorage {
           AND v.is_redeemed = true
           AND v.redeemed_at >= ${startDate.toISOString()}::timestamp
           AND v.redeemed_at <= ${endDate.toISOString()}::timestamp
+          ${branchCondition}
         GROUP BY vt.name
         ORDER BY count DESC
       `;
@@ -930,6 +942,7 @@ export class DbStorage implements IStorage {
         LEFT JOIN voucher_types vt ON v.voucher_type_id = vt.id
         WHERE v.restaurant_id = ${restaurantId}
           AND v.is_redeemed = true
+          ${branchCondition}
         GROUP BY vt.name
         ORDER BY count DESC
       `;
@@ -942,7 +955,9 @@ export class DbStorage implements IStorage {
     }));
   }
 
-  async getRevenueByDateRange(restaurantId: string, startDate: Date, endDate: Date): Promise<{ date: string; amount: number }[]> {
+  async getRevenueByDateRange(restaurantId: string, startDate: Date, endDate: Date, branchId?: string | null): Promise<{ date: string; amount: number }[]> {
+    const branchCondition = branchId ? sql` AND t.branch_id = ${branchId}` : sql``;
+    
     const result = await db.execute(sql`
       WITH date_series AS (
         SELECT generate_series(
@@ -953,11 +968,9 @@ export class DbStorage implements IStorage {
       )
       SELECT 
         ds.date::text as date,
-        COALESCE(SUM(t.amount_spent::numeric), 0)::float as amount
+        COALESCE(SUM(CASE WHEN t.restaurant_id = ${restaurantId} ${branchCondition} THEN t.amount_spent::numeric ELSE 0 END), 0)::float as amount
       FROM date_series ds
-      LEFT JOIN transactions t ON 
-        t.restaurant_id = ${restaurantId} AND
-        t.transaction_date::date = ds.date
+      LEFT JOIN transactions t ON t.transaction_date::date = ds.date
       GROUP BY ds.date
       ORDER BY ds.date ASC
     `);

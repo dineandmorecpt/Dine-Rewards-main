@@ -7,11 +7,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Users, Gift, Settings, Save, UserPlus, Trash2, Mail, Download, QrCode } from "lucide-react";
+import { Users, Gift, Settings, Save, UserPlus, Trash2, Mail, Download, QrCode, Building2, Edit } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
+import { useBranch } from "@/hooks/use-branch";
 import { QRCodeCanvas } from "qrcode.react";
 
 export default function AdminSettings() {
@@ -27,11 +29,18 @@ export default function AdminSettings() {
   const restaurantId = restaurant?.id;
   
   const canManageUsers = portalRole === 'owner';
+  const { branches, hasMultipleBranches } = useBranch();
   
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserName, setNewUserName] = useState("");
   const [newUserRole, setNewUserRole] = useState<"manager" | "staff">("staff");
+  const [newUserHasAllAccess, setNewUserHasAllAccess] = useState(true);
+  const [newUserBranchIds, setNewUserBranchIds] = useState<string[]>([]);
   const [addUserDialogOpen, setAddUserDialogOpen] = useState(false);
+  const [editBranchDialogOpen, setEditBranchDialogOpen] = useState(false);
+  const [editingPortalUser, setEditingPortalUser] = useState<any>(null);
+  const [editBranchIds, setEditBranchIds] = useState<string[]>([]);
+  const [editHasAllAccess, setEditHasAllAccess] = useState(true);
   
   const registrationUrl = typeof window !== 'undefined' 
     ? `${window.location.origin}/register` 
@@ -63,11 +72,11 @@ export default function AdminSettings() {
   });
   
   const addPortalUser = useMutation({
-    mutationFn: async ({ email, name, role }: { email: string; name: string; role: string }) => {
+    mutationFn: async ({ email, name, role, hasAllBranchAccess, branchIds }: { email: string; name: string; role: string; hasAllBranchAccess: boolean; branchIds: string[] }) => {
       const res = await fetch(`/api/restaurants/${restaurantId}/portal-users`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, name, role })
+        body: JSON.stringify({ email, name, role, hasAllBranchAccess, branchIds })
       });
       if (!res.ok) {
         const data = await res.json();
@@ -80,6 +89,8 @@ export default function AdminSettings() {
       setNewUserEmail("");
       setNewUserName("");
       setNewUserRole("staff");
+      setNewUserHasAllAccess(true);
+      setNewUserBranchIds([]);
       setAddUserDialogOpen(false);
       toast({
         title: "User Added",
@@ -89,6 +100,37 @@ export default function AdminSettings() {
     onError: (error: Error) => {
       toast({
         title: "Failed to Add User",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
+  const updateBranchAccess = useMutation({
+    mutationFn: async ({ portalUserId, hasAllBranchAccess, branchIds }: { portalUserId: string; hasAllBranchAccess: boolean; branchIds: string[] }) => {
+      const res = await fetch(`/api/restaurants/${restaurantId}/portal-users/${portalUserId}/branch-access`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hasAllBranchAccess, branchIds })
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to update branch access");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      portalUsersQuery.refetch();
+      setEditBranchDialogOpen(false);
+      setEditingPortalUser(null);
+      toast({
+        title: "Branch Access Updated",
+        description: "The user's branch access has been updated."
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to Update",
         description: error.message,
         variant: "destructive"
       });
@@ -337,6 +379,7 @@ export default function AdminSettings() {
           {/* USER MANAGEMENT TAB */}
           <TabsContent value="users" className="space-y-6">
             {canManageUsers ? (
+              <>
               <Card className="max-w-2xl">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -399,11 +442,59 @@ export default function AdminSettings() {
                             Managers have full access; Staff can only record transactions and redeem vouchers.
                           </p>
                         </div>
+                        {hasMultipleBranches && (
+                          <div className="grid gap-2">
+                            <Label>Branch Access</Label>
+                            <div className="flex items-center gap-2">
+                              <Checkbox
+                                id="new-user-all-branches"
+                                checked={newUserHasAllAccess}
+                                onCheckedChange={(checked) => {
+                                  setNewUserHasAllAccess(!!checked);
+                                  if (checked) setNewUserBranchIds([]);
+                                }}
+                                data-testid="checkbox-all-branches"
+                              />
+                              <Label htmlFor="new-user-all-branches" className="text-sm font-normal">
+                                Access to all branches
+                              </Label>
+                            </div>
+                            {!newUserHasAllAccess && (
+                              <div className="space-y-2 pl-6 mt-2">
+                                {branches.map((branch) => (
+                                  <div key={branch.id} className="flex items-center gap-2">
+                                    <Checkbox
+                                      id={`new-branch-${branch.id}`}
+                                      checked={newUserBranchIds.includes(branch.id)}
+                                      onCheckedChange={(checked) => {
+                                        if (checked) {
+                                          setNewUserBranchIds([...newUserBranchIds, branch.id]);
+                                        } else {
+                                          setNewUserBranchIds(newUserBranchIds.filter(id => id !== branch.id));
+                                        }
+                                      }}
+                                      data-testid={`checkbox-branch-${branch.id}`}
+                                    />
+                                    <Label htmlFor={`new-branch-${branch.id}`} className="text-sm font-normal">
+                                      {branch.name}
+                                    </Label>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                       <DialogFooter>
                         <Button
-                          onClick={() => addPortalUser.mutate({ email: newUserEmail, name: newUserName, role: newUserRole })}
-                          disabled={!newUserEmail.trim() || !newUserName.trim() || addPortalUser.isPending}
+                          onClick={() => addPortalUser.mutate({ 
+                            email: newUserEmail, 
+                            name: newUserName, 
+                            role: newUserRole,
+                            hasAllBranchAccess: newUserHasAllAccess,
+                            branchIds: newUserBranchIds
+                          })}
+                          disabled={!newUserEmail.trim() || !newUserName.trim() || addPortalUser.isPending || (!newUserHasAllAccess && newUserBranchIds.length === 0)}
                           className="gap-2"
                           data-testid="button-confirm-add-user"
                         >
@@ -438,10 +529,33 @@ export default function AdminSettings() {
                               <Mail className="h-3 w-3" />
                               {pu.user?.email || 'No email'}
                             </p>
+                            {hasMultipleBranches && (
+                              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                                <Building2 className="h-3 w-3" />
+                                {pu.hasAllBranchAccess ? 'All branches' : 
+                                  (pu.branchNames?.length > 0 ? pu.branchNames.join(', ') : 'No branches assigned')}
+                              </p>
+                            )}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
                           <Badge variant="secondary" className="capitalize">{pu.role}</Badge>
+                          {hasMultipleBranches && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => {
+                                setEditingPortalUser(pu);
+                                setEditHasAllAccess(pu.hasAllBranchAccess ?? true);
+                                setEditBranchIds(pu.branchIds ?? []);
+                                setEditBranchDialogOpen(true);
+                              }}
+                              data-testid={`button-edit-branches-${pu.id}`}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="icon"
@@ -458,6 +572,78 @@ export default function AdminSettings() {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Edit Branch Access Dialog */}
+              <Dialog open={editBranchDialogOpen} onOpenChange={setEditBranchDialogOpen}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Edit Branch Access</DialogTitle>
+                    <DialogDescription>
+                      Update branch access for {editingPortalUser?.user?.name || 'this user'}.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="edit-all-branches"
+                        checked={editHasAllAccess}
+                        onCheckedChange={(checked) => {
+                          setEditHasAllAccess(!!checked);
+                          if (checked) setEditBranchIds([]);
+                        }}
+                        data-testid="checkbox-edit-all-branches"
+                      />
+                      <Label htmlFor="edit-all-branches" className="text-sm font-normal">
+                        Access to all branches
+                      </Label>
+                    </div>
+                    {!editHasAllAccess && (
+                      <div className="space-y-2 pl-6">
+                        {branches.map((branch) => (
+                          <div key={branch.id} className="flex items-center gap-2">
+                            <Checkbox
+                              id={`edit-branch-${branch.id}`}
+                              checked={editBranchIds.includes(branch.id)}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setEditBranchIds([...editBranchIds, branch.id]);
+                                } else {
+                                  setEditBranchIds(editBranchIds.filter(id => id !== branch.id));
+                                }
+                              }}
+                              data-testid={`checkbox-edit-branch-${branch.id}`}
+                            />
+                            <Label htmlFor={`edit-branch-${branch.id}`} className="text-sm font-normal">
+                              {branch.name}
+                            </Label>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setEditBranchDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        if (editingPortalUser) {
+                          updateBranchAccess.mutate({
+                            portalUserId: editingPortalUser.id,
+                            hasAllBranchAccess: editHasAllAccess,
+                            branchIds: editBranchIds
+                          });
+                        }
+                      }}
+                      disabled={updateBranchAccess.isPending || (!editHasAllAccess && editBranchIds.length === 0)}
+                      data-testid="button-save-branch-access"
+                    >
+                      {updateBranchAccess.isPending ? "Saving..." : "Save"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+              </>
             ) : (
               <Card className="max-w-2xl">
                 <CardHeader className="text-center">

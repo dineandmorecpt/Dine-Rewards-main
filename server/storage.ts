@@ -228,7 +228,7 @@ export interface IStorage {
   }[]>;
   
   // Portal User Management
-  getPortalUsersByRestaurant(restaurantId: string): Promise<(PortalUser & { user: User })[]>;
+  getPortalUsersByRestaurant(restaurantId: string): Promise<(PortalUser & { user: User; branchIds: string[]; branchNames: string[] })[]>;
   addPortalUser(portalUser: InsertPortalUser): Promise<PortalUser>;
   removePortalUser(id: string): Promise<void>;
   getPortalUserByUserAndRestaurant(userId: string, restaurantId: string): Promise<PortalUser | undefined>;
@@ -238,6 +238,7 @@ export interface IStorage {
   getPortalUserBranches(portalUserId: string): Promise<string[]>;
   setPortalUserBranches(portalUserId: string, branchIds: string[]): Promise<void>;
   getAccessibleBranchIds(userId: string, restaurantId: string): Promise<{ branchIds: string[]; hasAllAccess: boolean }>;
+  updatePortalUserBranchAccess(portalUserId: string, hasAllBranchAccess: boolean, branchIds: string[]): Promise<void>;
   
   // Activity Log Management
   createActivityLog(log: InsertActivityLog): Promise<ActivityLog>;
@@ -846,17 +847,28 @@ export class DbStorage implements IStorage {
     }));
   }
 
-  async getPortalUsersByRestaurant(restaurantId: string): Promise<(PortalUser & { user: User })[]> {
+  async getPortalUsersByRestaurant(restaurantId: string): Promise<(PortalUser & { user: User; branchIds: string[]; branchNames: string[] })[]> {
     const results = await db.select()
       .from(portalUsers)
       .innerJoin(users, eq(portalUsers.userId, users.id))
       .where(eq(portalUsers.restaurantId, restaurantId))
       .orderBy(desc(portalUsers.createdAt));
     
-    return results.map(r => ({
-      ...r.portal_users,
-      user: r.users
+    const allBranches = await this.getBranchesByRestaurant(restaurantId);
+    const branchMap = new Map(allBranches.map(b => [b.id, b.name]));
+    
+    const enrichedResults = await Promise.all(results.map(async r => {
+      const branchIds = await this.getPortalUserBranches(r.portal_users.id);
+      const branchNames = branchIds.map(id => branchMap.get(id) || 'Unknown').filter(Boolean);
+      return {
+        ...r.portal_users,
+        user: r.users,
+        branchIds,
+        branchNames
+      };
     }));
+    
+    return enrichedResults;
   }
 
   async addPortalUser(portalUser: InsertPortalUser): Promise<PortalUser> {
@@ -921,6 +933,14 @@ export class DbStorage implements IStorage {
     
     const assignedBranchIds = await this.getPortalUserBranches(portalUser.id);
     return { branchIds: assignedBranchIds, hasAllAccess: false };
+  }
+
+  async updatePortalUserBranchAccess(portalUserId: string, hasAllBranchAccess: boolean, branchIds: string[]): Promise<void> {
+    await db.update(portalUsers)
+      .set({ hasAllBranchAccess })
+      .where(eq(portalUsers.id, portalUserId));
+    
+    await this.setPortalUserBranches(portalUserId, hasAllBranchAccess ? [] : branchIds);
   }
 
   // Activity Log Methods

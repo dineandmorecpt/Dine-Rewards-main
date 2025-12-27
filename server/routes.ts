@@ -1744,8 +1744,42 @@ export async function registerRoutes(
   // RESTAURANT STATS - Get restaurant dashboard statistics
   app.get("/api/restaurants/:restaurantId/stats", async (req, res) => {
     try {
+      if (!req.session.userId || req.session.userType !== 'restaurant_admin') {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
       const { restaurantId } = req.params;
-      const branchId = req.query.branchId as string | undefined;
+      
+      // Verify user has access to this restaurant
+      const restaurant = await storage.getRestaurant(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+      
+      const isOwner = restaurant.adminUserId === req.session.userId;
+      const portalAccess = await storage.getPortalUserByUserAndRestaurant(req.session.userId, restaurantId);
+      
+      if (!isOwner && !portalAccess) {
+        return res.status(403).json({ error: "You don't have access to this restaurant's stats" });
+      }
+      
+      let branchId = req.query.branchId as string | undefined;
+      
+      // Validate branch access and enforce restrictions for staff without full access
+      const branchAccess = await storage.getAccessibleBranchIds(req.session.userId, restaurantId);
+      if (branchId) {
+        if (!branchAccess.hasAllAccess && !branchAccess.branchIds.includes(branchId)) {
+          return res.status(403).json({ error: "You don't have access to this branch" });
+        }
+      } else if (!branchAccess.hasAllAccess) {
+        // Staff without full access must specify a branch - default to first accessible
+        if (branchAccess.branchIds.length > 0) {
+          branchId = branchAccess.branchIds[0];
+        } else {
+          return res.status(403).json({ error: "You don't have access to any branches" });
+        }
+      }
+      
       const stats = await services.stats.getRestaurantStats(restaurantId, branchId || null);
       res.json(stats);
     } catch (error) {
@@ -2149,7 +2183,21 @@ export async function registerRoutes(
       
       const endDate = parseDate(req.query.end as string, today);
       const startDate = parseDate(req.query.start as string, thirtyDaysAgo);
-      const branchId = req.query.branchId as string | undefined;
+      let branchId = req.query.branchId as string | undefined;
+      
+      // Validate branch access
+      const branchAccess = await storage.getAccessibleBranchIds(req.session.userId, restaurantId);
+      if (branchId) {
+        if (!branchAccess.hasAllAccess && !branchAccess.branchIds.includes(branchId)) {
+          return res.status(403).json({ error: "You don't have access to this branch" });
+        }
+      } else if (!branchAccess.hasAllAccess) {
+        if (branchAccess.branchIds.length > 0) {
+          branchId = branchAccess.branchIds[0];
+        } else {
+          return res.status(403).json({ error: "You don't have access to any branches" });
+        }
+      }
       
       const data = await storage.getDinerRegistrationsByDateRange(restaurantId, startDate, endDate, branchId || null);
       res.json(data);
@@ -2196,7 +2244,21 @@ export async function registerRoutes(
       
       const endDate = parseDate(req.query.end as string, today);
       const startDate = parseDate(req.query.start as string, thirtyDaysAgo);
-      const branchId = req.query.branchId as string | undefined;
+      let branchId = req.query.branchId as string | undefined;
+      
+      // Validate branch access
+      const branchAccess = await storage.getAccessibleBranchIds(req.session.userId, restaurantId);
+      if (branchId) {
+        if (!branchAccess.hasAllAccess && !branchAccess.branchIds.includes(branchId)) {
+          return res.status(403).json({ error: "You don't have access to this branch" });
+        }
+      } else if (!branchAccess.hasAllAccess) {
+        if (branchAccess.branchIds.length > 0) {
+          branchId = branchAccess.branchIds[0];
+        } else {
+          return res.status(403).json({ error: "You don't have access to any branches" });
+        }
+      }
       
       const data = await storage.getRevenueByDateRange(restaurantId, startDate, endDate, branchId || null);
       res.json(data);
@@ -2238,7 +2300,21 @@ export async function registerRoutes(
       
       const startDate = parseDate(req.query.start as string);
       const endDate = parseDate(req.query.end as string);
-      const branchId = req.query.branchId as string | undefined;
+      let branchId = req.query.branchId as string | undefined;
+      
+      // Validate branch access
+      const branchAccess = await storage.getAccessibleBranchIds(req.session.userId, restaurantId);
+      if (branchId) {
+        if (!branchAccess.hasAllAccess && !branchAccess.branchIds.includes(branchId)) {
+          return res.status(403).json({ error: "You don't have access to this branch" });
+        }
+      } else if (!branchAccess.hasAllAccess) {
+        if (branchAccess.branchIds.length > 0) {
+          branchId = branchAccess.branchIds[0];
+        } else {
+          return res.status(403).json({ error: "You don't have access to any branches" });
+        }
+      }
       
       const data = await storage.getVoucherRedemptionsByType(restaurantId, startDate, endDate, branchId || null);
       res.json(data);
@@ -2308,6 +2384,8 @@ export async function registerRoutes(
   const addStaffUserSchema = z.object({
     email: z.string().email("Valid email is required"),
     role: z.enum(["manager", "staff"]).default("staff"),
+    hasAllBranchAccess: z.boolean().default(true),
+    branchIds: z.array(z.string()).default([]),
   });
 
   app.post("/api/restaurants/:restaurantId/portal-users", async (req, res) => {
@@ -2333,7 +2411,7 @@ export async function registerRoutes(
         return res.status(422).json({ error: parseResult.error.errors[0]?.message });
       }
       
-      const { email, role } = parseResult.data;
+      const { email, role, hasAllBranchAccess, branchIds } = parseResult.data;
       
       const existingUser = await storage.getUserByEmail(email);
       if (!existingUser) {
@@ -2354,7 +2432,18 @@ export async function registerRoutes(
         userId: existingUser.id,
         role,
         addedBy: req.session.userId,
+        hasAllBranchAccess,
       });
+      
+      if (!hasAllBranchAccess && branchIds.length > 0) {
+        const restaurantBranches = await storage.getBranchesByRestaurant(restaurantId);
+        const validBranchIds = restaurantBranches.map(b => b.id);
+        const invalidBranches = branchIds.filter(id => !validBranchIds.includes(id));
+        if (invalidBranches.length > 0) {
+          return res.status(400).json({ error: "One or more branch IDs are invalid for this restaurant" });
+        }
+        await storage.setPortalUserBranches(portalUser.id, branchIds);
+      }
       
       await storage.createActivityLog({
         restaurantId,
@@ -2406,6 +2495,64 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Remove portal user error:", error);
       res.status(500).json({ error: error.message || "Failed to remove staff member" });
+    }
+  });
+
+  // PORTAL USERS - Update branch access for a portal user
+  const updateBranchAccessSchema = z.object({
+    hasAllBranchAccess: z.boolean(),
+    branchIds: z.array(z.string()),
+  });
+
+  app.put("/api/restaurants/:restaurantId/portal-users/:portalUserId/branch-access", async (req, res) => {
+    try {
+      if (!req.session.userId || req.session.userType !== 'restaurant_admin') {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { restaurantId, portalUserId } = req.params;
+      
+      const restaurant = await storage.getRestaurant(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+      
+      const isOwner = restaurant.adminUserId === req.session.userId;
+      if (!isOwner) {
+        return res.status(403).json({ error: "Only the restaurant owner can update staff access" });
+      }
+      
+      const parseResult = updateBranchAccessSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(422).json({ error: parseResult.error.errors[0]?.message });
+      }
+      
+      const { hasAllBranchAccess, branchIds } = parseResult.data;
+      
+      if (!hasAllBranchAccess && branchIds.length > 0) {
+        const restaurantBranches = await storage.getBranchesByRestaurant(restaurantId);
+        const validBranchIds = restaurantBranches.map(b => b.id);
+        const invalidBranches = branchIds.filter(id => !validBranchIds.includes(id));
+        if (invalidBranches.length > 0) {
+          return res.status(400).json({ error: "One or more branch IDs are invalid for this restaurant" });
+        }
+      }
+      
+      await storage.updatePortalUserBranchAccess(portalUserId, hasAllBranchAccess, branchIds);
+      
+      await storage.createActivityLog({
+        restaurantId,
+        userId: req.session.userId,
+        action: 'staff_branch_access_updated',
+        targetType: 'portal_user',
+        targetId: portalUserId,
+        details: JSON.stringify({ hasAllBranchAccess, branchIds }),
+      });
+      
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Update branch access error:", error);
+      res.status(500).json({ error: error.message || "Failed to update branch access" });
     }
   });
 

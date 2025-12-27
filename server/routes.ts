@@ -1837,7 +1837,7 @@ export async function registerRoutes(
   app.post("/api/restaurants/:restaurantId/reconciliation/upload", async (req, res) => {
     try {
       // Require authenticated admin
-      if (!req.session.userId || req.session.userType !== 'admin') {
+      if (!req.session.userId || req.session.userType !== 'restaurant_admin') {
         return res.status(401).json({ error: "Unauthorized" });
       }
 

@@ -67,7 +67,7 @@ export default function AdminVouchers() {
   // Voucher types state
   const [voucherTypeDialogOpen, setVoucherTypeDialogOpen] = useState(false);
   const [editingVoucherType, setEditingVoucherType] = useState<any>(null);
-  const [voucherTypeCategory, setVoucherTypeCategory] = useState<"rand_value" | "percentage" | "free_item" | "">("");
+  const [voucherTypeCategory, setVoucherTypeCategory] = useState<"rand_value" | "percentage" | "free_item" | "registration" | "">("");
   const [voucherTypeName, setVoucherTypeName] = useState("");
   const [voucherTypeDescription, setVoucherTypeDescription] = useState("");
   const [voucherTypeRewardDetails, setVoucherTypeRewardDetails] = useState("");
@@ -212,7 +212,7 @@ export default function AdminVouchers() {
     setVoucherTypeDialogOpen(true);
   };
   
-  const selectCategory = (category: "rand_value" | "percentage" | "free_item") => {
+  const selectCategory = (category: "rand_value" | "percentage" | "free_item" | "registration") => {
     setVoucherTypeCategory(category);
     setCategorySelectionStep(false);
     // Reset mutually exclusive fields when switching categories
@@ -227,14 +227,19 @@ export default function AdminVouchers() {
       if (category === "rand_value") setVoucherTypeName("R__ Off Your Bill");
       else if (category === "percentage") setVoucherTypeName("__% Off Your Bill");
       else if (category === "free_item") setVoucherTypeName("Free Item");
+      else if (category === "registration") setVoucherTypeName("Welcome Voucher - R__ Off Your First Visit");
     }
   };
+  
+  // Check if registration voucher type already exists
+  const existingRegistrationVoucherType = voucherTypesQuery.data?.find((vt: any) => vt.category === "registration");
   
   const isSaveDisabled = () => {
     if (!voucherTypeName.trim() || !voucherTypeCategory) return true;
     if (voucherTypeCategory === "rand_value" && !voucherTypeValue) return true;
     if (voucherTypeCategory === "percentage" && !voucherTypeValue) return true;
     if (voucherTypeCategory === "free_item" && !voucherTypeFreeItemType) return true;
+    if (voucherTypeCategory === "registration" && !voucherTypeValue) return true;
     return createVoucherType.isPending || updateVoucherType.isPending;
   };
   
@@ -1045,6 +1050,26 @@ export default function AdminVouchers() {
                           A complimentary item (e.g., free beverage, starter, dessert)
                         </p>
                       </Button>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "h-auto p-4 justify-start text-left flex-col items-start gap-1",
+                          existingRegistrationVoucherType && "opacity-50"
+                        )}
+                        onClick={() => selectCategory("registration")}
+                        disabled={!!existingRegistrationVoucherType}
+                        data-testid="button-category-registration"
+                      >
+                        <div className="flex items-center gap-2 font-semibold">
+                          <UserPlus className="h-5 w-5 text-orange-600" />
+                          Registration Voucher (First Visit)
+                        </div>
+                        <p className="text-sm text-muted-foreground font-normal">
+                          {existingRegistrationVoucherType 
+                            ? "Already configured - only one registration voucher per restaurant" 
+                            : "One-time welcome discount for new diners on their first visit"}
+                        </p>
+                      </Button>
                     </div>
                     <DialogFooter>
                       <Button variant="outline" onClick={() => setVoucherTypeDialogOpen(false)}>
@@ -1060,6 +1085,7 @@ export default function AdminVouchers() {
                         {voucherTypeCategory === "rand_value" && "Rand value off the customer's bill"}
                         {voucherTypeCategory === "percentage" && "Percentage off the customer's bill"}
                         {voucherTypeCategory === "free_item" && "Free item on next visit"}
+                        {voucherTypeCategory === "registration" && "One-time welcome voucher for new diners (first visit only)"}
                       </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
@@ -1131,6 +1157,33 @@ export default function AdminVouchers() {
                               onChange={(e) => setVoucherTypeFreeItemDescription(e.target.value)}
                               data-testid="input-free-item-description"
                             />
+                          </div>
+                        </>
+                      )}
+                      {voucherTypeCategory === "registration" && (
+                        <>
+                          <div className="grid gap-2">
+                            <Label htmlFor="vt-value">Welcome Discount Value (Rand) *</Label>
+                            <div className="relative">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">R</span>
+                              <Input 
+                                id="vt-value" 
+                                type="number"
+                                min="1"
+                                className="pl-7"
+                                placeholder="e.g., 50"
+                                value={voucherTypeValue}
+                                onChange={(e) => setVoucherTypeValue(e.target.value)}
+                                data-testid="input-voucher-type-value"
+                              />
+                            </div>
+                          </div>
+                          <div className="rounded-lg bg-orange-50 border border-orange-200 p-3">
+                            <p className="text-sm text-orange-800">
+                              <strong>Note:</strong> This voucher is automatically issued to new diners when they register. 
+                              Each diner can only receive one registration voucher per restaurant in their lifetime, 
+                              redeemable only on their first visit.
+                            </p>
                           </div>
                         </>
                       )}

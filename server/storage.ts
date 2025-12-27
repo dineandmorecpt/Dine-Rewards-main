@@ -554,6 +554,11 @@ export class DbStorage implements IStorage {
   }
 
   async createRegistrationVoucherStatus(status: InsertRegistrationVoucherStatus): Promise<RegistrationVoucherStatus> {
+    // Check if already exists first (enforced by unique constraint on diner_id, restaurant_id)
+    const existing = await this.getRegistrationVoucherStatus(status.dinerId, status.restaurantId);
+    if (existing) {
+      throw new Error("Registration voucher already issued for this diner at this restaurant");
+    }
     const result = await db.insert(registrationVoucherStatus).values(status).returning();
     return result[0];
   }

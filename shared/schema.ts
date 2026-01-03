@@ -397,3 +397,22 @@ export const insertArchivedUserSchema = createInsertSchema(archivedUsers).omit({
 });
 export type InsertArchivedUser = z.infer<typeof insertArchivedUserSchema>;
 export type ArchivedUser = typeof archivedUsers.$inferSelect;
+
+// Phone change requests - OTP verification for phone number changes
+export const phoneChangeRequests = pgTable("phone_change_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  newPhone: text("new_phone").notNull(),
+  otpHash: text("otp_hash").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  attempts: integer("attempts").notNull().default(0),
+  status: text("status").notNull().default("pending"), // 'pending' | 'verified' | 'expired' | 'failed'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertPhoneChangeRequestSchema = createInsertSchema(phoneChangeRequests).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertPhoneChangeRequest = z.infer<typeof insertPhoneChangeRequestSchema>;
+export type PhoneChangeRequest = typeof phoneChangeRequests.$inferSelect;

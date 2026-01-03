@@ -60,6 +60,11 @@ export default function AdminVouchers() {
   const captureScannerRef = useRef<Html5Qrcode | null>(null);
   const [captureSuccess, setCaptureSuccess] = useState<{dinerName: string; pointsEarned: number; currentPoints: number} | null>(null);
   
+  // Phone QR scanner state
+  const [phoneScannerOpen, setPhoneScannerOpen] = useState(false);
+  const [phoneIsScanning, setPhoneIsScanning] = useState(false);
+  const phoneScannerRef = useRef<Html5Qrcode | null>(null);
+  
   // Portal users state
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserName, setNewUserName] = useState("");
@@ -443,6 +448,9 @@ export default function AdminVouchers() {
       if (captureScannerRef.current) {
         captureScannerRef.current.stop().catch(() => {});
       }
+      if (phoneScannerRef.current) {
+        phoneScannerRef.current.stop().catch(() => {});
+      }
     };
   }, []);
 
@@ -488,6 +496,58 @@ export default function AdminVouchers() {
     }
     setCaptureIsScanning(false);
     setCaptureScannerOpen(false);
+  };
+
+  const startPhoneScanner = async () => {
+    try {
+      setPhoneIsScanning(true);
+      const scanner = new Html5Qrcode("phone-qr-reader");
+      phoneScannerRef.current = scanner;
+      
+      await scanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        (decodedText) => {
+          // Extract phone number from QR code - support formats like "tel:0821234567" or just the number
+          let phone = decodedText;
+          if (decodedText.startsWith('tel:')) {
+            phone = decodedText.replace('tel:', '');
+          }
+          // Clean up the phone number (remove spaces, dashes)
+          phone = phone.replace(/[\s-]/g, '');
+          setCapturePhone(phone);
+          setCaptureSuccess(null);
+          stopPhoneScanner();
+          toast({
+            title: "Customer QR Scanned",
+            description: `Phone: ${phone}`
+          });
+        },
+        () => {}
+      );
+    } catch (err) {
+      console.error("Phone scanner error:", err);
+      setPhoneIsScanning(false);
+      setPhoneScannerOpen(false);
+      toast({
+        title: "Camera Error",
+        description: "Could not access camera. Please enter phone number manually.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const stopPhoneScanner = async () => {
+    if (phoneScannerRef.current) {
+      try {
+        await phoneScannerRef.current.stop();
+        phoneScannerRef.current = null;
+      } catch (err) {
+        console.error("Error stopping phone scanner:", err);
+      }
+    }
+    setPhoneIsScanning(false);
+    setPhoneScannerOpen(false);
   };
 
   const recordTransaction = useMutation({
@@ -686,24 +746,65 @@ export default function AdminVouchers() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4 max-w-md">
-                  {/* Phone Number Input */}
-                  <div className="space-y-2">
-                    <Label htmlFor="capture-phone" className="flex items-center gap-2">
-                      <Phone className="h-4 w-4" />
-                      Customer Phone Number
-                    </Label>
-                    <Input
-                      id="capture-phone"
-                      placeholder="e.g., 0821234567"
-                      value={capturePhone}
-                      onChange={(e) => {
-                        setCapturePhone(e.target.value);
-                        setCaptureSuccess(null);
-                      }}
-                      className="font-mono"
-                      data-testid="input-capture-phone"
-                    />
-                  </div>
+                  {/* Phone Number Input with QR Scanner */}
+                  {phoneScannerOpen ? (
+                    <div className="space-y-3">
+                      <Label className="flex items-center gap-2">
+                        <QrCode className="h-4 w-4" />
+                        Scan Customer QR Code
+                      </Label>
+                      <div className="relative">
+                        <div id="phone-qr-reader" className="w-full rounded-lg overflow-hidden"></div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="absolute top-2 right-2 gap-1"
+                          onClick={stopPhoneScanner}
+                          data-testid="button-phone-close-scanner"
+                        >
+                          <X className="h-4 w-4" /> Close
+                        </Button>
+                      </div>
+                      {!phoneIsScanning && (
+                        <Button 
+                          onClick={startPhoneScanner} 
+                          className="w-full gap-2"
+                          data-testid="button-phone-start-camera"
+                        >
+                          <Camera className="h-4 w-4" /> Start Camera
+                        </Button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Label htmlFor="capture-phone" className="flex items-center gap-2">
+                        <Phone className="h-4 w-4" />
+                        Customer Phone Number
+                      </Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="capture-phone"
+                          placeholder="e.g., 0821234567"
+                          value={capturePhone}
+                          onChange={(e) => {
+                            setCapturePhone(e.target.value);
+                            setCaptureSuccess(null);
+                          }}
+                          className="font-mono"
+                          data-testid="input-capture-phone"
+                        />
+                        <Button
+                          variant="outline"
+                          onClick={() => setPhoneScannerOpen(true)}
+                          className="gap-2 shrink-0"
+                          data-testid="button-scan-customer-qr"
+                        >
+                          <QrCode className="h-4 w-4" />
+                          Scan
+                        </Button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Bill ID Scanner */}
                   {captureScannerOpen ? (

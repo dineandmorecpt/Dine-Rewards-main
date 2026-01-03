@@ -76,6 +76,7 @@ export default function DinerDashboard() {
   const [selectedRestaurantId, setSelectedRestaurantId] = useState<string | null>(null);
   const [redeemCreditsOpen, setRedeemCreditsOpen] = useState(false);
   const [redeemingRestaurant, setRedeemingRestaurant] = useState<PointsBalance | null>(null);
+  const [showMyQRCode, setShowMyQRCode] = useState(false);
 
   useEffect(() => {
     if (!codeExpiresAt || !presentCodeOpen) return;
@@ -282,30 +283,45 @@ export default function DinerDashboard() {
             <p className="text-sm sm:text-base text-muted-foreground mt-0.5">Manage your loyalty points and vouchers.</p>
           </div>
           
-          {balances.length > 0 && (
-            <div className="flex items-center gap-2">
-              <Store className="h-4 w-4 text-muted-foreground shrink-0" />
-              <Select
-                value={selectedRestaurantId || ""}
-                onValueChange={(value) => setSelectedRestaurantId(value)}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            {balances.length > 0 && (
+              <div className="flex items-center gap-2">
+                <Store className="h-4 w-4 text-muted-foreground shrink-0" />
+                <Select
+                  value={selectedRestaurantId || ""}
+                  onValueChange={(value) => setSelectedRestaurantId(value)}
+                >
+                  <SelectTrigger className="w-full sm:w-[200px] min-h-[44px]" data-testid="select-restaurant">
+                    <SelectValue placeholder="Select restaurant" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {balances.map((balance) => (
+                      <SelectItem 
+                        key={balance.restaurantId} 
+                        value={balance.restaurantId}
+                        data-testid={`option-restaurant-${balance.restaurantId}`}
+                      >
+                        {balance.restaurantName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            
+            {user?.phone && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 min-h-[44px]"
+                onClick={() => setShowMyQRCode(true)}
+                data-testid="button-show-my-qr"
               >
-                <SelectTrigger className="w-full sm:w-[200px] min-h-[44px]" data-testid="select-restaurant">
-                  <SelectValue placeholder="Select restaurant" />
-                </SelectTrigger>
-                <SelectContent>
-                  {balances.map((balance) => (
-                    <SelectItem 
-                      key={balance.restaurantId} 
-                      value={balance.restaurantId}
-                      data-testid={`option-restaurant-${balance.restaurantId}`}
-                    >
-                      {balance.restaurantName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+                <QrCode className="h-4 w-4" />
+                My QR Code
+              </Button>
+            )}
+          </div>
         </div>
 
         <Tabs defaultValue="points" className="w-full space-y-4 sm:space-y-6">
@@ -635,6 +651,38 @@ export default function DinerDashboard() {
                   })}
                 </div>
               )}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* My QR Code Dialog */}
+        <Dialog open={showMyQRCode} onOpenChange={setShowMyQRCode}>
+          <DialogContent className="w-[calc(100%-24px)] max-w-sm mx-auto rounded-lg">
+            <DialogHeader className="text-center">
+              <DialogTitle className="font-serif text-lg sm:text-xl flex items-center justify-center gap-2">
+                <QrCode className="h-5 w-5" />
+                My QR Code
+              </DialogTitle>
+              <DialogDescription className="text-xs sm:text-sm">
+                Show this QR code to the restaurant staff to earn points
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col items-center py-4 sm:py-6 space-y-4">
+              <div className="bg-white p-4 rounded-xl shadow-sm border">
+                <QRCodeSVG 
+                  value={user?.phone || ""} 
+                  size={180}
+                  level="H"
+                  includeMargin={false}
+                />
+              </div>
+              <div className="text-center space-y-1">
+                <p className="text-sm font-medium">{user?.name}</p>
+                <p className="text-lg font-mono font-semibold text-primary">{user?.phone}</p>
+              </div>
+              <p className="text-xs text-muted-foreground text-center px-4">
+                The staff will scan this code to record your transaction and award your loyalty points
+              </p>
             </div>
           </DialogContent>
         </Dialog>

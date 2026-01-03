@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Ticket, Megaphone, Plus, Calendar, Users, Percent, DollarSign, Gift, Clock, Send, Settings, Save, ScanLine, Check, FileUp, FileCheck, FileX, ChevronRight, Upload, Camera, X, Phone, Receipt, Coins, UserPlus, Trash2, Mail, Lock, Download, QrCode, Pencil, ToggleLeft, ToggleRight, Search, FileDown } from "lucide-react";
+import { Ticket, Megaphone, Plus, Calendar, Users, Percent, DollarSign, Gift, Clock, Send, Settings, Save, ScanLine, Check, FileUp, FileCheck, FileX, ChevronRight, Upload, Camera, X, Phone, Receipt, Coins, UserPlus, Trash2, Mail, Lock, Download, QrCode, Pencil, ToggleLeft, ToggleRight, Search, FileDown, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -550,6 +550,26 @@ export default function AdminVouchers() {
     setPhoneScannerOpen(false);
   };
 
+  // Auto-start phone scanner when dialog opens
+  useEffect(() => {
+    if (phoneScannerOpen && !phoneIsScanning) {
+      const timer = setTimeout(() => {
+        startPhoneScanner();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [phoneScannerOpen]);
+
+  // Auto-start capture scanner when dialog opens
+  useEffect(() => {
+    if (captureScannerOpen && !captureIsScanning) {
+      const timer = setTimeout(() => {
+        startCaptureScanner();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [captureScannerOpen]);
+
   const recordTransaction = useMutation({
     mutationFn: async ({ phone, billId, amountSpent }: { phone: string; billId?: string; amountSpent: number }) => {
       const res = await fetch(`/api/restaurants/${restaurantId}/transactions/record`, {
@@ -767,13 +787,10 @@ export default function AdminVouchers() {
                         </Button>
                       </div>
                       {!phoneIsScanning && (
-                        <Button 
-                          onClick={startPhoneScanner} 
-                          className="w-full gap-2"
-                          data-testid="button-phone-start-camera"
-                        >
-                          <Camera className="h-4 w-4" /> Start Camera
-                        </Button>
+                        <div className="flex items-center justify-center py-4 text-muted-foreground text-sm gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Starting camera...
+                        </div>
                       )}
                     </div>
                   ) : (
@@ -827,13 +844,10 @@ export default function AdminVouchers() {
                         </Button>
                       </div>
                       {!captureIsScanning && (
-                        <Button 
-                          onClick={startCaptureScanner} 
-                          className="w-full gap-2"
-                          data-testid="button-capture-start-camera"
-                        >
-                          <Camera className="h-4 w-4" /> Start Camera
-                        </Button>
+                        <div className="flex items-center justify-center py-4 text-muted-foreground text-sm gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Starting camera...
+                        </div>
                       )}
                     </div>
                   ) : (

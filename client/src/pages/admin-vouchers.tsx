@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Ticket, Megaphone, Plus, Calendar, Users, Percent, DollarSign, Gift, Clock, Send, Settings, Save, ScanLine, Check, FileUp, FileCheck, FileX, ChevronRight, Upload, Camera, X, Phone, Receipt, Coins, UserPlus, Trash2, Mail, Lock, Download, QrCode, Pencil, ToggleLeft, ToggleRight } from "lucide-react";
+import { Ticket, Megaphone, Plus, Calendar, Users, Percent, DollarSign, Gift, Clock, Send, Settings, Save, ScanLine, Check, FileUp, FileCheck, FileX, ChevronRight, Upload, Camera, X, Phone, Receipt, Coins, UserPlus, Trash2, Mail, Lock, Download, QrCode, Pencil, ToggleLeft, ToggleRight, Search, FileDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -54,6 +54,7 @@ export default function AdminVouchers() {
   const [capturePhone, setCapturePhone] = useState("");
   const [captureBillId, setCaptureBillId] = useState("");
   const [captureAmount, setCaptureAmount] = useState("");
+  const [transactionFilter, setTransactionFilter] = useState("");
   const [captureScannerOpen, setCaptureScannerOpen] = useState(false);
   const [captureIsScanning, setCaptureIsScanning] = useState(false);
   const captureScannerRef = useRef<Html5Qrcode | null>(null);
@@ -826,15 +827,68 @@ export default function AdminVouchers() {
             {/* Recent Transactions */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Receipt className="h-5 w-5" />
-                  Recent Transactions
-                </CardTitle>
-                <CardDescription>
-                  Transactions captured in the last 30 days
-                </CardDescription>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div>
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Receipt className="h-5 w-5" />
+                      Recent Transactions
+                    </CardTitle>
+                    <CardDescription>
+                      Transactions captured in the last 30 days
+                    </CardDescription>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2 w-full sm:w-auto"
+                    onClick={() => {
+                      const transactions = transactionsQuery.data || [];
+                      const filtered = transactions.filter((tx: any) => {
+                        if (!transactionFilter) return true;
+                        const search = transactionFilter.toLowerCase();
+                        return tx.dinerName?.toLowerCase().includes(search) ||
+                               tx.dinerPhone?.includes(search);
+                      });
+                      const csvContent = [
+                        ['Customer Name', 'Phone', 'Amount (R)', 'Points Earned', 'Date'].join(','),
+                        ...filtered.map((tx: any) => [
+                          `"${tx.dinerName || ''}"`,
+                          tx.dinerPhone || '',
+                          parseFloat(tx.amountSpent).toFixed(2),
+                          tx.pointsEarned,
+                          new Date(tx.transactionDate).toLocaleDateString()
+                        ].join(','))
+                      ].join('\n');
+                      const blob = new Blob([csvContent], { type: 'text/csv' });
+                      const url = URL.createObjectURL(blob);
+                      const link = document.createElement('a');
+                      link.href = url;
+                      link.download = `transactions-${new Date().toISOString().split('T')[0]}.csv`;
+                      link.click();
+                      URL.revokeObjectURL(url);
+                      toast({ title: "Export Complete", description: "Transactions exported to CSV" });
+                    }}
+                    disabled={!transactionsQuery.data?.length}
+                    data-testid="button-export-transactions"
+                  >
+                    <FileDown className="h-4 w-4" />
+                    Export CSV
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
+                {/* Filter Input */}
+                <div className="relative mb-4">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by customer name or phone..."
+                    value={transactionFilter}
+                    onChange={(e) => setTransactionFilter(e.target.value)}
+                    className="pl-9"
+                    data-testid="input-transaction-filter"
+                  />
+                </div>
+
                 {transactionsQuery.isLoading ? (
                   <div className="text-center py-8 text-muted-foreground">Loading transactions...</div>
                 ) : transactionsQuery.data?.length === 0 ? (
@@ -842,29 +896,52 @@ export default function AdminVouchers() {
                     <Receipt className="h-10 w-10 mx-auto mb-2 opacity-50" />
                     <p>No transactions captured yet</p>
                   </div>
-                ) : (
-                  <div className="space-y-2">
-                    <div className="grid grid-cols-4 gap-2 text-xs font-medium text-muted-foreground border-b pb-2">
-                      <div>Customer</div>
-                      <div>Amount</div>
-                      <div>Points</div>
-                      <div>Date</div>
-                    </div>
-                    {transactionsQuery.data?.slice(0, 20).map((tx: any) => (
-                      <div key={tx.id} className="grid grid-cols-4 gap-2 text-sm py-2 border-b border-dashed last:border-0">
-                        <div className="truncate">
-                          <p className="font-medium truncate">{tx.dinerName}</p>
-                          <p className="text-xs text-muted-foreground truncate">{tx.dinerPhone}</p>
-                        </div>
-                        <div className="font-mono">R{parseFloat(tx.amountSpent).toFixed(2)}</div>
-                        <div className="text-green-600 dark:text-green-400 font-medium">+{tx.pointsEarned}</div>
-                        <div className="text-muted-foreground text-xs">
-                          {new Date(tx.transactionDate).toLocaleDateString()}
-                        </div>
+                ) : (() => {
+                  const filteredTransactions = (transactionsQuery.data || []).filter((tx: any) => {
+                    if (!transactionFilter) return true;
+                    const search = transactionFilter.toLowerCase();
+                    return tx.dinerName?.toLowerCase().includes(search) ||
+                           tx.dinerPhone?.includes(search);
+                  });
+                  
+                  if (filteredTransactions.length === 0) {
+                    return (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Search className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                        <p>No transactions match your search</p>
                       </div>
-                    ))}
-                  </div>
-                )}
+                    );
+                  }
+                  
+                  return (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-4 gap-2 text-xs font-medium text-muted-foreground border-b pb-2">
+                        <div>Customer</div>
+                        <div>Amount</div>
+                        <div>Points</div>
+                        <div>Date</div>
+                      </div>
+                      {filteredTransactions.slice(0, 50).map((tx: any) => (
+                        <div key={tx.id} className="grid grid-cols-4 gap-2 text-sm py-2 border-b border-dashed last:border-0">
+                          <div className="truncate">
+                            <p className="font-medium truncate">{tx.dinerName}</p>
+                            <p className="text-xs text-muted-foreground truncate">{tx.dinerPhone}</p>
+                          </div>
+                          <div className="font-mono">R{parseFloat(tx.amountSpent).toFixed(2)}</div>
+                          <div className="text-green-600 dark:text-green-400 font-medium">+{tx.pointsEarned}</div>
+                          <div className="text-muted-foreground text-xs">
+                            {new Date(tx.transactionDate).toLocaleDateString()}
+                          </div>
+                        </div>
+                      ))}
+                      {filteredTransactions.length > 50 && (
+                        <p className="text-xs text-muted-foreground text-center pt-2">
+                          Showing 50 of {filteredTransactions.length} transactions. Export to see all.
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
               </CardContent>
             </Card>
           </TabsContent>

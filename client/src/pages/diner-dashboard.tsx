@@ -681,7 +681,7 @@ export default function DinerDashboard() {
                 <p className="text-lg font-mono font-semibold text-primary">{user?.phone}</p>
               </div>
               <p className="text-xs text-muted-foreground text-center px-4">
-                The staff will scan this code to record your transaction and award your loyalty points
+                Scan at restaurant to earn points
               </p>
             </div>
           </DialogContent>

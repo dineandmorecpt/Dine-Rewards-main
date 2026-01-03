@@ -314,7 +314,17 @@ export default function DinerDashboard() {
           </TabsList>
 
           <TabsContent value="points" className="space-y-4 sm:space-y-6">
-            {selectedRestaurant ? (
+            {balances.length === 0 ? (
+              <Card className="p-6 sm:p-12 text-center">
+                <Utensils className="h-12 w-12 sm:h-16 sm:w-16 mx-auto text-muted-foreground/50 mb-3 sm:mb-4" />
+                <p className="text-base sm:text-lg font-medium text-muted-foreground">
+                  No rewards yet
+                </p>
+                <p className="text-xs sm:text-sm text-muted-foreground mt-2">
+                  Visit a partner restaurant and make a purchase to start earning loyalty points
+                </p>
+              </Card>
+            ) : selectedRestaurant ? (
               <>
                 {/* Selected Restaurant Card */}
                 <Card 

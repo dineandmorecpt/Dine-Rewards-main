@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DinerLayout } from "@/components/layout/diner-layout";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Utensils, Gift, ChevronRight, Clock, AlertCircle, QrCode, Receipt, Sparkles, Star, Store } from "lucide-react";
+import { Utensils, Gift, ChevronRight, Clock, QrCode, Receipt, Sparkles, Star, Store } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/hooks/use-toast";
@@ -63,6 +64,7 @@ interface Transaction {
 }
 
 export default function DinerDashboard() {
+  const [, navigate] = useLocation();
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const dinerId = user?.id;
@@ -72,7 +74,6 @@ export default function DinerDashboard() {
   const [codeExpiresAt, setCodeExpiresAt] = useState<Date | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<string>("");
   const [selectedRestaurantId, setSelectedRestaurantId] = useState<string | null>(null);
-  const [transactionHistoryOpen, setTransactionHistoryOpen] = useState(false);
   const [redeemCreditsOpen, setRedeemCreditsOpen] = useState(false);
   const [redeemingRestaurant, setRedeemingRestaurant] = useState<PointsBalance | null>(null);
 
@@ -397,7 +398,7 @@ export default function DinerDashboard() {
                         variant="outline" 
                         size="sm" 
                         className="h-8 text-xs gap-1"
-                        onClick={() => setTransactionHistoryOpen(true)}
+                        onClick={() => navigate("/diner/history")}
                         data-testid={`button-view-history`}
                       >
                         <Receipt className="h-3.5 w-3.5" />
@@ -554,67 +555,6 @@ export default function DinerDashboard() {
                   The restaurant staff will enter this code to mark your voucher as redeemed
                 </p>
               </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* Transaction History Dialog */}
-        <Dialog open={transactionHistoryOpen} onOpenChange={setTransactionHistoryOpen}>
-          <DialogContent className="w-[calc(100%-24px)] max-w-lg mx-auto rounded-lg">
-            <DialogHeader>
-              <DialogTitle className="font-serif text-lg sm:text-xl flex items-center gap-2">
-                <Receipt className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
-                Transaction History
-              </DialogTitle>
-              <DialogDescription className="text-xs sm:text-sm">
-                {selectedRestaurant?.restaurantName} - Your spending history
-              </DialogDescription>
-            </DialogHeader>
-            <div className="py-2 sm:py-4">
-              {loadingTransactions ? (
-                <div className="flex items-center justify-center py-6 sm:py-8">
-                  <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-primary"></div>
-                </div>
-              ) : transactions.length === 0 ? (
-                <div className="text-center py-6 sm:py-8">
-                  <Receipt className="h-10 w-10 sm:h-12 sm:w-12 mx-auto text-muted-foreground/50 mb-2 sm:mb-3" />
-                  <p className="text-sm sm:text-base text-muted-foreground">No transactions yet</p>
-                  <p className="text-xs sm:text-sm text-muted-foreground mt-1">Start spending to earn points!</p>
-                </div>
-              ) : (
-                <div className="space-y-2 sm:space-y-3 max-h-[300px] sm:max-h-[400px] overflow-y-auto">
-                  {transactions.map((tx) => (
-                    <div 
-                      key={tx.id} 
-                      className="flex justify-between items-center p-2.5 sm:p-3 rounded-lg bg-muted/30 border gap-2"
-                      data-testid={`transaction-${tx.id}`}
-                    >
-                      <div className="space-y-0.5 sm:space-y-1 min-w-0 flex-1">
-                        <p className="text-xs sm:text-sm font-medium">
-                          R{parseFloat(tx.amountSpent).toFixed(2)} spent
-                        </p>
-                        <p className="text-[10px] sm:text-xs text-muted-foreground">
-                          {new Date(tx.transactionDate).toLocaleDateString('en-ZA', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </p>
-                        {tx.billId && (
-                          <p className="text-[10px] sm:text-xs text-muted-foreground truncate">Bill: {tx.billId}</p>
-                        )}
-                      </div>
-                      <div className="shrink-0">
-                        <Badge variant="secondary" className="bg-primary/10 text-primary text-[10px] sm:text-xs">
-                          +{tx.pointsEarned} pts
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           </DialogContent>
         </Dialog>

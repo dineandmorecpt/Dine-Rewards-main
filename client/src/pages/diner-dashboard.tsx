@@ -314,127 +314,122 @@ export default function DinerDashboard() {
           </TabsList>
 
           <TabsContent value="points" className="space-y-4 sm:space-y-6">
-            {/* SIMULATION CONTROLS */}
-            <div className="bg-muted/30 p-3 sm:p-4 rounded-lg border border-dashed border-muted-foreground/20">
-              <div className="flex items-start gap-2 mb-3 text-xs sm:text-sm font-medium text-muted-foreground">
-                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" /> 
-                <span>Simulation: Spend R1000 to earn a voucher (R1 = 1 Point)</span>
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                {balances.map((balance) => (
-                  <div key={balance.id}>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="text-xs sm:text-sm h-9 sm:h-8"
-                      onClick={() => createTransaction.mutate({ 
-                        restaurantId: balance.restaurantId, 
-                        amountSpent: "50",
-                        branchId: balance.branchId
-                      })}
-                      disabled={createTransaction.isPending}
-                      data-testid={`button-spend-${balance.restaurantName.toLowerCase().replace(/\s+/g, '-')}`}
-                    >
-                      Spend R50 at {balance.restaurantName}{balance.branchName && balance.loyaltyScope === "branch" ? ` (${balance.branchName})` : ''}
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid gap-3 sm:gap-4 md:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-              {balances.map((rest) => (
+            {selectedRestaurant ? (
+              <>
+                {/* Selected Restaurant Card */}
                 <Card 
-                  key={rest.id} 
-                  className="overflow-hidden border-none shadow-sm hover:shadow-md transition-all cursor-pointer active:scale-[0.98]" 
-                  data-testid={`card-restaurant-${rest.restaurantName.toLowerCase().replace(/\s+/g, '-')}`}
-                  onClick={() => {
-                    setSelectedRestaurantId(rest.restaurantId);
-                    setTransactionHistoryOpen(true);
-                  }}
+                  className="overflow-hidden border-none shadow-md relative" 
+                  data-testid={`card-restaurant-${selectedRestaurant.restaurantName.toLowerCase().replace(/\s+/g, '-')}`}
                 >
-                  <div className={`h-1.5 sm:h-2 w-full ${rest.restaurantColor}`} />
-                  <CardHeader className="flex flex-row items-center justify-between p-3 sm:p-4 pb-2">
-                    <div className="min-w-0 flex-1">
-                      <CardTitle className="text-base sm:text-lg font-bold font-serif truncate">{rest.restaurantName}</CardTitle>
-                      {rest.branchName && rest.loyaltyScope === "branch" && (
-                        <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">{rest.branchName} branch</p>
-                      )}
-                    </div>
-                    <div className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center shrink-0 ml-2">
-                      <Utensils className="h-4 w-4 text-secondary-foreground" />
-                    </div>
-                  </CardHeader>
-                  <CardContent className="p-3 sm:p-4 pt-0">
-                    <div className="space-y-3 sm:space-y-4">
-                      <div className="flex items-end justify-between gap-2">
-                        <div>
-                          <span className="text-3xl sm:text-4xl font-bold tracking-tight" data-testid={`text-points-${rest.restaurantName.toLowerCase().replace(/\s+/g, '-')}`}>
-                            {rest.currentPoints}
-                          </span>
-                          <span className="text-muted-foreground ml-1 text-sm">pts</span>
-                        </div>
-                        <span className="text-[10px] sm:text-xs font-medium text-muted-foreground uppercase">Target: {rest.pointsThreshold}</span>
-                      </div>
-                      
-                      <div className="space-y-1">
-                        <Progress value={(rest.currentPoints / rest.pointsThreshold) * 100} className="h-2" />
-                        <p className="text-[10px] sm:text-xs text-right text-muted-foreground">
-                          Spend R{rest.pointsThreshold - rest.currentPoints} more for next voucher
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                  <CardFooter className="bg-muted/10 border-t p-2.5 sm:p-3">
-                    <div className="flex justify-between items-center w-full">
-                      <span className="text-[10px] sm:text-xs font-medium flex items-center gap-1">
-                        <Gift className="h-3 w-3" />
-                        {rest.totalVouchersGenerated} Generated
-                      </span>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="h-7 text-[10px] sm:text-xs gap-1 px-2"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedRestaurantId(rest.restaurantId);
-                          setTransactionHistoryOpen(true);
-                        }}
-                        data-testid={`button-view-details-${rest.restaurantName.toLowerCase().replace(/\s+/g, '-')}`}
-                      >
-                        View Details <ChevronRight className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </CardFooter>
-                  
                   {/* Available Credits Banner */}
-                  {rest.availableVoucherCredits > 0 && (
+                  {selectedRestaurant.availableVoucherCredits > 0 && (
                     <div 
-                      className="absolute top-0 left-0 right-0 bg-gradient-to-r from-amber-500 to-orange-500 text-white px-3 py-2 flex items-center justify-between"
-                      onClick={(e) => e.stopPropagation()}
+                      className="bg-gradient-to-r from-amber-500 to-orange-500 text-white px-3 py-2 flex items-center justify-between"
                     >
                       <span className="text-sm font-medium flex items-center gap-1">
                         <Sparkles className="h-4 w-4" />
-                        {rest.availableVoucherCredits} Credit{rest.availableVoucherCredits !== 1 ? 's' : ''} Available!
+                        {selectedRestaurant.availableVoucherCredits} Credit{selectedRestaurant.availableVoucherCredits !== 1 ? 's' : ''} Available!
                       </span>
                       <Button 
                         size="sm" 
                         variant="secondary"
                         className="h-7 text-xs"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setRedeemingRestaurant(rest);
+                        onClick={() => {
+                          setRedeemingRestaurant(selectedRestaurant);
                           setRedeemCreditsOpen(true);
                         }}
-                        data-testid={`button-redeem-credits-${rest.restaurantName.toLowerCase().replace(/\s+/g, '-')}`}
+                        data-testid={`button-redeem-credits-${selectedRestaurant.restaurantName.toLowerCase().replace(/\s+/g, '-')}`}
                       >
                         Redeem
                       </Button>
                     </div>
                   )}
+                  
+                  <div className={`h-2 w-full ${selectedRestaurant.restaurantColor}`} />
+                  <CardHeader className="flex flex-row items-center justify-between p-4 pb-2">
+                    <div className="min-w-0 flex-1">
+                      <CardTitle className="text-xl font-bold font-serif truncate">{selectedRestaurant.restaurantName}</CardTitle>
+                      {selectedRestaurant.branchName && selectedRestaurant.loyaltyScope === "branch" && (
+                        <p className="text-xs text-muted-foreground mt-0.5">{selectedRestaurant.branchName} branch</p>
+                      )}
+                    </div>
+                    <div className="h-10 w-10 rounded-full bg-secondary flex items-center justify-center shrink-0 ml-2">
+                      <Utensils className="h-5 w-5 text-secondary-foreground" />
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-4 pt-2">
+                    <div className="space-y-4">
+                      <div className="flex items-end justify-between gap-2">
+                        <div>
+                          <span className="text-4xl sm:text-5xl font-bold tracking-tight" data-testid={`text-points-${selectedRestaurant.restaurantName.toLowerCase().replace(/\s+/g, '-')}`}>
+                            {selectedRestaurant.currentPoints}
+                          </span>
+                          <span className="text-muted-foreground ml-1 text-base">pts</span>
+                        </div>
+                        <span className="text-xs font-medium text-muted-foreground uppercase">Target: {selectedRestaurant.pointsThreshold}</span>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Progress value={(selectedRestaurant.currentPoints / selectedRestaurant.pointsThreshold) * 100} className="h-3" />
+                        <p className="text-xs text-muted-foreground">
+                          Spend R{selectedRestaurant.pointsThreshold - selectedRestaurant.currentPoints} more to earn your next voucher
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                  <CardFooter className="bg-muted/10 border-t p-3">
+                    <div className="flex justify-between items-center w-full">
+                      <span className="text-xs font-medium flex items-center gap-1">
+                        <Gift className="h-3.5 w-3.5" />
+                        {selectedRestaurant.totalVouchersGenerated} Vouchers Earned
+                      </span>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="h-8 text-xs gap-1"
+                        onClick={() => setTransactionHistoryOpen(true)}
+                        data-testid={`button-view-history`}
+                      >
+                        <Receipt className="h-3.5 w-3.5" />
+                        Transaction History
+                      </Button>
+                    </div>
+                  </CardFooter>
                 </Card>
-              ))}
-            </div>
+
+                {/* SIMULATION CONTROLS */}
+                <div className="bg-muted/30 p-3 sm:p-4 rounded-lg border border-dashed border-muted-foreground/20">
+                  <div className="flex items-start gap-2 mb-3 text-xs sm:text-sm font-medium text-muted-foreground">
+                    <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" /> 
+                    <span>Simulation: Spend R1000 to earn a voucher (R1 = 1 Point)</span>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="text-xs sm:text-sm h-9 sm:h-8"
+                    onClick={() => createTransaction.mutate({ 
+                      restaurantId: selectedRestaurant.restaurantId, 
+                      amountSpent: "50",
+                      branchId: selectedRestaurant.branchId
+                    })}
+                    disabled={createTransaction.isPending}
+                    data-testid={`button-spend-50`}
+                  >
+                    Spend R50 at {selectedRestaurant.restaurantName}
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <Card className="p-6 sm:p-12 text-center">
+                <Store className="h-12 w-12 sm:h-16 sm:w-16 mx-auto text-muted-foreground/50 mb-3 sm:mb-4" />
+                <p className="text-base sm:text-lg font-medium text-muted-foreground">
+                  No restaurant selected
+                </p>
+                <p className="text-xs sm:text-sm text-muted-foreground mt-2">
+                  Select a restaurant from the dropdown above to view your rewards
+                </p>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="vouchers" className="space-y-4 sm:space-y-6">

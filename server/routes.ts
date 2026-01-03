@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { createLoyaltyServices } from "./services/loyalty";
-import { sendRegistrationInvite } from "./services/sms";
+import { sendRegistrationInvite, sendPhoneChangeOTP, sendSMS } from "./services/sms";
 import { sendPasswordResetEmail, sendAccountDeletionConfirmationEmail } from "./services/email";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { insertTransactionSchema } from "@shared/schema";
@@ -1095,6 +1095,142 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Update profile error:", error);
       res.status(500).json({ error: "Failed to update profile" });
+    }
+  });
+
+  // PHONE CHANGE - Request OTP for phone number change
+  const phoneChangeRequestSchema = z.object({
+    newPhone: z.string()
+      .transform(val => val.trim().replace(/[\s\-()]/g, ''))
+      .refine(val => val.length >= 10, { message: "Phone number must be at least 10 digits" })
+  });
+
+  app.post("/api/phone-change/request", smsRateLimiter, async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const parseResult = phoneChangeRequestSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(422).json({ 
+          error: parseResult.error.errors[0]?.message || "Invalid phone number" 
+        });
+      }
+
+      const { newPhone } = parseResult.data;
+
+      // Check if phone is already in use
+      const existingUser = await storage.getUserByPhone(newPhone);
+      if (existingUser && existingUser.id !== req.session.userId) {
+        return res.status(400).json({ error: "This phone number is already registered to another account" });
+      }
+
+      // Generate 6-digit OTP
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const otpHash = await bcrypt.hash(otp, 10);
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+      // Create phone change request
+      await storage.createPhoneChangeRequest({
+        userId: req.session.userId,
+        newPhone,
+        otpHash,
+        expiresAt
+      });
+
+      // Send OTP via SMS
+      const smsResult = await sendPhoneChangeOTP(newPhone, otp);
+      if (!smsResult.success) {
+        console.error("Failed to send phone change OTP:", smsResult.error);
+        return res.status(500).json({ error: "Failed to send verification code. Please try again." });
+      }
+
+      res.json({ 
+        success: true, 
+        message: "Verification code sent to your new phone number",
+        expiresAt: expiresAt.toISOString()
+      });
+    } catch (error: any) {
+      console.error("Phone change request error:", error);
+      res.status(500).json({ error: "Failed to initiate phone change" });
+    }
+  });
+
+  // PHONE CHANGE - Verify OTP and update phone number
+  const phoneChangeVerifySchema = z.object({
+    otp: z.string().length(6, "Verification code must be 6 digits")
+  });
+
+  app.post("/api/phone-change/verify", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const parseResult = phoneChangeVerifySchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(422).json({ 
+          error: parseResult.error.errors[0]?.message || "Invalid verification code" 
+        });
+      }
+
+      const { otp } = parseResult.data;
+
+      // Get active phone change request
+      const request = await storage.getActivePhoneChangeRequest(req.session.userId);
+      if (!request) {
+        return res.status(400).json({ error: "No pending phone change request found. Please request a new code." });
+      }
+
+      // Check if request has expired
+      if (new Date() > request.expiresAt) {
+        await storage.expirePhoneChangeRequest(request.id);
+        return res.status(400).json({ error: "Verification code has expired. Please request a new code." });
+      }
+
+      // Check attempts (max 5)
+      if (request.attempts >= 5) {
+        await storage.expirePhoneChangeRequest(request.id);
+        return res.status(400).json({ error: "Too many failed attempts. Please request a new code." });
+      }
+
+      // Verify OTP
+      const isValid = await bcrypt.compare(otp, request.otpHash);
+      if (!isValid) {
+        await storage.incrementPhoneChangeAttempts(request.id);
+        const remainingAttempts = 5 - (request.attempts + 1);
+        return res.status(400).json({ 
+          error: `Incorrect verification code. ${remainingAttempts} attempts remaining.` 
+        });
+      }
+
+      // Double-check phone isn't taken (race condition protection)
+      const existingUser = await storage.getUserByPhone(request.newPhone);
+      if (existingUser && existingUser.id !== req.session.userId) {
+        await storage.expirePhoneChangeRequest(request.id);
+        return res.status(400).json({ error: "This phone number is already registered to another account" });
+      }
+
+      // Mark request as verified and update user's phone
+      await storage.markPhoneChangeVerified(request.id);
+      const updatedUser = await storage.updateUserPhone(req.session.userId, request.newPhone);
+
+      res.json({ 
+        success: true, 
+        message: "Phone number updated successfully",
+        user: {
+          id: updatedUser.id,
+          email: updatedUser.email,
+          name: updatedUser.name,
+          lastName: updatedUser.lastName,
+          phone: updatedUser.phone,
+          userType: updatedUser.userType,
+        }
+      });
+    } catch (error: any) {
+      console.error("Phone change verify error:", error);
+      res.status(500).json({ error: "Failed to verify phone change" });
     }
   });
 

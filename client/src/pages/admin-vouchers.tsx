@@ -573,6 +573,7 @@ export default function AdminVouchers() {
       setCaptureBillId("");
       setCaptureAmount("");
       queryClient.invalidateQueries({ queryKey: ['restaurant-transactions', restaurantId] });
+      transactionsQuery.refetch();
       toast({
         title: "Transaction Recorded!",
         description: `${data.dinerName} earned ${data.transaction.pointsEarned} points`

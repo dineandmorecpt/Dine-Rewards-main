@@ -348,27 +348,18 @@ export default function DinerDashboard() {
                   className="overflow-hidden border-none shadow-md relative" 
                   data-testid={`card-restaurant-${selectedRestaurant.restaurantName.toLowerCase().replace(/\s+/g, '-')}`}
                 >
-                  {/* Available Credits Banner */}
+                  {/* Available Vouchers Banner */}
                   {selectedRestaurant.availableVoucherCredits > 0 && (
                     <div 
                       className="bg-gradient-to-r from-amber-500 to-orange-500 text-white px-3 py-2 flex items-center justify-between"
                     >
                       <span className="text-sm font-medium flex items-center gap-1">
                         <Sparkles className="h-4 w-4" />
-                        {selectedRestaurant.availableVoucherCredits} Credit{selectedRestaurant.availableVoucherCredits !== 1 ? 's' : ''} Available!
+                        {selectedRestaurant.availableVoucherCredits} Voucher{selectedRestaurant.availableVoucherCredits !== 1 ? 's' : ''} Available!
                       </span>
-                      <Button 
-                        size="sm" 
-                        variant="secondary"
-                        className="h-7 text-xs"
-                        onClick={() => {
-                          setRedeemingRestaurant(selectedRestaurant);
-                          setRedeemCreditsOpen(true);
-                        }}
-                        data-testid={`button-redeem-credits-${selectedRestaurant.restaurantName.toLowerCase().replace(/\s+/g, '-')}`}
-                      >
-                        Redeem
-                      </Button>
+                      <span className="text-xs opacity-90">
+                        View in My Vouchers tab
+                      </span>
                     </div>
                   )}
                   
@@ -587,7 +578,7 @@ export default function DinerDashboard() {
                 Choose Your Reward
               </DialogTitle>
               <DialogDescription className="text-xs sm:text-sm">
-                {redeemingRestaurant?.restaurantName} - You have {redeemingRestaurant?.availableVoucherCredits} credit{(redeemingRestaurant?.availableVoucherCredits || 0) !== 1 ? 's' : ''} to spend
+                {redeemingRestaurant?.restaurantName} - You have {redeemingRestaurant?.availableVoucherCredits} voucher{(redeemingRestaurant?.availableVoucherCredits || 0) !== 1 ? 's' : ''} to redeem
               </DialogDescription>
             </DialogHeader>
             <div className="py-2 sm:py-4">
@@ -642,7 +633,7 @@ export default function DinerDashboard() {
                               className={`text-[10px] sm:text-xs ${canAfford ? "bg-amber-500 hover:bg-amber-500" : ""}`}
                             >
                               <Star className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-0.5 sm:mr-1" />
-                              {vt.creditsCost} Credit{vt.creditsCost !== 1 ? 's' : ''}
+                              {vt.creditsCost} Voucher{vt.creditsCost !== 1 ? 's' : ''}
                             </Badge>
                           </div>
                         </div>

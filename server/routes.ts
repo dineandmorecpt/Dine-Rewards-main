@@ -797,7 +797,7 @@ export async function registerRoutes(
       }
 
       // Generate 6-digit OTP
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const otp = crypto.randomInt(100000, 1000000).toString();
       
       // Store OTP with 5-minute expiry
       const expiresAt = new Date();
@@ -908,7 +908,7 @@ export async function registerRoutes(
       }
 
       // Generate 6-digit OTP
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const otp = crypto.randomInt(100000, 1000000).toString();
       
       // Store OTP with 5-minute expiry (using same store with prefix to differentiate)
       const expiresAt = new Date();
@@ -1120,7 +1120,7 @@ export async function registerRoutes(
       }
 
       // Generate 6-digit OTP
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const otp = crypto.randomInt(100000, 1000000).toString();
       const otpHash = await bcrypt.hash(otp, 10);
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 

@@ -397,26 +397,12 @@ export default function DinerDashboard() {
                   </CardFooter>
                 </Card>
 
-                {/* SIMULATION CONTROLS */}
+                {/* How to Earn */}
                 <div className="bg-muted/30 p-3 sm:p-4 rounded-lg border border-dashed border-muted-foreground/20">
-                  <div className="flex items-start gap-2 mb-3 text-xs sm:text-sm font-medium text-muted-foreground">
-                    <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" /> 
-                    <span>Simulation: Spend R1000 to earn a voucher (R1 = 1 Point)</span>
+                  <div className="flex items-start gap-2 text-xs sm:text-sm font-medium text-muted-foreground">
+                    <Star className="h-4 w-4 shrink-0 mt-0.5" /> 
+                    <span>Spend R1000 at {selectedRestaurant.restaurantName} to earn a voucher (R1 = 1 Point)</span>
                   </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="text-xs sm:text-sm h-9 sm:h-8"
-                    onClick={() => createTransaction.mutate({ 
-                      restaurantId: selectedRestaurant.restaurantId, 
-                      amountSpent: "50",
-                      branchId: selectedRestaurant.branchId
-                    })}
-                    disabled={createTransaction.isPending}
-                    data-testid={`button-spend-50`}
-                  >
-                    Spend R50 at {selectedRestaurant.restaurantName}
-                  </Button>
                 </div>
               </>
             ) : (

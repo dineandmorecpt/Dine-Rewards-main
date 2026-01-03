@@ -1027,12 +1027,11 @@ export async function registerRoutes(
     }
   });
 
-  // USER PROFILE - Update user profile
+  // USER PROFILE - Update user profile (phone changes require OTP verification via /phone-change endpoints)
   const updateProfileSchema = z.object({
     name: z.string().min(1, "First name is required"),
     lastName: z.string().optional(),
     email: z.string().email("Invalid email address"),
-    phone: z.string().optional(),
   });
 
   app.patch("/api/users/:userId/profile", async (req, res) => {
@@ -1051,7 +1050,7 @@ export async function registerRoutes(
         });
       }
       
-      const { name, lastName, email, phone } = parseResult.data;
+      const { name, lastName, email } = parseResult.data;
       
       // Check if email is being changed and if it's already taken
       const currentUser = await storage.getUser(userId);
@@ -1066,19 +1065,13 @@ export async function registerRoutes(
         }
       }
       
-      // Check if phone is being changed and if it's already taken
-      if (phone && phone !== currentUser.phone) {
-        const existingPhone = await storage.getUserByPhone(phone);
-        if (existingPhone) {
-          return res.status(400).json({ error: "This phone number is already in use" });
-        }
-      }
+      // Note: Phone changes are NOT allowed via this endpoint
+      // Users must use /api/phone-change/request and /api/phone-change/verify
       
       const updatedUser = await storage.updateUserProfile(userId, { 
         name, 
         lastName: lastName || undefined, 
-        email, 
-        phone: phone || undefined 
+        email
       });
       
       res.json({

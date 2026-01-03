@@ -107,6 +107,23 @@ Core data models:
 - Profile includes name, email, phone number fields
 - Diners can view their points balances across multiple restaurants
 
+### Phone Number Change Verification
+- Phone numbers are unique identifiers for transactions and cannot be changed without verification
+- Phone changes require OTP verification via SMS:
+  - User clicks "Change" on phone field, opens verification modal
+  - Enters new phone number and clicks "Send Verification Code"
+  - 6-digit OTP sent to new phone via SMS (10-minute expiry)
+  - User enters OTP in modal to verify and complete change
+- Security features:
+  - OTP is bcrypt-hashed before storage
+  - Maximum 5 verification attempts per request
+  - Existing pending requests auto-expire when new one is created
+  - Rate limiting via `smsRateLimiter` (5 requests/minute)
+  - Phone uniqueness validated before and after verification
+- API endpoints: `/api/phone-change/request` and `/api/phone-change/verify`
+- Profile update endpoint (`/api/users/:userId/profile`) does NOT allow phone changes
+- Data model: `phone_change_requests` table tracks userId, newPhone, otpHash, attempts, status, expiresAt
+
 ### Account Deletion
 - Two-step confirmation flow: modal requiring "DELETE" text + email confirmation
 - 24-hour token expiry for email confirmation links

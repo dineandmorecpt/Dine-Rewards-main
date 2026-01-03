@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Ticket, Megaphone, Plus, Calendar, Users, Percent, DollarSign, Gift, Clock, Send, Settings, Save, ScanLine, Check, FileUp, FileCheck, FileX, ChevronRight, Upload, Camera, X, Phone, Receipt, Coins, UserPlus, Trash2, Mail, Lock, Download, QrCode, Pencil, ToggleLeft, ToggleRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Html5Qrcode } from "html5-qrcode";
 import { useAuth } from "@/hooks/use-auth";
 import { QRCodeCanvas } from "qrcode.react";
@@ -42,6 +42,7 @@ export default function AdminVouchers() {
   const [isScanning, setIsScanning] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { portalRole, isOwnerOrManager, restaurant } = useAuth();
   const restaurantId = restaurant?.id;
   
@@ -104,6 +105,19 @@ export default function AdminVouchers() {
     }
   };
   
+  // Fetch recent transactions
+  const transactionsQuery = useQuery({
+    queryKey: ['restaurant-transactions', restaurantId],
+    queryFn: async () => {
+      const res = await fetch(`/api/restaurants/${restaurantId}/transactions`, {
+        credentials: 'include'
+      });
+      if (!res.ok) throw new Error('Failed to fetch transactions');
+      return res.json();
+    },
+    enabled: !!restaurantId
+  });
+
   // Fetch portal users
   const portalUsersQuery = useQuery({
     queryKey: ['portal-users', restaurantId],
@@ -497,6 +511,7 @@ export default function AdminVouchers() {
       setCapturePhone("");
       setCaptureBillId("");
       setCaptureAmount("");
+      queryClient.invalidateQueries({ queryKey: ['restaurant-transactions', restaurantId] });
       toast({
         title: "Transaction Recorded!",
         description: `${data.dinerName} earned ${data.transaction.pointsEarned} points`
@@ -803,6 +818,51 @@ export default function AdminVouchers() {
                         <p className="font-semibold">{captureSuccess.currentPoints} points</p>
                       </div>
                     </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Recent Transactions */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Receipt className="h-5 w-5" />
+                  Recent Transactions
+                </CardTitle>
+                <CardDescription>
+                  Transactions captured in the last 30 days
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {transactionsQuery.isLoading ? (
+                  <div className="text-center py-8 text-muted-foreground">Loading transactions...</div>
+                ) : transactionsQuery.data?.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Receipt className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                    <p>No transactions captured yet</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-4 gap-2 text-xs font-medium text-muted-foreground border-b pb-2">
+                      <div>Customer</div>
+                      <div>Amount</div>
+                      <div>Points</div>
+                      <div>Date</div>
+                    </div>
+                    {transactionsQuery.data?.slice(0, 20).map((tx: any) => (
+                      <div key={tx.id} className="grid grid-cols-4 gap-2 text-sm py-2 border-b border-dashed last:border-0">
+                        <div className="truncate">
+                          <p className="font-medium truncate">{tx.dinerName}</p>
+                          <p className="text-xs text-muted-foreground truncate">{tx.dinerPhone}</p>
+                        </div>
+                        <div className="font-mono">R{parseFloat(tx.amountSpent).toFixed(2)}</div>
+                        <div className="text-green-600 dark:text-green-400 font-medium">+{tx.pointsEarned}</div>
+                        <div className="text-muted-foreground text-xs">
+                          {new Date(tx.transactionDate).toLocaleDateString()}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </CardContent>

@@ -1788,6 +1788,62 @@ export async function registerRoutes(
     }
   });
 
+  // RESTAURANT GET TRANSACTIONS - Get recent transactions for a restaurant
+  app.get("/api/restaurants/:restaurantId/transactions", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const { restaurantId } = req.params;
+      
+      // Check user's access to this restaurant
+      const restaurant = await storage.getRestaurant(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+      
+      const isOwner = restaurant.adminUserId === req.session.userId;
+      const portalAccess = await storage.getPortalUserByUserAndRestaurant(req.session.userId, restaurantId);
+      
+      if (!isOwner && !portalAccess) {
+        return res.status(403).json({ error: "You don't have access to this restaurant" });
+      }
+      
+      let branchId = req.query.branchId as string | undefined;
+      
+      // Validate branch access
+      const branchAccess = await storage.getAccessibleBranchIds(req.session.userId, restaurantId);
+      if (branchId) {
+        if (!branchAccess.hasAllAccess && !branchAccess.branchIds.includes(branchId)) {
+          return res.status(403).json({ error: "You don't have access to this branch" });
+        }
+      } else if (!branchAccess.hasAllAccess && branchAccess.branchIds.length > 0) {
+        branchId = branchAccess.branchIds[0];
+      }
+      
+      // Get transactions (last 30 days by default)
+      const transactions = await storage.getTransactionsByRestaurant(restaurantId, true, branchId || null);
+      
+      // Enrich with diner info
+      const enrichedTransactions = await Promise.all(
+        transactions.map(async (tx) => {
+          const diner = await storage.getUser(tx.dinerId);
+          return {
+            ...tx,
+            dinerName: diner?.name || 'Unknown',
+            dinerPhone: diner?.phone || ''
+          };
+        })
+      );
+      
+      res.json(enrichedTransactions);
+    } catch (error) {
+      console.error("Get restaurant transactions error:", error);
+      res.status(500).json({ error: "Failed to fetch transactions" });
+    }
+  });
+
   // RESTAURANT RECORD TRANSACTION - Record transaction by phone lookup
   app.post("/api/restaurants/:restaurantId/transactions/record", async (req, res) => {
     try {

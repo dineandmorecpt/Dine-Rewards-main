@@ -437,12 +437,81 @@ export default function DinerDashboard() {
           </TabsContent>
 
           <TabsContent value="vouchers" className="space-y-4 sm:space-y-6">
+            {/* Available Voucher Credits - Choose Your Reward */}
+            {selectedRestaurant && selectedRestaurant.availableVoucherCredits > 0 && (
+              <Card className="border-amber-300 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30">
+                <CardHeader className="p-4 pb-2">
+                  <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-amber-500" />
+                    Choose Your Reward
+                  </CardTitle>
+                  <CardDescription className="text-xs sm:text-sm">
+                    You have {selectedRestaurant.availableVoucherCredits} voucher{selectedRestaurant.availableVoucherCredits !== 1 ? 's' : ''} to claim at {selectedRestaurant.restaurantName}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-4 pt-2">
+                  {loadingVoucherTypes ? (
+                    <div className="flex items-center justify-center py-4">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                    </div>
+                  ) : voucherTypes.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No reward options available yet.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {voucherTypes.map((vt) => {
+                        const canAfford = selectedRestaurant.availableVoucherCredits >= vt.creditsCost;
+                        return (
+                          <div 
+                            key={vt.id}
+                            className={`p-3 rounded-lg border transition-all ${
+                              canAfford 
+                                ? 'bg-white dark:bg-background cursor-pointer hover:border-primary hover:shadow-sm active:scale-[0.99]' 
+                                : 'bg-muted/50 opacity-60 cursor-not-allowed'
+                            }`}
+                            onClick={() => {
+                              if (canAfford && !redeemCredit.isPending) {
+                                redeemCredit.mutate({ 
+                                  restaurantId: selectedRestaurant.restaurantId, 
+                                  voucherTypeId: vt.id,
+                                  branchId: selectedRestaurant.branchId
+                                });
+                              }
+                            }}
+                            data-testid={`card-claim-voucher-${vt.id}`}
+                          >
+                            <div className="flex justify-between items-center gap-2">
+                              <div className="min-w-0 flex-1">
+                                <p className="font-medium text-sm">{vt.name}</p>
+                                {vt.description && (
+                                  <p className="text-xs text-muted-foreground mt-0.5">{vt.description}</p>
+                                )}
+                              </div>
+                              <Button 
+                                size="sm" 
+                                variant={canAfford ? "default" : "secondary"}
+                                disabled={!canAfford || redeemCredit.isPending}
+                                className="shrink-0 h-8"
+                              >
+                                {redeemCredit.isPending ? "..." : "Claim"}
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
             {(() => {
               const filteredVouchers = selectedRestaurantId 
                 ? vouchers.filter(v => v.restaurantId === selectedRestaurantId)
                 : vouchers;
               
-              if (filteredVouchers.length === 0) {
+              const hasCredits = selectedRestaurant && selectedRestaurant.availableVoucherCredits > 0;
+              
+              if (filteredVouchers.length === 0 && !hasCredits) {
                 return (
                   <Card className="p-6 sm:p-12 text-center">
                     <Gift className="h-12 w-12 sm:h-16 sm:w-16 mx-auto text-muted-foreground/50 mb-3 sm:mb-4" />
@@ -456,6 +525,10 @@ export default function DinerDashboard() {
                     </p>
                   </Card>
                 );
+              }
+              
+              if (filteredVouchers.length === 0) {
+                return null;
               }
               
               return (

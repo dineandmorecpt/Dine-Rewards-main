@@ -46,8 +46,11 @@ import {
   accountDeletionRequests,
   archivedUsers,
   registrationVoucherStatus,
+  phoneChangeRequests,
   type InsertRegistrationVoucherStatus,
-  type RegistrationVoucherStatus
+  type RegistrationVoucherStatus,
+  type InsertPhoneChangeRequest,
+  type PhoneChangeRequest
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/node-postgres";
 import pkg from "pg";
@@ -261,6 +264,14 @@ export interface IStorage {
   confirmAccountDeletionRequest(token: string): Promise<void>;
   archiveUser(user: User, reason?: string): Promise<ArchivedUser>;
   deleteUser(userId: string): Promise<void>;
+  
+  // Phone Change Requests (OTP verification)
+  createPhoneChangeRequest(request: { userId: string; newPhone: string; otpHash: string; expiresAt: Date }): Promise<PhoneChangeRequest>;
+  getActivePhoneChangeRequest(userId: string): Promise<PhoneChangeRequest | undefined>;
+  incrementPhoneChangeAttempts(id: string): Promise<PhoneChangeRequest>;
+  markPhoneChangeVerified(id: string): Promise<void>;
+  expirePhoneChangeRequest(id: string): Promise<void>;
+  updateUserPhone(userId: string, phone: string): Promise<User>;
 }
 
 export class DbStorage implements IStorage {
@@ -1127,12 +1138,73 @@ export class DbStorage implements IStorage {
   async deleteUser(userId: string): Promise<void> {
     // Delete related data first (in order of dependencies)
     await db.delete(accountDeletionRequests).where(eq(accountDeletionRequests.userId, userId));
+    await db.delete(phoneChangeRequests).where(eq(phoneChangeRequests.userId, userId));
     await db.delete(vouchers).where(eq(vouchers.dinerId, userId));
     await db.delete(transactions).where(eq(transactions.dinerId, userId));
     await db.delete(pointsBalances).where(eq(pointsBalances.dinerId, userId));
     await db.delete(portalUsers).where(eq(portalUsers.userId, userId));
     // Finally delete the user
     await db.delete(users).where(eq(users.id, userId));
+  }
+
+  // Phone Change Request Methods
+  async createPhoneChangeRequest(request: { userId: string; newPhone: string; otpHash: string; expiresAt: Date }): Promise<PhoneChangeRequest> {
+    // Expire any existing pending requests first
+    await db.update(phoneChangeRequests)
+      .set({ status: 'expired' })
+      .where(and(
+        eq(phoneChangeRequests.userId, request.userId),
+        eq(phoneChangeRequests.status, 'pending')
+      ));
+    
+    const result = await db.insert(phoneChangeRequests).values({
+      userId: request.userId,
+      newPhone: request.newPhone,
+      otpHash: request.otpHash,
+      expiresAt: request.expiresAt,
+      attempts: 0,
+      status: 'pending',
+    }).returning();
+    return result[0];
+  }
+
+  async getActivePhoneChangeRequest(userId: string): Promise<PhoneChangeRequest | undefined> {
+    const result = await db.select().from(phoneChangeRequests)
+      .where(and(
+        eq(phoneChangeRequests.userId, userId),
+        eq(phoneChangeRequests.status, 'pending')
+      ))
+      .orderBy(desc(phoneChangeRequests.createdAt))
+      .limit(1);
+    return result[0];
+  }
+
+  async incrementPhoneChangeAttempts(id: string): Promise<PhoneChangeRequest> {
+    const result = await db.update(phoneChangeRequests)
+      .set({ attempts: sql`attempts + 1` })
+      .where(eq(phoneChangeRequests.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async markPhoneChangeVerified(id: string): Promise<void> {
+    await db.update(phoneChangeRequests)
+      .set({ status: 'verified' })
+      .where(eq(phoneChangeRequests.id, id));
+  }
+
+  async expirePhoneChangeRequest(id: string): Promise<void> {
+    await db.update(phoneChangeRequests)
+      .set({ status: 'expired' })
+      .where(eq(phoneChangeRequests.id, id));
+  }
+
+  async updateUserPhone(userId: string, phone: string): Promise<User> {
+    const result = await db.update(users)
+      .set({ phone })
+      .where(eq(users.id, userId))
+      .returning();
+    return result[0];
   }
 }
 

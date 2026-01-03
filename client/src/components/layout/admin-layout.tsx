@@ -185,8 +185,8 @@ function AdminLayoutContent({ children }: AdminLayoutProps) {
 
   return (
     <div className="min-h-screen bg-background font-sans">
-      {/* Mobile Sidebar */}
-      <div className="lg:hidden p-4 border-b flex items-center justify-between bg-card">
+      {/* Mobile Header - sticky at top */}
+      <div className="lg:hidden p-4 border-b flex items-center justify-between bg-card sticky top-0 z-40">
         <span className="font-serif font-bold text-xl">Dine&More</span>
         <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
           <SheetTrigger asChild>
@@ -204,7 +204,7 @@ function AdminLayoutContent({ children }: AdminLayoutProps) {
         </Sheet>
       </div>
 
-      <div className="flex h-screen overflow-hidden">
+      <div className="flex lg:h-screen lg:overflow-hidden">
         {/* Desktop Sidebar */}
         <div className="hidden lg:block w-72 shrink-0">
           <SidebarContent />

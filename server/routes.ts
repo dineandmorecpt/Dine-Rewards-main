@@ -1744,11 +1744,6 @@ export async function registerRoutes(
   // RESTAURANT STATS - Get restaurant dashboard statistics
   app.get("/api/restaurants/:restaurantId/stats", async (req, res) => {
     try {
-      console.log("Stats endpoint - Session ID:", req.sessionID);
-      console.log("Stats endpoint - Session data:", JSON.stringify(req.session));
-      console.log("Stats endpoint - User ID:", req.session.userId);
-      console.log("Stats endpoint - User Type:", req.session.userType);
-      
       if (!req.session.userId || req.session.userType !== 'restaurant_admin') {
         return res.status(401).json({ error: "Unauthorized" });
       }

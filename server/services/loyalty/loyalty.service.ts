@@ -20,6 +20,8 @@ export interface EnrichedPointsBalance {
   branchName: string | null;
   currentPoints: number;
   totalPointsEarned: number;
+  currentVisits: number;
+  totalVisits: number;
   totalVouchersGenerated: number;
   availableVoucherCredits: number;
   totalVoucherCreditsEarned: number;
@@ -27,6 +29,8 @@ export interface EnrichedPointsBalance {
   restaurantColor: string;
   pointsPerCurrency: number;
   pointsThreshold: number;
+  voucherEarningMode: string; // 'points' | 'visits'
+  visitThreshold: number;
   loyaltyScope: string; // 'organization' | 'branch'
 }
 
@@ -61,6 +65,8 @@ export class LoyaltyService implements ILoyaltyService {
           branchName,
           currentPoints: balance.currentPoints,
           totalPointsEarned: balance.totalPointsEarned,
+          currentVisits: balance.currentVisits,
+          totalVisits: balance.totalVisits,
           totalVouchersGenerated: balance.totalVouchersGenerated,
           availableVoucherCredits: balance.availableVoucherCredits,
           totalVoucherCreditsEarned: balance.totalVoucherCreditsEarned,
@@ -68,6 +74,8 @@ export class LoyaltyService implements ILoyaltyService {
           restaurantColor: restaurant?.color || "bg-primary",
           pointsPerCurrency: restaurant?.pointsPerCurrency || 1,
           pointsThreshold: restaurant?.pointsThreshold || 1000,
+          voucherEarningMode: restaurant?.voucherEarningMode || "points",
+          visitThreshold: restaurant?.visitThreshold || 10,
           loyaltyScope: restaurant?.loyaltyScope || "organization"
         };
       })
@@ -139,6 +147,8 @@ export class LoyaltyService implements ILoyaltyService {
         branchId: balanceBranchId,
         currentPoints: 0,
         totalPointsEarned: 0,
+        currentVisits: 0,
+        totalVisits: 0,
         totalVouchersGenerated: 0,
         availableVoucherCredits: 0,
         totalVoucherCreditsEarned: 0
@@ -147,23 +157,39 @@ export class LoyaltyService implements ILoyaltyService {
 
     let newCurrentPoints = balance.currentPoints + pointsEarned;
     const newTotalPointsEarned = balance.totalPointsEarned + pointsEarned;
+    let newCurrentVisits = balance.currentVisits + 1; // Each transaction = 1 visit
+    const newTotalVisits = balance.totalVisits + 1;
     let newAvailableCredits = balance.availableVoucherCredits;
     let newTotalCreditsEarned = balance.totalVoucherCreditsEarned;
     let creditsEarned = 0;
 
-    const threshold = restaurant.pointsThreshold;
+    const earningMode = restaurant.voucherEarningMode || 'points';
 
-    // Award voucher credits (not actual vouchers) when threshold is reached
-    while (this.shouldEarnCredit(newCurrentPoints, threshold)) {
-      newCurrentPoints -= threshold;
-      newAvailableCredits += 1;
-      newTotalCreditsEarned += 1;
-      creditsEarned += 1;
+    if (earningMode === 'visits') {
+      // Visits-based earning: award credit when visit threshold is reached
+      const visitThreshold = restaurant.visitThreshold || 10;
+      while (newCurrentVisits >= visitThreshold) {
+        newCurrentVisits -= visitThreshold;
+        newAvailableCredits += 1;
+        newTotalCreditsEarned += 1;
+        creditsEarned += 1;
+      }
+    } else {
+      // Points-based earning: award credit when points threshold is reached
+      const threshold = restaurant.pointsThreshold;
+      while (this.shouldEarnCredit(newCurrentPoints, threshold)) {
+        newCurrentPoints -= threshold;
+        newAvailableCredits += 1;
+        newTotalCreditsEarned += 1;
+        creditsEarned += 1;
+      }
     }
 
     const updatedBalance = await this.storage.updatePointsBalance(balance.id, {
       currentPoints: newCurrentPoints,
       totalPointsEarned: newTotalPointsEarned,
+      currentVisits: newCurrentVisits,
+      totalVisits: newTotalVisits,
       availableVoucherCredits: newAvailableCredits,
       totalVoucherCreditsEarned: newTotalCreditsEarned
     });

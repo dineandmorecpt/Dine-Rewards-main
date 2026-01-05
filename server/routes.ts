@@ -1334,7 +1334,39 @@ export async function registerRoutes(
   app.patch("/api/restaurants/:restaurantId/settings", async (req, res) => {
     try {
       const { restaurantId } = req.params;
-      const settings = req.body;
+      const rawSettings = req.body;
+      
+      // Coerce numeric fields from potential string values, skip NaN
+      const settings: Record<string, any> = {};
+      if (rawSettings.voucherValue !== undefined && rawSettings.voucherValue !== '') {
+        settings.voucherValue = rawSettings.voucherValue;
+      }
+      if (rawSettings.voucherValidityDays !== undefined && rawSettings.voucherValidityDays !== '') {
+        const val = Number(rawSettings.voucherValidityDays);
+        if (!isNaN(val)) settings.voucherValidityDays = val;
+      }
+      if (rawSettings.pointsPerCurrency !== undefined && rawSettings.pointsPerCurrency !== '') {
+        const val = Number(rawSettings.pointsPerCurrency);
+        if (!isNaN(val)) settings.pointsPerCurrency = val;
+      }
+      if (rawSettings.pointsThreshold !== undefined && rawSettings.pointsThreshold !== '') {
+        const val = Number(rawSettings.pointsThreshold);
+        if (!isNaN(val)) settings.pointsThreshold = val;
+      }
+      if (rawSettings.voucherEarningMode !== undefined && rawSettings.voucherEarningMode !== '') {
+        settings.voucherEarningMode = rawSettings.voucherEarningMode;
+      }
+      if (rawSettings.visitThreshold !== undefined && rawSettings.visitThreshold !== '') {
+        const val = Number(rawSettings.visitThreshold);
+        if (!isNaN(val)) settings.visitThreshold = val;
+      }
+      if (rawSettings.loyaltyScope !== undefined && rawSettings.loyaltyScope !== '') {
+        settings.loyaltyScope = rawSettings.loyaltyScope;
+      }
+      if (rawSettings.voucherScope !== undefined && rawSettings.voucherScope !== '') {
+        settings.voucherScope = rawSettings.voucherScope;
+      }
+      
       const updatedRestaurant = await services.config.updateRestaurantSettings(restaurantId, settings);
       
       // Log activity

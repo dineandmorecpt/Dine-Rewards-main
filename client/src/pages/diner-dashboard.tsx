@@ -19,6 +19,8 @@ import { useAuth } from "@/hooks/use-auth";
 interface PointsBalance {
   id: string;
   currentPoints: number;
+  currentVisits: number;
+  totalVisits: number;
   totalVouchersGenerated: number;
   restaurantName: string;
   restaurantColor: string;
@@ -27,6 +29,8 @@ interface PointsBalance {
   branchName: string | null;
   pointsPerCurrency: number;
   pointsThreshold: number;
+  voucherEarningMode: string; // 'points' | 'visits'
+  visitThreshold: number;
   availableVoucherCredits: number;
   totalVoucherCreditsEarned: number;
   loyaltyScope: string;
@@ -377,22 +381,45 @@ export default function DinerDashboard() {
                   </CardHeader>
                   <CardContent className="p-4 pt-2">
                     <div className="space-y-4">
-                      <div className="flex items-end justify-between gap-2">
-                        <div>
-                          <span className="text-4xl sm:text-5xl font-bold tracking-tight" data-testid={`text-points-${selectedRestaurant.restaurantName.toLowerCase().replace(/\s+/g, '-')}`}>
-                            {selectedRestaurant.currentPoints}
-                          </span>
-                          <span className="text-muted-foreground ml-1 text-base">pts</span>
-                        </div>
-                        <span className="text-xs font-medium text-muted-foreground uppercase">Target: {selectedRestaurant.pointsThreshold}</span>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Progress value={(selectedRestaurant.currentPoints / selectedRestaurant.pointsThreshold) * 100} className="h-3" />
-                        <p className="text-xs text-muted-foreground">
-                          Spend R{selectedRestaurant.pointsThreshold - selectedRestaurant.currentPoints} more to earn your next voucher
-                        </p>
-                      </div>
+                      {selectedRestaurant.voucherEarningMode === "visits" ? (
+                        <>
+                          <div className="flex items-end justify-between gap-2">
+                            <div>
+                              <span className="text-4xl sm:text-5xl font-bold tracking-tight" data-testid={`text-visits-${selectedRestaurant.restaurantName.toLowerCase().replace(/\s+/g, '-')}`}>
+                                {selectedRestaurant.currentVisits}
+                              </span>
+                              <span className="text-muted-foreground ml-1 text-base">visits</span>
+                            </div>
+                            <span className="text-xs font-medium text-muted-foreground uppercase">Target: {selectedRestaurant.visitThreshold}</span>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Progress value={(selectedRestaurant.currentVisits / selectedRestaurant.visitThreshold) * 100} className="h-3" />
+                            <p className="text-xs text-muted-foreground">
+                              {selectedRestaurant.visitThreshold - selectedRestaurant.currentVisits} more visit{selectedRestaurant.visitThreshold - selectedRestaurant.currentVisits !== 1 ? 's' : ''} to earn your next voucher
+                            </p>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex items-end justify-between gap-2">
+                            <div>
+                              <span className="text-4xl sm:text-5xl font-bold tracking-tight" data-testid={`text-points-${selectedRestaurant.restaurantName.toLowerCase().replace(/\s+/g, '-')}`}>
+                                {selectedRestaurant.currentPoints}
+                              </span>
+                              <span className="text-muted-foreground ml-1 text-base">pts</span>
+                            </div>
+                            <span className="text-xs font-medium text-muted-foreground uppercase">Target: {selectedRestaurant.pointsThreshold}</span>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Progress value={(selectedRestaurant.currentPoints / selectedRestaurant.pointsThreshold) * 100} className="h-3" />
+                            <p className="text-xs text-muted-foreground">
+                              Spend R{selectedRestaurant.pointsThreshold - selectedRestaurant.currentPoints} more to earn your next voucher
+                            </p>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </CardContent>
                   <CardFooter className="bg-muted/10 border-t p-3">
@@ -419,7 +446,11 @@ export default function DinerDashboard() {
                 <div className="bg-muted/30 p-3 sm:p-4 rounded-lg border border-dashed border-muted-foreground/20">
                   <div className="flex items-start gap-2 text-xs sm:text-sm font-medium text-muted-foreground">
                     <Star className="h-4 w-4 shrink-0 mt-0.5" /> 
-                    <span>Spend R1000 at {selectedRestaurant.restaurantName} to earn a voucher (R1 = 1 Point)</span>
+                    {selectedRestaurant.voucherEarningMode === "visits" ? (
+                      <span>Visit {selectedRestaurant.restaurantName} {selectedRestaurant.visitThreshold} times to earn a voucher</span>
+                    ) : (
+                      <span>Spend R{selectedRestaurant.pointsThreshold} at {selectedRestaurant.restaurantName} to earn a voucher (R1 = {selectedRestaurant.pointsPerCurrency} Point{selectedRestaurant.pointsPerCurrency !== 1 ? 's' : ''})</span>
+                    )}
                   </div>
                 </div>
               </>

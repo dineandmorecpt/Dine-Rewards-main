@@ -86,10 +86,22 @@ Core data models:
   - Diner dashboard shows branch name on balance cards
 - Admin settings page (`/admin/settings`) allows restaurant owners to configure both scopes
 
-### Points System Design
-- Points are earned based on configurable `pointsPerCurrency` rate (default: 1 point per R1 spent)
-- Vouchers are automatically generated when points reach `pointsThreshold` (default: 1000 points)
-- Points reset to 0 after voucher generation (rollover model)
+### Voucher Earning Modes
+Restaurants can choose between two voucher earning modes:
+
+- **Points-based** (`voucherEarningMode: 'points'`): Default mode
+  - Points are earned based on configurable `pointsPerCurrency` rate (default: 1 point per R1 spent)
+  - Voucher credits earned when points reach `pointsThreshold` (default: 1000 points)
+  - Points reset to 0 after earning a credit (rollover model)
+  
+- **Visits-based** (`voucherEarningMode: 'visits'`): Alternative mode
+  - Each transaction counts as 1 visit (tracked via `currentVisits` and `totalVisits`)
+  - Voucher credits earned when visits reach `visitThreshold` (default: 10 visits)
+  - Current visits reset to 0 after earning a credit
+  - Ideal for "Buy 10, get 1 free" style programs
+
+- Admin settings page allows switching between modes with appropriate configuration fields
+- Diner dashboard displays either points or visits progress based on restaurant configuration
 - Vouchers have configurable validity periods per restaurant
 
 ### Admin User Management

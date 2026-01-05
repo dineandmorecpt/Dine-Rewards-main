@@ -104,6 +104,8 @@ export interface IStorage {
   updatePointsBalance(id: string, updates: { 
     currentPoints?: number; 
     totalPointsEarned?: number; 
+    currentVisits?: number;
+    totalVisits?: number;
     totalVouchersGenerated?: number;
     availableVoucherCredits?: number;
     totalVoucherCreditsEarned?: number;
@@ -151,6 +153,8 @@ export interface IStorage {
       voucherValidityDays?: number; 
       pointsPerCurrency?: number; 
       pointsThreshold?: number;
+      voucherEarningMode?: string; // 'points' | 'visits'
+      visitThreshold?: number;
       loyaltyScope?: string; // 'organization' | 'branch'
       voucherScope?: string; // 'organization' | 'branch'
     }
@@ -426,6 +430,8 @@ export class DbStorage implements IStorage {
     updates: { 
       currentPoints?: number; 
       totalPointsEarned?: number; 
+      currentVisits?: number;
+      totalVisits?: number;
       totalVouchersGenerated?: number;
       availableVoucherCredits?: number;
       totalVoucherCreditsEarned?: number;
@@ -645,6 +651,8 @@ export class DbStorage implements IStorage {
       voucherValidityDays?: number; 
       pointsPerCurrency?: number; 
       pointsThreshold?: number;
+      voucherEarningMode?: string; // 'points' | 'visits'
+      visitThreshold?: number;
       loyaltyScope?: string; // 'organization' | 'branch'
       voucherScope?: string; // 'organization' | 'branch'
     }

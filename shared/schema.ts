@@ -43,6 +43,9 @@ export const restaurants = pgTable("restaurants", {
   // Configurable points calculation rules per restaurant
   pointsPerCurrency: integer("points_per_currency").notNull().default(1), // Points earned per R1 spent
   pointsThreshold: integer("points_threshold").notNull().default(1000), // Points needed to generate a voucher
+  // Voucher earning mode: 'points' = earn based on spend, 'visits' = earn based on visit count
+  voucherEarningMode: text("voucher_earning_mode").notNull().default("points"), // 'points' | 'visits'
+  visitThreshold: integer("visit_threshold").notNull().default(10), // Visits needed to generate a voucher (when mode='visits')
   // Loyalty scope: 'organization' = points work across all branches, 'branch' = branch-specific
   loyaltyScope: text("loyalty_scope").notNull().default("organization"), // 'organization' | 'branch'
   // Voucher scope: 'organization' = vouchers redeemable at all branches, 'branch' = branch-specific redemption
@@ -109,6 +112,8 @@ export const pointsBalances = pgTable("points_balances", {
   branchId: varchar("branch_id").references(() => branches.id), // null = org-wide, set when loyaltyScope='branch'
   currentPoints: integer("current_points").notNull().default(0),
   totalPointsEarned: integer("total_points_earned").notNull().default(0),
+  currentVisits: integer("current_visits").notNull().default(0), // Visits since last voucher (resets on credit earn)
+  totalVisits: integer("total_visits").notNull().default(0), // Total visits ever
   totalVouchersGenerated: integer("total_vouchers_generated").notNull().default(0),
   availableVoucherCredits: integer("available_voucher_credits").notNull().default(0), // Credits diner can redeem for vouchers
   totalVoucherCreditsEarned: integer("total_voucher_credits_earned").notNull().default(0), // Total credits ever earned

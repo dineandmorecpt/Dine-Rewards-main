@@ -21,6 +21,8 @@ export default function AdminSettings() {
   const [voucherValidityDays, setVoucherValidityDays] = useState<number | string>(30);
   const [pointsPerCurrency, setPointsPerCurrency] = useState<number | string>(1);
   const [pointsThreshold, setPointsThreshold] = useState<number | string>(1000);
+  const [voucherEarningMode, setVoucherEarningMode] = useState<"points" | "visits">("points");
+  const [visitThreshold, setVisitThreshold] = useState<number | string>(10);
   const [loyaltyScope, setLoyaltyScope] = useState<"organization" | "branch">("organization");
   const [voucherScope, setVoucherScope] = useState<"organization" | "branch">("organization");
   const [isSaving, setIsSaving] = useState(false);
@@ -170,6 +172,8 @@ export default function AdminSettings() {
           setVoucherValidityDays(data.voucherValidityDays || 30);
           setPointsPerCurrency(data.pointsPerCurrency || 1);
           setPointsThreshold(data.pointsThreshold || 1000);
+          setVoucherEarningMode(data.voucherEarningMode || "points");
+          setVisitThreshold(data.visitThreshold || 10);
           setLoyaltyScope(data.loyaltyScope || "organization");
           setVoucherScope(data.voucherScope || "organization");
         }
@@ -188,6 +192,8 @@ export default function AdminSettings() {
           voucherValidityDays,
           pointsPerCurrency,
           pointsThreshold,
+          voucherEarningMode,
+          visitThreshold,
           loyaltyScope,
           voucherScope
         })
@@ -278,49 +284,93 @@ export default function AdminSettings() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Settings className="h-5 w-5" />
-                    Points Calculation Rules
+                    Voucher Earning Rules
                   </CardTitle>
                   <CardDescription>
-                    Configure how diners earn points and when vouchers are generated.
+                    Configure how diners earn vouchers - based on spending (points) or number of visits.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="points-per-currency">Points per R1 Spent</Label>
-                    <Input
-                      id="points-per-currency"
-                      data-testid="input-points-per-currency"
-                      type="number"
-                      min={1}
-                      max={100}
-                      value={pointsPerCurrency}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setPointsPerCurrency(val === '' ? '' : parseInt(val) || '');
-                      }}
-                    />
+                    <Label htmlFor="voucher-earning-mode">Voucher Earning Mode</Label>
+                    <Select
+                      value={voucherEarningMode}
+                      onValueChange={(value: "points" | "visits") => setVoucherEarningMode(value)}
+                    >
+                      <SelectTrigger id="voucher-earning-mode" data-testid="select-voucher-earning-mode">
+                        <SelectValue placeholder="Select mode" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="points">Points-based (spending)</SelectItem>
+                        <SelectItem value="visits">Visits-based (visits)</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <p className="text-xs text-muted-foreground">
-                      Number of points diners earn for each R1 spent
+                      {voucherEarningMode === "points" 
+                        ? "Diners earn points based on how much they spend" 
+                        : "Diners earn vouchers after a set number of visits"}
                     </p>
                   </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="points-threshold">Points Threshold for Voucher</Label>
-                    <Input
-                      id="points-threshold"
-                      data-testid="input-points-threshold"
-                      type="number"
-                      min={100}
-                      max={10000}
-                      value={pointsThreshold}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setPointsThreshold(val === '' ? '' : parseInt(val) || '');
-                      }}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Points required to automatically generate a voucher
-                    </p>
-                  </div>
+
+                  {voucherEarningMode === "points" ? (
+                    <>
+                      <div className="grid gap-2">
+                        <Label htmlFor="points-per-currency">Points per R1 Spent</Label>
+                        <Input
+                          id="points-per-currency"
+                          data-testid="input-points-per-currency"
+                          type="number"
+                          min={1}
+                          max={100}
+                          value={pointsPerCurrency}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setPointsPerCurrency(val === '' ? '' : parseInt(val) || '');
+                          }}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Number of points diners earn for each R1 spent
+                        </p>
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="points-threshold">Points Threshold for Voucher</Label>
+                        <Input
+                          id="points-threshold"
+                          data-testid="input-points-threshold"
+                          type="number"
+                          min={100}
+                          max={10000}
+                          value={pointsThreshold}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setPointsThreshold(val === '' ? '' : parseInt(val) || '');
+                          }}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Points required to earn a voucher
+                        </p>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="grid gap-2">
+                      <Label htmlFor="visit-threshold">Visits Required for Voucher</Label>
+                      <Input
+                        id="visit-threshold"
+                        data-testid="input-visit-threshold"
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={visitThreshold}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setVisitThreshold(val === '' ? '' : parseInt(val) || '');
+                        }}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Number of visits required to earn a voucher (e.g., "Buy 10, get 1 free")
+                      </p>
+                    </div>
+                  )}
                   <div className="grid gap-2 pt-2 border-t">
                     <Label htmlFor="loyalty-scope">Points Accumulation</Label>
                     <Select

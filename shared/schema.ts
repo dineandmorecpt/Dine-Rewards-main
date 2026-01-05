@@ -105,6 +105,7 @@ export type Branch = typeof branches.$inferSelect;
 
 // Points balance per diner per restaurant (or per branch when loyaltyScope='branch')
 // Rule: Points do not fall away, but reset to 0 after reaching threshold and earning a voucher credit
+// Credits are tracked separately for points-based and visits-based vouchers
 export const pointsBalances = pgTable("points_balances", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   dinerId: varchar("diner_id").notNull().references(() => users.id),
@@ -115,7 +116,10 @@ export const pointsBalances = pgTable("points_balances", {
   currentVisits: integer("current_visits").notNull().default(0), // Visits since last voucher (resets on credit earn)
   totalVisits: integer("total_visits").notNull().default(0), // Total visits ever
   totalVouchersGenerated: integer("total_vouchers_generated").notNull().default(0),
-  availableVoucherCredits: integer("available_voucher_credits").notNull().default(0), // Credits diner can redeem for vouchers
+  // Mode-specific credits
+  pointsCredits: integer("points_credits").notNull().default(0), // Credits earned from points threshold
+  visitCredits: integer("visit_credits").notNull().default(0), // Credits earned from visit threshold
+  availableVoucherCredits: integer("available_voucher_credits").notNull().default(0), // Legacy/aggregate credits (deprecated)
   totalVoucherCreditsEarned: integer("total_voucher_credits_earned").notNull().default(0), // Total credits ever earned
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -149,11 +153,13 @@ export type Transaction = typeof transactions.$inferSelect;
 // Voucher types - templates created by restaurant owners that diners can choose from
 // Voucher categories: 'rand_value' | 'percentage' | 'free_item' | 'registration'
 // Registration vouchers: issued once per diner per restaurant on first visit, rand value off bill
+// Each voucher type specifies whether it's earned through points or visits
 export const voucherTypes = pgTable("voucher_types", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id),
   branchId: varchar("branch_id").references(() => branches.id), // Branch-specific voucher type (null = org-wide)
   category: text("category").notNull().default("rand_value"), // 'rand_value' | 'percentage' | 'free_item' | 'registration'
+  earningMode: text("earning_mode").notNull().default("points"), // 'points' | 'visits' - which credits to consume
   name: text("name").notNull(), // e.g., "R100 Off Your Bill"
   description: text("description"), // Optional details about the voucher
   rewardDetails: text("reward_details"), // Fine print, terms, etc.

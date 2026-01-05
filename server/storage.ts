@@ -53,6 +53,18 @@ import {
   type PhoneChangeRequest
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/node-postgres";
+import crypto from "crypto";
+
+// Generate a unique analytics ID (base62, 12 chars) for anonymized user tracking
+function generateAnalyticsId(): string {
+  const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+  let result = '';
+  const bytes = crypto.randomBytes(12);
+  for (let i = 0; i < 12; i++) {
+    result += chars[bytes[i] % chars.length];
+  }
+  return result;
+}
 import pkg from "pg";
 const { Pool } = pkg;
 import { eq, and, desc, sql, gte, inArray } from "drizzle-orm";
@@ -297,7 +309,12 @@ export class DbStorage implements IStorage {
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const result = await db.insert(users).values(insertUser).returning();
+    // Auto-generate analytics ID for new users (anonymized ID for trend reporting)
+    const userWithAnalyticsId = {
+      ...insertUser,
+      analyticsId: insertUser.analyticsId || generateAnalyticsId(),
+    };
+    const result = await db.insert(users).values(userWithAnalyticsId).returning();
     return result[0];
   }
 

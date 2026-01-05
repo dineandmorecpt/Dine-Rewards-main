@@ -50,12 +50,20 @@ The backend uses a storage abstraction pattern (`IStorage` interface) that decou
 
 Core data models:
 - `users` - Both diners and restaurant admins (distinguished by `userType`)
+  - Includes `analyticsId` - unique anonymous identifier for trend reporting (no PII exposure)
+  - Demographic fields: `gender`, `ageRange`, `province` (collected at registration)
 - `restaurants` - Restaurant entities (organization level) with configurable loyalty rules
 - `branches` - Restaurant branches with name, address, phone, isDefault, isActive flags
 - `pointsBalances` - Points balance per diner per restaurant (tracks branchId when loyaltyScope='branch')
 - `transactions` - Transaction history for points earning (tracks branchId)
 - `vouchers` - Generated vouchers with codes and expiry dates (tracks branchId)
 - `campaigns` - Marketing campaigns (placeholder)
+
+### Analytics & Privacy
+- Each diner has a unique `analyticsId` (12-char random base62 string) for anonymous trend reporting
+- Restaurant partners can view user trends and demographics without accessing PII (name, email, phone)
+- Demographic data collected: gender, age range (18-29, 30-39, 40-49, 50-59, 60+), province
+- POPIA-compliant pseudonymization for data analytics
 
 ### Multi-Branch Architecture
 - Restaurants are the organization level; branches are physical locations

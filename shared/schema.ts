@@ -6,6 +6,7 @@ import { z } from "zod";
 // User Types: 'diner' or 'restaurant_admin'
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  analyticsId: text("analytics_id").unique(), // Anonymous ID for analytics (no PII exposure)
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
   name: text("name").notNull(),

@@ -29,8 +29,10 @@ interface PointsBalance {
   branchName: string | null;
   pointsPerCurrency: number;
   pointsThreshold: number;
-  voucherEarningMode: string; // 'points' | 'visits'
+  voucherEarningMode: string; // 'points' | 'visits' (deprecated - now per voucher type)
   visitThreshold: number;
+  pointsCredits: number;
+  visitCredits: number;
   availableVoucherCredits: number;
   totalVoucherCreditsEarned: number;
   loyaltyScope: string;
@@ -41,6 +43,7 @@ interface VoucherType {
   name: string;
   description?: string;
   rewardDetails?: string;
+  earningMode: string; // 'points' | 'visits'
   creditsCost: number;
   validityDays: number;
   isActive: boolean;
@@ -353,13 +356,13 @@ export default function DinerDashboard() {
                   data-testid={`card-restaurant-${selectedRestaurant.restaurantName.toLowerCase().replace(/\s+/g, '-')}`}
                 >
                   {/* Available Vouchers Banner */}
-                  {selectedRestaurant.availableVoucherCredits > 0 && (
+                  {((selectedRestaurant.pointsCredits || 0) > 0 || (selectedRestaurant.visitCredits || 0) > 0) && (
                     <div 
                       className="bg-gradient-to-r from-amber-500 to-orange-500 text-white px-3 py-2 flex items-center justify-between"
                     >
                       <span className="text-sm font-medium flex items-center gap-1">
                         <Sparkles className="h-4 w-4" />
-                        {selectedRestaurant.availableVoucherCredits} Voucher{selectedRestaurant.availableVoucherCredits !== 1 ? 's' : ''} Available!
+                        Vouchers Ready: {selectedRestaurant.pointsCredits || 0} points, {selectedRestaurant.visitCredits || 0} visits
                       </span>
                       <span className="text-xs opacity-90">
                         View in My Vouchers tab
@@ -381,45 +384,47 @@ export default function DinerDashboard() {
                   </CardHeader>
                   <CardContent className="p-4 pt-2">
                     <div className="space-y-4">
-                      {selectedRestaurant.voucherEarningMode === "visits" ? (
-                        <>
-                          <div className="flex items-end justify-between gap-2">
-                            <div>
-                              <span className="text-4xl sm:text-5xl font-bold tracking-tight" data-testid={`text-visits-${selectedRestaurant.restaurantName.toLowerCase().replace(/\s+/g, '-')}`}>
-                                {selectedRestaurant.currentVisits}
-                              </span>
-                              <span className="text-muted-foreground ml-1 text-base">visits</span>
-                            </div>
-                            <span className="text-xs font-medium text-muted-foreground uppercase">Target: {selectedRestaurant.visitThreshold}</span>
+                      {/* Points Progress */}
+                      <div className="space-y-2">
+                        <div className="flex items-end justify-between gap-2">
+                          <div>
+                            <span className="text-3xl sm:text-4xl font-bold tracking-tight" data-testid={`text-points-${selectedRestaurant.restaurantName.toLowerCase().replace(/\s+/g, '-')}`}>
+                              {selectedRestaurant.currentPoints}
+                            </span>
+                            <span className="text-muted-foreground ml-1 text-sm">pts</span>
+                            {(selectedRestaurant.pointsCredits || 0) > 0 && (
+                              <Badge variant="secondary" className="ml-2 text-xs">{selectedRestaurant.pointsCredits} voucher{selectedRestaurant.pointsCredits !== 1 ? 's' : ''} ready</Badge>
+                            )}
                           </div>
-                          
-                          <div className="space-y-2">
-                            <Progress value={(selectedRestaurant.currentVisits / selectedRestaurant.visitThreshold) * 100} className="h-3" />
-                            <p className="text-xs text-muted-foreground">
-                              {selectedRestaurant.visitThreshold - selectedRestaurant.currentVisits} more visit{selectedRestaurant.visitThreshold - selectedRestaurant.currentVisits !== 1 ? 's' : ''} to earn your next voucher
-                            </p>
+                          <span className="text-xs font-medium text-muted-foreground">Target: {selectedRestaurant.pointsThreshold}</span>
+                        </div>
+                        <Progress value={(selectedRestaurant.currentPoints / selectedRestaurant.pointsThreshold) * 100} className="h-2" />
+                        <p className="text-xs text-muted-foreground">
+                          Spend R{Math.max(0, selectedRestaurant.pointsThreshold - selectedRestaurant.currentPoints)} more for a points voucher
+                        </p>
+                      </div>
+                      
+                      <Separator />
+                      
+                      {/* Visits Progress */}
+                      <div className="space-y-2">
+                        <div className="flex items-end justify-between gap-2">
+                          <div>
+                            <span className="text-3xl sm:text-4xl font-bold tracking-tight" data-testid={`text-visits-${selectedRestaurant.restaurantName.toLowerCase().replace(/\s+/g, '-')}`}>
+                              {selectedRestaurant.currentVisits}
+                            </span>
+                            <span className="text-muted-foreground ml-1 text-sm">visits</span>
+                            {(selectedRestaurant.visitCredits || 0) > 0 && (
+                              <Badge variant="secondary" className="ml-2 text-xs">{selectedRestaurant.visitCredits} voucher{selectedRestaurant.visitCredits !== 1 ? 's' : ''} ready</Badge>
+                            )}
                           </div>
-                        </>
-                      ) : (
-                        <>
-                          <div className="flex items-end justify-between gap-2">
-                            <div>
-                              <span className="text-4xl sm:text-5xl font-bold tracking-tight" data-testid={`text-points-${selectedRestaurant.restaurantName.toLowerCase().replace(/\s+/g, '-')}`}>
-                                {selectedRestaurant.currentPoints}
-                              </span>
-                              <span className="text-muted-foreground ml-1 text-base">pts</span>
-                            </div>
-                            <span className="text-xs font-medium text-muted-foreground uppercase">Target: {selectedRestaurant.pointsThreshold}</span>
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <Progress value={(selectedRestaurant.currentPoints / selectedRestaurant.pointsThreshold) * 100} className="h-3" />
-                            <p className="text-xs text-muted-foreground">
-                              Spend R{selectedRestaurant.pointsThreshold - selectedRestaurant.currentPoints} more to earn your next voucher
-                            </p>
-                          </div>
-                        </>
-                      )}
+                          <span className="text-xs font-medium text-muted-foreground">Target: {selectedRestaurant.visitThreshold}</span>
+                        </div>
+                        <Progress value={(selectedRestaurant.currentVisits / selectedRestaurant.visitThreshold) * 100} className="h-2" />
+                        <p className="text-xs text-muted-foreground">
+                          {Math.max(0, selectedRestaurant.visitThreshold - selectedRestaurant.currentVisits)} more visit{selectedRestaurant.visitThreshold - selectedRestaurant.currentVisits !== 1 ? 's' : ''} for a visits voucher
+                        </p>
+                      </div>
                     </div>
                   </CardContent>
                   <CardFooter className="bg-muted/10 border-t p-3">
@@ -443,14 +448,14 @@ export default function DinerDashboard() {
                 </Card>
 
                 {/* How to Earn */}
-                <div className="bg-muted/30 p-3 sm:p-4 rounded-lg border border-dashed border-muted-foreground/20">
+                <div className="bg-muted/30 p-3 sm:p-4 rounded-lg border border-dashed border-muted-foreground/20 space-y-2">
                   <div className="flex items-start gap-2 text-xs sm:text-sm font-medium text-muted-foreground">
                     <Star className="h-4 w-4 shrink-0 mt-0.5" /> 
-                    {selectedRestaurant.voucherEarningMode === "visits" ? (
-                      <span>Visit {selectedRestaurant.restaurantName} {selectedRestaurant.visitThreshold} times to earn a voucher</span>
-                    ) : (
-                      <span>Spend R{selectedRestaurant.pointsThreshold} at {selectedRestaurant.restaurantName} to earn a voucher (R1 = {selectedRestaurant.pointsPerCurrency} Point{selectedRestaurant.pointsPerCurrency !== 1 ? 's' : ''})</span>
-                    )}
+                    <span><strong>Points vouchers:</strong> Spend R{selectedRestaurant.pointsThreshold} to earn a credit (R1 = {selectedRestaurant.pointsPerCurrency} point{selectedRestaurant.pointsPerCurrency !== 1 ? 's' : ''})</span>
+                  </div>
+                  <div className="flex items-start gap-2 text-xs sm:text-sm font-medium text-muted-foreground">
+                    <Star className="h-4 w-4 shrink-0 mt-0.5" /> 
+                    <span><strong>Visits vouchers:</strong> Visit {selectedRestaurant.visitThreshold} times to earn a credit</span>
                   </div>
                 </div>
               </>
@@ -469,7 +474,7 @@ export default function DinerDashboard() {
 
           <TabsContent value="vouchers" className="space-y-4 sm:space-y-6">
             {/* Available Voucher Credits - Choose Your Reward */}
-            {selectedRestaurant && selectedRestaurant.availableVoucherCredits > 0 && (
+            {selectedRestaurant && ((selectedRestaurant.pointsCredits || 0) > 0 || (selectedRestaurant.visitCredits || 0) > 0) && (
               <Card className="border-amber-300 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30">
                 <CardHeader className="p-4 pb-2">
                   <CardTitle className="text-base sm:text-lg flex items-center gap-2">
@@ -477,7 +482,7 @@ export default function DinerDashboard() {
                     Choose Your Reward
                   </CardTitle>
                   <CardDescription className="text-xs sm:text-sm">
-                    You have {selectedRestaurant.availableVoucherCredits} voucher{selectedRestaurant.availableVoucherCredits !== 1 ? 's' : ''} to claim at {selectedRestaurant.restaurantName}
+                    You have {selectedRestaurant.pointsCredits || 0} points credit{(selectedRestaurant.pointsCredits || 0) !== 1 ? 's' : ''} and {selectedRestaurant.visitCredits || 0} visit credit{(selectedRestaurant.visitCredits || 0) !== 1 ? 's' : ''} at {selectedRestaurant.restaurantName}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="p-4 pt-2">
@@ -490,7 +495,11 @@ export default function DinerDashboard() {
                   ) : (
                     <div className="space-y-2">
                       {voucherTypes.map((vt) => {
-                        const canAfford = selectedRestaurant.availableVoucherCredits >= vt.creditsCost;
+                        const vtEarningMode = vt.earningMode || 'points';
+                        const availableCredits = vtEarningMode === 'visits' 
+                          ? (selectedRestaurant.visitCredits || 0) 
+                          : (selectedRestaurant.pointsCredits || 0);
+                        const canAfford = availableCredits >= vt.creditsCost;
                         return (
                           <div 
                             key={vt.id}
@@ -513,9 +522,14 @@ export default function DinerDashboard() {
                             <div className="flex justify-between items-center gap-2">
                               <div className="min-w-0 flex-1">
                                 <p className="font-medium text-sm">{vt.name}</p>
-                                {vt.description && (
-                                  <p className="text-xs text-muted-foreground mt-0.5">{vt.description}</p>
-                                )}
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <Badge variant="outline" className="text-xs font-normal">
+                                    {vtEarningMode === 'visits' ? 'Visits' : 'Points'}
+                                  </Badge>
+                                  {vt.description && (
+                                    <p className="text-xs text-muted-foreground">{vt.description}</p>
+                                  )}
+                                </div>
                               </div>
                               <Button 
                                 size="sm" 
@@ -540,7 +554,7 @@ export default function DinerDashboard() {
                 ? vouchers.filter(v => v.restaurantId === selectedRestaurantId)
                 : vouchers;
               
-              const hasCredits = selectedRestaurant && selectedRestaurant.availableVoucherCredits > 0;
+              const hasCredits = selectedRestaurant && ((selectedRestaurant.pointsCredits || 0) > 0 || (selectedRestaurant.visitCredits || 0) > 0);
               
               if (filteredVouchers.length === 0 && !hasCredits) {
                 return (
@@ -682,7 +696,7 @@ export default function DinerDashboard() {
                 Choose Your Reward
               </DialogTitle>
               <DialogDescription className="text-xs sm:text-sm">
-                {redeemingRestaurant?.restaurantName} - You have {redeemingRestaurant?.availableVoucherCredits} voucher{(redeemingRestaurant?.availableVoucherCredits || 0) !== 1 ? 's' : ''} to redeem
+                {redeemingRestaurant?.restaurantName} - {redeemingRestaurant?.pointsCredits || 0} points credit{(redeemingRestaurant?.pointsCredits || 0) !== 1 ? 's' : ''}, {redeemingRestaurant?.visitCredits || 0} visit credit{(redeemingRestaurant?.visitCredits || 0) !== 1 ? 's' : ''}
               </DialogDescription>
             </DialogHeader>
             <div className="py-2 sm:py-4">
@@ -699,7 +713,11 @@ export default function DinerDashboard() {
               ) : (
                 <div className="space-y-2 sm:space-y-3 max-h-[300px] sm:max-h-[400px] overflow-y-auto">
                   {voucherTypes.map((vt) => {
-                    const canAfford = (redeemingRestaurant?.availableVoucherCredits || 0) >= vt.creditsCost;
+                    const vtEarningMode = vt.earningMode || 'points';
+                    const availableCredits = vtEarningMode === 'visits' 
+                      ? (redeemingRestaurant?.visitCredits || 0) 
+                      : (redeemingRestaurant?.pointsCredits || 0);
+                    const canAfford = availableCredits >= vt.creditsCost;
                     return (
                       <Card 
                         key={vt.id} 
@@ -718,6 +736,9 @@ export default function DinerDashboard() {
                         <div className="flex justify-between items-start gap-2">
                           <div className="flex-1 min-w-0">
                             <h3 className="font-medium font-serif text-sm sm:text-base">{vt.name}</h3>
+                            <Badge variant="outline" className="text-[10px] font-normal mt-1">
+                              {vtEarningMode === 'visits' ? 'Visits' : 'Points'}
+                            </Badge>
                             {vt.description && (
                               <p className="text-xs sm:text-sm text-muted-foreground mt-1">{vt.description}</p>
                             )}
@@ -737,7 +758,7 @@ export default function DinerDashboard() {
                               className={`text-[10px] sm:text-xs ${canAfford ? "bg-amber-500 hover:bg-amber-500" : ""}`}
                             >
                               <Star className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-0.5 sm:mr-1" />
-                              {vt.creditsCost} Voucher{vt.creditsCost !== 1 ? 's' : ''}
+                              {vt.creditsCost} Credit{vt.creditsCost !== 1 ? 's' : ''}
                             </Badge>
                           </div>
                         </div>

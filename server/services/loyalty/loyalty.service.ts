@@ -23,13 +23,15 @@ export interface EnrichedPointsBalance {
   currentVisits: number;
   totalVisits: number;
   totalVouchersGenerated: number;
+  pointsCredits: number;
+  visitCredits: number;
   availableVoucherCredits: number;
   totalVoucherCreditsEarned: number;
   restaurantName: string;
   restaurantColor: string;
   pointsPerCurrency: number;
   pointsThreshold: number;
-  voucherEarningMode: string; // 'points' | 'visits'
+  voucherEarningMode: string; // 'points' | 'visits' (deprecated - now per voucher type)
   visitThreshold: number;
   loyaltyScope: string; // 'organization' | 'branch'
 }
@@ -68,6 +70,8 @@ export class LoyaltyService implements ILoyaltyService {
           currentVisits: balance.currentVisits,
           totalVisits: balance.totalVisits,
           totalVouchersGenerated: balance.totalVouchersGenerated,
+          pointsCredits: balance.pointsCredits || 0,
+          visitCredits: balance.visitCredits || 0,
           availableVoucherCredits: balance.availableVoucherCredits,
           totalVoucherCreditsEarned: balance.totalVoucherCreditsEarned,
           restaurantName: restaurant?.name || "Unknown",

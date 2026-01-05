@@ -12,6 +12,9 @@ export const users = pgTable("users", {
   lastName: text("last_name"), // Surname for diners
   phone: text("phone").unique(), // Phone number for diner identification
   userType: text("user_type").notNull(), // 'diner' | 'restaurant_admin'
+  gender: text("gender"), // 'male' | 'female' | 'other' | 'prefer_not_to_say'
+  ageRange: text("age_range"), // '18-29' | '30-39' | '40-49' | '50-59' | '60+'
+  province: text("province"), // South African province
   accessToken: text("access_token").unique(), // Persistent token for auto-login (valid for 90 days)
   accessTokenExpiresAt: timestamp("access_token_expires_at"), // When the access token expires
   activeVoucherCode: text("active_voucher_code"), // Currently selected voucher code for redemption

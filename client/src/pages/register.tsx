@@ -5,8 +5,36 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Gift, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+
+const GENDER_OPTIONS = [
+  { value: "male", label: "Male" },
+  { value: "female", label: "Female" },
+  { value: "other", label: "Other" },
+  { value: "prefer_not_to_say", label: "Prefer not to say" },
+];
+
+const AGE_RANGE_OPTIONS = [
+  { value: "18-29", label: "18-29" },
+  { value: "30-39", label: "30-39" },
+  { value: "40-49", label: "40-49" },
+  { value: "50-59", label: "50-59" },
+  { value: "60+", label: "60+" },
+];
+
+const PROVINCE_OPTIONS = [
+  { value: "Eastern Cape", label: "Eastern Cape" },
+  { value: "Free State", label: "Free State" },
+  { value: "Gauteng", label: "Gauteng" },
+  { value: "KwaZulu-Natal", label: "KwaZulu-Natal" },
+  { value: "Limpopo", label: "Limpopo" },
+  { value: "Mpumalanga", label: "Mpumalanga" },
+  { value: "Northern Cape", label: "Northern Cape" },
+  { value: "North West", label: "North West" },
+  { value: "Western Cape", label: "Western Cape" },
+];
 
 export default function Register() {
   const searchString = useSearch();
@@ -18,6 +46,9 @@ export default function Register() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+  const [gender, setGender] = useState("");
+  const [ageRange, setAgeRange] = useState("");
+  const [province, setProvince] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [registrationComplete, setRegistrationComplete] = useState(false);
@@ -38,7 +69,7 @@ export default function Register() {
   });
 
   const registerWithToken = useMutation({
-    mutationFn: async (data: { token: string; email: string; name: string; lastName: string; termsAccepted: boolean; privacyAccepted: boolean }) => {
+    mutationFn: async (data: { token: string; email: string; name: string; lastName: string; gender: string; ageRange: string; province: string; termsAccepted: boolean; privacyAccepted: boolean }) => {
       const res = await fetch('/api/diners/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -56,7 +87,7 @@ export default function Register() {
   });
 
   const selfRegister = useMutation({
-    mutationFn: async (data: { name: string; lastName: string; email: string; phone: string; password: string }) => {
+    mutationFn: async (data: { name: string; lastName: string; email: string; phone: string; password: string; gender: string; ageRange: string; province: string }) => {
       const res = await fetch('/api/auth/register-diner', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -80,6 +111,9 @@ export default function Register() {
       email,
       name,
       lastName,
+      gender,
+      ageRange,
+      province,
       termsAccepted,
       privacyAccepted,
     });
@@ -93,16 +127,19 @@ export default function Register() {
       email,
       phone,
       password,
+      gender,
+      ageRange,
+      province,
     });
   };
 
-  const isTokenFormValid = name.trim() && lastName.trim() && email.trim() && termsAccepted && privacyAccepted;
+  const isTokenFormValid = name.trim() && lastName.trim() && email.trim() && gender && ageRange && province && termsAccepted && privacyAccepted;
   const isPasswordValid = password.length >= 8 && 
     /[A-Z]/.test(password) && 
     /[a-z]/.test(password) && 
     /[0-9]/.test(password) && 
     /[^A-Za-z0-9]/.test(password);
-  const isSelfFormValid = name.trim() && lastName.trim() && email.trim() && phone.trim() && isPasswordValid && termsAccepted && privacyAccepted;
+  const isSelfFormValid = name.trim() && lastName.trim() && email.trim() && phone.trim() && gender && ageRange && province && isPasswordValid && termsAccepted && privacyAccepted;
 
   if (registrationComplete) {
     return (
@@ -204,6 +241,48 @@ export default function Register() {
                 <p className="text-xs text-muted-foreground">
                   At least 8 characters with uppercase, lowercase, number, and special character
                 </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="gender">Gender</Label>
+                <Select value={gender} onValueChange={setGender}>
+                  <SelectTrigger id="gender" data-testid="select-register-gender">
+                    <SelectValue placeholder="Select gender" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {GENDER_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="ageRange">Age Range</Label>
+                <Select value={ageRange} onValueChange={setAgeRange}>
+                  <SelectTrigger id="ageRange" data-testid="select-register-age-range">
+                    <SelectValue placeholder="Select age range" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {AGE_RANGE_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="province">Province</Label>
+                <Select value={province} onValueChange={setProvince}>
+                  <SelectTrigger id="province" data-testid="select-register-province">
+                    <SelectValue placeholder="Select province" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PROVINCE_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-3 pt-2">
@@ -350,6 +429,48 @@ export default function Register() {
                 data-testid="input-register-phone"
               />
               <p className="text-xs text-muted-foreground">This is the number associated with your invitation.</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="gender">Gender</Label>
+              <Select value={gender} onValueChange={setGender}>
+                <SelectTrigger id="gender" data-testid="select-register-gender">
+                  <SelectValue placeholder="Select gender" />
+                </SelectTrigger>
+                <SelectContent>
+                  {GENDER_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="ageRange">Age Range</Label>
+              <Select value={ageRange} onValueChange={setAgeRange}>
+                <SelectTrigger id="ageRange" data-testid="select-register-age-range">
+                  <SelectValue placeholder="Select age range" />
+                </SelectTrigger>
+                <SelectContent>
+                  {AGE_RANGE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="province">Province</Label>
+              <Select value={province} onValueChange={setProvince}>
+                <SelectTrigger id="province" data-testid="select-register-province">
+                  <SelectValue placeholder="Select province" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PROVINCE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-3 pt-2">

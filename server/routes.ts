@@ -569,6 +569,9 @@ export async function registerRoutes(
       .refine(val => val.length >= 7, { message: "Phone number must be at least 7 digits" })
       .refine(val => /^[0-9+]+$/.test(val), { message: "Phone number contains invalid characters" }),
     password: passwordSchema,
+    gender: z.enum(["male", "female", "other", "prefer_not_to_say"]),
+    ageRange: z.enum(["18-29", "30-39", "40-49", "50-59", "60+"]),
+    province: z.string().min(1, "Province is required"),
   });
 
   app.post("/api/auth/register-diner", authRateLimiter, async (req, res) => {
@@ -580,7 +583,7 @@ export async function registerRoutes(
         });
       }
 
-      const { name, lastName, email, phone, password } = parseResult.data;
+      const { name, lastName, email, phone, password, gender, ageRange, province } = parseResult.data;
 
       // Verify that the phone number was verified via OTP
       if (!req.session.verifiedPhone || req.session.verifiedPhone !== phone) {
@@ -610,6 +613,9 @@ export async function registerRoutes(
         phone,
         password: hashedPassword,
         userType: 'diner',
+        gender,
+        ageRange,
+        province,
       });
 
       // Set session and clear verified phone
@@ -2257,6 +2263,9 @@ export async function registerRoutes(
     email: z.string().email("Invalid email address"),
     name: z.string().min(1, "Name is required"),
     lastName: z.string().min(1, "Surname is required"),
+    gender: z.enum(["male", "female", "other", "prefer_not_to_say"]),
+    ageRange: z.enum(["18-29", "30-39", "40-49", "50-59", "60+"]),
+    province: z.string().min(1, "Province is required"),
     termsAccepted: z.boolean().refine(val => val === true, { message: "You must accept the Terms & Conditions" }),
     privacyAccepted: z.boolean().refine(val => val === true, { message: "You must accept the Privacy Policy" }),
   });
@@ -2271,7 +2280,7 @@ export async function registerRoutes(
         });
       }
       
-      const { token, email, name, lastName, termsAccepted, privacyAccepted } = parseResult.data;
+      const { token, email, name, lastName, gender, ageRange, province, termsAccepted, privacyAccepted } = parseResult.data;
       
       // Get and validate invitation
       const invitation = await storage.getDinerInvitationByToken(token);
@@ -2315,6 +2324,9 @@ export async function registerRoutes(
         lastName,
         phone: invitation.phone,
         userType: 'diner',
+        gender,
+        ageRange,
+        province,
         termsAcceptedAt: termsAccepted ? now : null,
         privacyAcceptedAt: privacyAccepted ? now : null,
       });

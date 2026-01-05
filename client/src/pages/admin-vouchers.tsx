@@ -86,6 +86,7 @@ export default function AdminVouchers() {
   const [voucherTypeIsActive, setVoucherTypeIsActive] = useState(true);
   const [voucherTypeRedemptionScope, setVoucherTypeRedemptionScope] = useState<"all_branches" | "specific_branches">("all_branches");
   const [voucherTypeRedeemableBranchIds, setVoucherTypeRedeemableBranchIds] = useState<string[]>([]);
+  const [voucherTypeEarningMode, setVoucherTypeEarningMode] = useState<"points" | "visits">("points");
   const [categorySelectionStep, setCategorySelectionStep] = useState(true); // Show category selection first
   
   // QR code ref for download
@@ -230,6 +231,7 @@ export default function AdminVouchers() {
     setVoucherTypeIsActive(true);
     setVoucherTypeRedemptionScope("all_branches");
     setVoucherTypeRedeemableBranchIds([]);
+    setVoucherTypeEarningMode("points");
     setEditingVoucherType(null);
     setCategorySelectionStep(true);
   };
@@ -248,6 +250,7 @@ export default function AdminVouchers() {
     setVoucherTypeIsActive(vt.isActive);
     setVoucherTypeRedemptionScope(vt.redemptionScope || "all_branches");
     setVoucherTypeRedeemableBranchIds(vt.redeemableBranchIds || []);
+    setVoucherTypeEarningMode(vt.earningMode || "points");
     setCategorySelectionStep(false); // Go straight to details when editing
     setVoucherTypeDialogOpen(true);
   };
@@ -376,6 +379,7 @@ export default function AdminVouchers() {
   const handleSaveVoucherType = () => {
     const data = {
       category: voucherTypeCategory,
+      earningMode: voucherTypeEarningMode,
       name: voucherTypeName,
       description: voucherTypeDescription || undefined,
       rewardDetails: voucherTypeRewardDetails || undefined,
@@ -1219,6 +1223,12 @@ export default function AdminVouchers() {
                       </CardHeader>
                       <CardContent className="pb-2 space-y-2">
                         <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Earned By</span>
+                          <Badge variant="outline" className="font-normal">
+                            {vt.earningMode === "visits" ? "Visits" : "Points"}
+                          </Badge>
+                        </div>
+                        <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground">Credits Required</span>
                           <span className="font-medium">{vt.creditsCost}</span>
                         </div>
@@ -1486,6 +1496,38 @@ export default function AdminVouchers() {
                           data-testid="input-voucher-type-description"
                         />
                       </div>
+                      {/* Earning Mode Selection */}
+                      {voucherTypeCategory !== "registration" && (
+                        <div className="grid gap-3">
+                          <Label>How is this voucher earned?</Label>
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              variant={voucherTypeEarningMode === "points" ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setVoucherTypeEarningMode("points")}
+                              data-testid="button-earning-points"
+                            >
+                              Points
+                            </Button>
+                            <Button
+                              type="button"
+                              variant={voucherTypeEarningMode === "visits" ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setVoucherTypeEarningMode("visits")}
+                              data-testid="button-earning-visits"
+                            >
+                              Visits
+                            </Button>
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {voucherTypeEarningMode === "points" 
+                              ? "Diners earn this voucher by accumulating points from their spending."
+                              : "Diners earn this voucher by reaching a visit count threshold."}
+                          </p>
+                        </div>
+                      )}
+                      
                       <div className="grid grid-cols-2 gap-4">
                         <div className="grid gap-2">
                           <Label htmlFor="vt-credits">Credits Required</Label>

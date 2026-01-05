@@ -5,7 +5,8 @@ import {
   User, 
   History, 
   LogOut,
-  Menu
+  Menu,
+  HelpCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "@/components/ui/sheet";
@@ -30,6 +31,7 @@ export function DinerLayout({ children }: DinerLayoutProps) {
     { name: "My Rewards", href: "/diner/dashboard", icon: Wallet },
     { name: "History", href: "/diner/history", icon: History },
     { name: "Profile", href: "/diner/profile", icon: User },
+    { name: "FAQ", href: "/diner/faq", icon: HelpCircle },
   ];
 
   const SidebarContent = () => (

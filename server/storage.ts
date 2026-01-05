@@ -107,6 +107,8 @@ export interface IStorage {
     currentVisits?: number;
     totalVisits?: number;
     totalVouchersGenerated?: number;
+    pointsCredits?: number;
+    visitCredits?: number;
     availableVoucherCredits?: number;
     totalVoucherCreditsEarned?: number;
   }): Promise<PointsBalance>;
@@ -433,6 +435,8 @@ export class DbStorage implements IStorage {
       currentVisits?: number;
       totalVisits?: number;
       totalVouchersGenerated?: number;
+      pointsCredits?: number;
+      visitCredits?: number;
       availableVoucherCredits?: number;
       totalVoucherCreditsEarned?: number;
     }

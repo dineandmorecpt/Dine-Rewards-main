@@ -159,30 +159,29 @@ export class LoyaltyService implements ILoyaltyService {
     const newTotalPointsEarned = balance.totalPointsEarned + pointsEarned;
     let newCurrentVisits = balance.currentVisits + 1; // Each transaction = 1 visit
     const newTotalVisits = balance.totalVisits + 1;
-    let newAvailableCredits = balance.availableVoucherCredits;
     let newTotalCreditsEarned = balance.totalVoucherCreditsEarned;
+    
+    // Mode-specific credits
+    let newPointsCredits = balance.pointsCredits;
+    let newVisitCredits = balance.visitCredits;
     let creditsEarned = 0;
 
-    const earningMode = restaurant.voucherEarningMode || 'points';
+    // Award points credits when points threshold is reached
+    const pointsThreshold = restaurant.pointsThreshold;
+    while (this.shouldEarnCredit(newCurrentPoints, pointsThreshold)) {
+      newCurrentPoints -= pointsThreshold;
+      newPointsCredits += 1;
+      newTotalCreditsEarned += 1;
+      creditsEarned += 1;
+    }
 
-    if (earningMode === 'visits') {
-      // Visits-based earning: award credit when visit threshold is reached
-      const visitThreshold = restaurant.visitThreshold || 10;
-      while (newCurrentVisits >= visitThreshold) {
-        newCurrentVisits -= visitThreshold;
-        newAvailableCredits += 1;
-        newTotalCreditsEarned += 1;
-        creditsEarned += 1;
-      }
-    } else {
-      // Points-based earning: award credit when points threshold is reached
-      const threshold = restaurant.pointsThreshold;
-      while (this.shouldEarnCredit(newCurrentPoints, threshold)) {
-        newCurrentPoints -= threshold;
-        newAvailableCredits += 1;
-        newTotalCreditsEarned += 1;
-        creditsEarned += 1;
-      }
+    // Award visit credits when visit threshold is reached
+    const visitThreshold = restaurant.visitThreshold || 10;
+    while (newCurrentVisits >= visitThreshold) {
+      newCurrentVisits -= visitThreshold;
+      newVisitCredits += 1;
+      newTotalCreditsEarned += 1;
+      creditsEarned += 1;
     }
 
     const updatedBalance = await this.storage.updatePointsBalance(balance.id, {
@@ -190,7 +189,8 @@ export class LoyaltyService implements ILoyaltyService {
       totalPointsEarned: newTotalPointsEarned,
       currentVisits: newCurrentVisits,
       totalVisits: newTotalVisits,
-      availableVoucherCredits: newAvailableCredits,
+      pointsCredits: newPointsCredits,
+      visitCredits: newVisitCredits,
       totalVoucherCreditsEarned: newTotalCreditsEarned
     });
 
@@ -239,9 +239,14 @@ export class LoyaltyService implements ILoyaltyService {
       throw new Error("No points balance found for this restaurant");
     }
 
-    // Check if diner has enough credits
-    if (balance.availableVoucherCredits < voucherType.creditsCost) {
-      throw new Error(`You need ${voucherType.creditsCost} credit(s) but only have ${balance.availableVoucherCredits}`);
+    // Determine which credits to consume based on voucher type's earning mode
+    const voucherEarningMode = voucherType.earningMode || 'points';
+    const availableCredits = voucherEarningMode === 'visits' ? balance.visitCredits : balance.pointsCredits;
+    
+    // Check if diner has enough credits of the right type
+    if (availableCredits < voucherType.creditsCost) {
+      const creditsType = voucherEarningMode === 'visits' ? 'visit' : 'points';
+      throw new Error(`You need ${voucherType.creditsCost} ${creditsType} credit(s) but only have ${availableCredits}`);
     }
 
     // For branch-specific restaurants, voucher is tied to the branch
@@ -260,11 +265,18 @@ export class LoyaltyService implements ILoyaltyService {
       redeemedAt: null
     });
 
-    // Deduct credits and increment vouchers generated
-    const updatedBalance = await this.storage.updatePointsBalance(balance.id, {
-      availableVoucherCredits: balance.availableVoucherCredits - voucherType.creditsCost,
+    // Deduct credits from the correct mode-specific balance
+    const balanceUpdates: Record<string, number> = {
       totalVouchersGenerated: balance.totalVouchersGenerated + 1
-    });
+    };
+    
+    if (voucherEarningMode === 'visits') {
+      balanceUpdates.visitCredits = balance.visitCredits - voucherType.creditsCost;
+    } else {
+      balanceUpdates.pointsCredits = balance.pointsCredits - voucherType.creditsCost;
+    }
+    
+    const updatedBalance = await this.storage.updatePointsBalance(balance.id, balanceUpdates);
 
     return {
       voucher,

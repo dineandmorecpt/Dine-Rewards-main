@@ -70,9 +70,11 @@ function AdminLayoutContent({ children }: AdminLayoutProps) {
   const SidebarContent = () => (
     <div className="flex flex-col h-full bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
       <div className="p-6">
-        <h1 className="text-2xl font-serif font-bold tracking-tight text-primary-foreground">
-          Dine<span className="text-sidebar-primary">&</span>More
-        </h1>
+        <Link href="/" onClick={() => setSidebarOpen(false)} className="block hover:opacity-80 transition-opacity">
+          <h1 className="text-2xl font-serif font-bold tracking-tight text-primary-foreground">
+            Dine<span className="text-sidebar-primary">&</span>More
+          </h1>
+        </Link>
         <p className="text-sm text-sidebar-primary font-semibold mt-1">{restaurant?.name || 'Restaurant'}</p>
         <p className="text-xs text-sidebar-foreground/60 uppercase tracking-wider font-medium">Restaurant Admin</p>
         
@@ -187,7 +189,7 @@ function AdminLayoutContent({ children }: AdminLayoutProps) {
     <div className="min-h-screen bg-background font-sans">
       {/* Mobile Header - sticky at top */}
       <div className="lg:hidden p-4 border-b flex items-center justify-between bg-card sticky top-0 z-40">
-        <span className="font-serif font-bold text-xl">Dine&More</span>
+        <Link href="/" className="font-serif font-bold text-xl hover:opacity-80 transition-opacity">Dine&More</Link>
         <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon">

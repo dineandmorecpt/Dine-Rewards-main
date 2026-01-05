@@ -37,10 +37,12 @@ export function DinerLayout({ children }: DinerLayoutProps) {
   const SidebarContent = () => (
     <div className="flex flex-col h-full bg-card text-card-foreground border-r border-border">
       <div className="p-4 sm:p-6">
-        <h1 className="text-xl sm:text-2xl font-serif font-bold tracking-tight text-primary">
-          Dine<span className="text-chart-1">&</span>More
-        </h1>
-        <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 uppercase tracking-wider font-medium">Diner Rewards</p>
+        <Link href="/" onClick={() => setSidebarOpen(false)} className="block hover:opacity-80 transition-opacity">
+          <h1 className="text-xl sm:text-2xl font-serif font-bold tracking-tight text-primary">
+            Dine<span className="text-chart-1">&</span>More
+          </h1>
+          <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 uppercase tracking-wider font-medium">Diner Rewards</p>
+        </Link>
       </div>
 
       <nav className="flex-1 px-3 sm:px-4 space-y-1">
@@ -101,7 +103,7 @@ export function DinerLayout({ children }: DinerLayoutProps) {
       <div className="lg:hidden">
         {/* Top header bar */}
         <div className="px-3 py-2.5 sm:px-4 sm:py-3 border-b flex items-center justify-between bg-card sticky top-0 z-40">
-          <span className="font-serif font-bold text-lg sm:text-xl">Dine&More</span>
+          <Link href="/" className="font-serif font-bold text-lg sm:text-xl hover:opacity-80 transition-opacity">Dine&More</Link>
           <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon" className="h-10 w-10">

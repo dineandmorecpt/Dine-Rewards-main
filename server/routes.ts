@@ -1918,6 +1918,8 @@ export async function registerRoutes(
   // RESTAURANT STATS - Get restaurant dashboard statistics
   app.get("/api/restaurants/:restaurantId/stats", async (req, res) => {
     try {
+      console.log("[DEBUG] /stats - Session ID:", req.sessionID, "userId:", req.session.userId, "Cookie:", req.headers.cookie?.substring(0, 80));
+      
       if (!req.session.userId || req.session.userType !== 'restaurant_admin') {
         return res.status(401).json({ error: "Unauthorized" });
       }

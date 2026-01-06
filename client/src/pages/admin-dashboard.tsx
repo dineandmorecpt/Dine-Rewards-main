@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { StatsCard } from "@/components/dashboard/stats-card";
@@ -58,6 +58,35 @@ function AdminDashboardContent() {
   const restaurantId = restaurant?.id;
   const [invitePhone, setInvitePhone] = useState("");
   const [inviteSuccess, setInviteSuccess] = useState<{phone: string; registrationLink: string; smsSent: boolean} | null>(null);
+  const [sessionVerified, setSessionVerified] = useState(false);
+  
+  // Verify session is ready before enabling data queries
+  useEffect(() => {
+    let cancelled = false;
+    const verifySession = async () => {
+      // Small delay to let browser process cookies
+      await new Promise(resolve => setTimeout(resolve, 100));
+      try {
+        const res = await fetch("/api/auth/me", { credentials: "include" });
+        const data = await res.json();
+        if (!cancelled && data.user) {
+          setSessionVerified(true);
+        } else if (!cancelled) {
+          // Retry after another delay
+          await new Promise(resolve => setTimeout(resolve, 200));
+          const retry = await fetch("/api/auth/me", { credentials: "include" });
+          const retryData = await retry.json();
+          if (!cancelled && retryData.user) {
+            setSessionVerified(true);
+          }
+        }
+      } catch (e) {
+        console.error("Session verification failed:", e);
+      }
+    };
+    verifySession();
+    return () => { cancelled = true; };
+  }, []);
   
   const [dateRange, setDateRange] = useState<DateRange>({
     from: subDays(new Date(), 30),
@@ -83,7 +112,7 @@ function AdminDashboardContent() {
       if (!res.ok) throw new Error("Failed to fetch stats");
       return res.json();
     },
-    enabled: !!restaurantId,
+    enabled: !!restaurantId && sessionVerified,
   });
 
   const { data: registrationData, isLoading: isLoadingRegistrations } = useQuery<{ date: string; count: number }[]>({
@@ -97,7 +126,7 @@ function AdminDashboardContent() {
       if (!res.ok) throw new Error("Failed to fetch registrations");
       return res.json();
     },
-    enabled: !!restaurantId && !!dateRange.from && !!dateRange.to,
+    enabled: !!restaurantId && !!dateRange.from && !!dateRange.to && sessionVerified,
   });
 
   const chartData = useMemo(() => {
@@ -123,7 +152,7 @@ function AdminDashboardContent() {
       if (!res.ok) throw new Error("Failed to fetch redemptions by type");
       return res.json();
     },
-    enabled: !!restaurantId && !!redemptionsDateRange.from && !!redemptionsDateRange.to,
+    enabled: !!restaurantId && !!redemptionsDateRange.from && !!redemptionsDateRange.to && sessionVerified,
   });
 
   const redemptionsChartData = useMemo(() => {
@@ -145,7 +174,7 @@ function AdminDashboardContent() {
       if (!res.ok) throw new Error("Failed to fetch revenue");
       return res.json();
     },
-    enabled: !!restaurantId && !!revenueDateRange.from && !!revenueDateRange.to,
+    enabled: !!restaurantId && !!revenueDateRange.from && !!revenueDateRange.to && sessionVerified,
   });
 
   const revenueChartData = useMemo(() => {

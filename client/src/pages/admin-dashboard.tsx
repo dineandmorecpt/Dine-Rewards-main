@@ -1,8 +1,9 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { StatsCard } from "@/components/dashboard/stats-card";
 import { Users, DollarSign, TicketPercent, UserPlus, Phone, Check, Copy, ExternalLink, Loader2, CalendarIcon, Download, Building2 } from "lucide-react";
+import { getStoredAuth } from "@/lib/queryClient";
 import { 
   Bar, 
   BarChart, 
@@ -58,35 +59,15 @@ function AdminDashboardContent() {
   const restaurantId = restaurant?.id;
   const [invitePhone, setInvitePhone] = useState("");
   const [inviteSuccess, setInviteSuccess] = useState<{phone: string; registrationLink: string; smsSent: boolean} | null>(null);
-  const [sessionVerified, setSessionVerified] = useState(false);
   
-  // Verify session is ready before enabling data queries
-  useEffect(() => {
-    let cancelled = false;
-    const verifySession = async () => {
-      // Small delay to let browser process cookies
-      await new Promise(resolve => setTimeout(resolve, 100));
-      try {
-        const res = await fetch("/api/auth/me", { credentials: "include" });
-        const data = await res.json();
-        if (!cancelled && data.user) {
-          setSessionVerified(true);
-        } else if (!cancelled) {
-          // Retry after another delay
-          await new Promise(resolve => setTimeout(resolve, 200));
-          const retry = await fetch("/api/auth/me", { credentials: "include" });
-          const retryData = await retry.json();
-          if (!cancelled && retryData.user) {
-            setSessionVerified(true);
-          }
-        }
-      } catch (e) {
-        console.error("Session verification failed:", e);
-      }
-    };
-    verifySession();
-    return () => { cancelled = true; };
-  }, []);
+  // Helper to get auth headers for API calls
+  const getAuthHeaders = (): Record<string, string> => {
+    const auth = getStoredAuth();
+    if (auth) {
+      return { "X-User-Id": auth.userId, "X-User-Type": auth.userType };
+    }
+    return {};
+  };
   
   const [dateRange, setDateRange] = useState<DateRange>({
     from: subDays(new Date(), 30),
@@ -108,11 +89,14 @@ function AdminDashboardContent() {
     queryFn: async () => {
       const params = new URLSearchParams();
       if (selectedBranchId) params.set('branchId', selectedBranchId);
-      const res = await fetch(`/api/restaurants/${restaurantId}/stats?${params}`, { credentials: 'include' });
+      const res = await fetch(`/api/restaurants/${restaurantId}/stats?${params}`, { 
+        credentials: 'include',
+        headers: getAuthHeaders()
+      });
       if (!res.ok) throw new Error("Failed to fetch stats");
       return res.json();
     },
-    enabled: !!restaurantId && sessionVerified,
+    enabled: !!restaurantId,
   });
 
   const { data: registrationData, isLoading: isLoadingRegistrations } = useQuery<{ date: string; count: number }[]>({
@@ -122,11 +106,14 @@ function AdminDashboardContent() {
       if (dateRange.from) params.set('start', format(dateRange.from, 'yyyy-MM-dd'));
       if (dateRange.to) params.set('end', format(dateRange.to, 'yyyy-MM-dd'));
       if (selectedBranchId) params.set('branchId', selectedBranchId);
-      const res = await fetch(`/api/restaurants/${restaurantId}/diner-registrations?${params}`, { credentials: 'include' });
+      const res = await fetch(`/api/restaurants/${restaurantId}/diner-registrations?${params}`, { 
+        credentials: 'include',
+        headers: getAuthHeaders()
+      });
       if (!res.ok) throw new Error("Failed to fetch registrations");
       return res.json();
     },
-    enabled: !!restaurantId && !!dateRange.from && !!dateRange.to && sessionVerified,
+    enabled: !!restaurantId && !!dateRange.from && !!dateRange.to,
   });
 
   const chartData = useMemo(() => {
@@ -148,11 +135,14 @@ function AdminDashboardContent() {
       if (redemptionsDateRange.from) params.set('start', format(redemptionsDateRange.from, 'yyyy-MM-dd'));
       if (redemptionsDateRange.to) params.set('end', format(redemptionsDateRange.to, 'yyyy-MM-dd'));
       if (selectedBranchId) params.set('branchId', selectedBranchId);
-      const res = await fetch(`/api/restaurants/${restaurantId}/voucher-redemptions-by-type?${params}`, { credentials: 'include' });
+      const res = await fetch(`/api/restaurants/${restaurantId}/voucher-redemptions-by-type?${params}`, { 
+        credentials: 'include',
+        headers: getAuthHeaders()
+      });
       if (!res.ok) throw new Error("Failed to fetch redemptions by type");
       return res.json();
     },
-    enabled: !!restaurantId && !!redemptionsDateRange.from && !!redemptionsDateRange.to && sessionVerified,
+    enabled: !!restaurantId && !!redemptionsDateRange.from && !!redemptionsDateRange.to,
   });
 
   const redemptionsChartData = useMemo(() => {
@@ -170,11 +160,14 @@ function AdminDashboardContent() {
       if (revenueDateRange.from) params.set('start', format(revenueDateRange.from, 'yyyy-MM-dd'));
       if (revenueDateRange.to) params.set('end', format(revenueDateRange.to, 'yyyy-MM-dd'));
       if (selectedBranchId) params.set('branchId', selectedBranchId);
-      const res = await fetch(`/api/restaurants/${restaurantId}/revenue?${params}`, { credentials: 'include' });
+      const res = await fetch(`/api/restaurants/${restaurantId}/revenue?${params}`, { 
+        credentials: 'include',
+        headers: getAuthHeaders()
+      });
       if (!res.ok) throw new Error("Failed to fetch revenue");
       return res.json();
     },
-    enabled: !!restaurantId && !!revenueDateRange.from && !!revenueDateRange.to && sessionVerified,
+    enabled: !!restaurantId && !!revenueDateRange.from && !!revenueDateRange.to,
   });
 
   const revenueChartData = useMemo(() => {

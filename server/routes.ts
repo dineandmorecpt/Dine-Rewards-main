@@ -1952,8 +1952,8 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Restaurant not found" });
       }
       
-      const isOwner = restaurant.adminUserId === req.session.userId;
-      const portalAccess = await storage.getPortalUserByUserAndRestaurant(req.session.userId, restaurantId);
+      const isOwner = restaurant.adminUserId === userId;
+      const portalAccess = await storage.getPortalUserByUserAndRestaurant(userId, restaurantId);
       
       if (!isOwner && !portalAccess) {
         return res.status(403).json({ error: "You don't have access to this restaurant's stats" });
@@ -1962,7 +1962,7 @@ export async function registerRoutes(
       let branchId = req.query.branchId as string | undefined;
       
       // Validate branch access and enforce restrictions for staff without full access
-      const branchAccess = await storage.getAccessibleBranchIds(req.session.userId, restaurantId);
+      const branchAccess = await storage.getAccessibleBranchIds(userId, restaurantId);
       if (branchId) {
         if (!branchAccess.hasAllAccess && !branchAccess.branchIds.includes(branchId)) {
           return res.status(403).json({ error: "You don't have access to this branch" });

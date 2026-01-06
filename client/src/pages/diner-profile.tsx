@@ -369,13 +369,12 @@ export default function DinerProfile() {
                   data-testid="display-profile-phone"
                 />
                 <Button
-                  variant="outline"
                   size="sm"
                   onClick={() => {
                     setPendingNewPhone(phone);
                     setPhoneChangeModalOpen(true);
                   }}
-                  className="h-10 sm:h-9 shrink-0"
+                  className="h-10 sm:h-9 shrink-0 bg-blue-600 hover:bg-blue-700 text-white"
                   data-testid="button-change-phone"
                 >
                   Change
@@ -394,7 +393,7 @@ export default function DinerProfile() {
               <Button
                 onClick={handleSave}
                 disabled={!hasChanges || updateProfile.isPending}
-                className="w-full sm:w-auto h-10 sm:h-9"
+                className="w-full sm:w-auto h-10 sm:h-9 bg-blue-600 hover:bg-blue-700 text-white"
                 data-testid="button-save-profile"
               >
                 {updateProfile.isPending ? (
@@ -556,7 +555,7 @@ export default function DinerProfile() {
               <Button
                 onClick={handlePhoneChange}
                 disabled={!pendingNewPhone.trim() || requestPhoneChangeOtp.isPending}
-                className="w-full sm:w-auto h-10 sm:h-9 order-1 sm:order-2"
+                className="w-full sm:w-auto h-10 sm:h-9 order-1 sm:order-2 bg-blue-600 hover:bg-blue-700 text-white"
                 data-testid="button-send-code"
               >
                 {requestPhoneChangeOtp.isPending ? (
@@ -569,7 +568,7 @@ export default function DinerProfile() {
               <Button
                 onClick={() => verifyPhoneChangeOtp.mutate(otpDigits.join(""))}
                 disabled={otpDigits.join("").length !== 6 || verifyPhoneChangeOtp.isPending}
-                className="w-full sm:w-auto h-10 sm:h-9 order-1 sm:order-2"
+                className="w-full sm:w-auto h-10 sm:h-9 order-1 sm:order-2 bg-blue-600 hover:bg-blue-700 text-white"
                 data-testid="button-verify-code"
               >
                 {verifyPhoneChangeOtp.isPending ? (

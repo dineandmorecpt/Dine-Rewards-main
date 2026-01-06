@@ -195,9 +195,9 @@
   --chart-5: 220 70% 55%;
 }
 
-/* Diner theme sidebar - blue gradient */
-.diner-theme .diner-sidebar {
-  background: linear-gradient(180deg, hsl(210 100% 35%) 0%, hsl(210 100% 28%) 100%);
+/* Diner theme sidebar - blue gradient (standalone for portals) */
+.diner-sidebar {
+  background: linear-gradient(180deg, hsl(210 100% 35%) 0%, hsl(210 100% 28%) 100%) !important;
 }
 
 /* Diner blue button utility */

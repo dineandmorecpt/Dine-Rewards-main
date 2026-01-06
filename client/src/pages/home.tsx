@@ -73,6 +73,8 @@ export default function Home() {
         description: `Logged in as ${data.user.name}`,
       });
 
+      // Small delay to ensure browser processes the session cookie before navigation
+      await new Promise(resolve => setTimeout(resolve, 100));
       navigate("/diner/dashboard");
     } catch (error: any) {
       toast({
@@ -278,6 +280,8 @@ export default function Home() {
         description: `Logged in as ${data.user.name}`,
       });
 
+      // Small delay to ensure browser processes the session cookie before navigation
+      await new Promise(resolve => setTimeout(resolve, 100));
       navigate("/admin/dashboard");
     } catch (error: any) {
       toast({

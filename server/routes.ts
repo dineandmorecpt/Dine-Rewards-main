@@ -121,6 +121,8 @@ export async function registerRoutes(
       // Set session
       req.session.userId = user.id;
       req.session.userType = user.userType;
+      
+      console.log("[DEBUG] Login - Session ID:", req.sessionID, "userId:", user.id);
 
       // Explicitly save session before responding
       req.session.save((err) => {
@@ -128,6 +130,8 @@ export async function registerRoutes(
           console.error("Session save error:", err);
           return res.status(500).json({ error: "Login failed" });
         }
+        
+        console.log("[DEBUG] Login - Session saved successfully");
         
         res.json({
           success: true,
@@ -160,8 +164,11 @@ export async function registerRoutes(
     res.set('Expires', '0');
     
     try {
+      // Debug: log session info
+      console.log("[DEBUG] /api/auth/me - Session ID:", req.sessionID, "userId:", req.session.userId, "Cookie:", req.headers.cookie?.substring(0, 50));
+      
       if (!req.session.userId) {
-        return res.json({ user: null, restaurant: null, portalRole: null });
+        return res.json({ user: null, restaurant: null, portalRole: null, branchAccess: null });
       }
 
       const user = await storage.getUser(req.session.userId);

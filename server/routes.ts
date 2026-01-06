@@ -1284,8 +1284,8 @@ export async function registerRoutes(
   app.post("/api/restaurants/:restaurantId/vouchers/redeem", async (req, res) => {
     try {
       const { restaurantId } = req.params;
-      const { code, billId } = req.body;
-      const result = await services.voucher.redeemVoucherByCode(restaurantId, code, billId);
+      const { code, billId, branchId } = req.body;
+      const result = await services.voucher.redeemVoucherByCode(restaurantId, code, billId, branchId);
       
       // Log activity
       await storage.createActivityLog({
@@ -1294,7 +1294,7 @@ export async function registerRoutes(
         action: 'voucher_redeemed',
         targetType: 'voucher',
         targetId: result.voucher?.id || code,
-        details: JSON.stringify({ code, billId, dinerId: result.voucher?.dinerId }),
+        details: JSON.stringify({ code, billId, branchId, dinerId: result.voucher?.dinerId }),
       });
       
       res.json(result);

@@ -126,7 +126,7 @@ export interface IStorage {
   createVoucher(voucher: InsertVoucher): Promise<Voucher>;
   getVouchersByDiner(dinerId: string): Promise<Voucher[]>;
   getVouchersByRestaurant(restaurantId: string, branchId?: string | null): Promise<Voucher[]>;
-  redeemVoucher(voucherId: string, billId?: string): Promise<Voucher>;
+  redeemVoucher(voucherId: string, billId?: string, branchId?: string): Promise<Voucher>;
   getVoucherByBillId(restaurantId: string, billId: string): Promise<Voucher | undefined>;
   
   // Voucher Type Management
@@ -538,12 +538,13 @@ export class DbStorage implements IStorage {
       .orderBy(desc(vouchers.generatedAt));
   }
 
-  async redeemVoucher(voucherId: string, billId?: string): Promise<Voucher> {
+  async redeemVoucher(voucherId: string, billId?: string, branchId?: string): Promise<Voucher> {
     const result = await db.update(vouchers)
       .set({ 
         isRedeemed: true,
         redeemedAt: new Date(),
-        billId: billId || null
+        billId: billId || null,
+        branchId: branchId || null
       })
       .where(eq(vouchers.id, voucherId))
       .returning();

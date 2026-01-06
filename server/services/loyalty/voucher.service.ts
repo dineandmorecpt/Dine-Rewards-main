@@ -23,7 +23,7 @@ export interface VoucherRedemptionResult {
 export interface IVoucherService {
   getDinerVouchers(dinerId: string): Promise<EnrichedVoucher[]>;
   selectVoucherForPresentation(dinerId: string, voucherId: string): Promise<VoucherSelectionResult>;
-  redeemVoucherByCode(restaurantId: string, code: string, billId?: string): Promise<VoucherRedemptionResult>;
+  redeemVoucherByCode(restaurantId: string, code: string, billId?: string, branchId?: string): Promise<VoucherRedemptionResult>;
   isVoucherValid(voucher: Voucher): { valid: boolean; reason?: string };
   isVoucherExpired(voucher: Voucher): boolean;
   getVoucherStatus(voucher: Voucher): VoucherStatus;
@@ -115,7 +115,8 @@ export class VoucherService implements IVoucherService {
   async redeemVoucherByCode(
     restaurantId: string, 
     code: string,
-    billId?: string
+    billId?: string,
+    branchId?: string
   ): Promise<VoucherRedemptionResult> {
     if (!code || !code.trim()) {
       throw new Error("Voucher code is required");
@@ -134,6 +135,34 @@ export class VoucherService implements IVoucherService {
       throw new Error(`This voucher belongs to ${voucherRestaurantName}. It cannot be redeemed here.`);
     }
 
+    // Check branch-specific redemption scope if voucher has a voucherTypeId
+    if (voucher.voucherTypeId && branchId) {
+      const voucherType = await this.storage.getVoucherType(voucher.voucherTypeId);
+      if (voucherType && voucherType.redemptionScope === "specific_branches") {
+        const redeemableBranchIds = voucherType.redeemableBranchIds || [];
+        if (redeemableBranchIds.length > 0 && !redeemableBranchIds.includes(branchId)) {
+          // Get the branch name for a clearer error message
+          const currentBranch = await this.storage.getBranch(branchId);
+          const currentBranchName = currentBranch?.name || "this branch";
+          
+          // Get the names of valid branches
+          const validBranchNames: string[] = [];
+          for (const validBranchId of redeemableBranchIds) {
+            const validBranch = await this.storage.getBranch(validBranchId);
+            if (validBranch) {
+              validBranchNames.push(validBranch.name);
+            }
+          }
+          
+          const validBranchList = validBranchNames.length > 0 
+            ? validBranchNames.join(", ") 
+            : "specific branches only";
+          
+          throw new Error(`This voucher cannot be redeemed at ${currentBranchName}. It is only valid at: ${validBranchList}.`);
+        }
+      }
+    }
+
     const validation = this.isVoucherValid(voucher);
     if (!validation.valid) {
       throw new Error(validation.reason);
@@ -149,7 +178,7 @@ export class VoucherService implements IVoucherService {
       throw new Error("This voucher code has expired. Please ask the customer to present the code again.");
     }
 
-    const redeemedVoucher = await this.storage.redeemVoucher(voucher.id, billId);
+    const redeemedVoucher = await this.storage.redeemVoucher(voucher.id, billId, branchId);
     await this.storage.updateUserActiveVoucherCode(voucher.dinerId, null);
 
     const enrichedVoucher: EnrichedVoucher = {

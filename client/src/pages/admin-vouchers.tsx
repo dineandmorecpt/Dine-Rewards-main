@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Html5Qrcode } from "html5-qrcode";
 import { useAuth } from "@/hooks/use-auth";
+import { useBranch } from "@/hooks/use-branch";
 import { QRCodeCanvas } from "qrcode.react";
 
 // Mock Data
@@ -44,6 +45,7 @@ export default function AdminVouchers() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { portalRole, isOwnerOrManager, restaurant } = useAuth();
+  const { selectedBranchId } = useBranch();
   const restaurantId = restaurant?.id;
   
   const canUploadReconciliation = isOwnerOrManager;
@@ -673,7 +675,7 @@ export default function AdminVouchers() {
       const res = await fetch(`/api/restaurants/${restaurantId}/vouchers/redeem`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, billId: billId || undefined })
+        body: JSON.stringify({ code, billId: billId || undefined, branchId: selectedBranchId || undefined })
       });
       if (!res.ok) {
         const data = await res.json();

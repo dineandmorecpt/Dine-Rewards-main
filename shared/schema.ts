@@ -160,6 +160,7 @@ export const voucherTypes = pgTable("voucher_types", {
   branchId: varchar("branch_id").references(() => branches.id), // Branch-specific voucher type (null = org-wide)
   category: text("category").notNull().default("rand_value"), // 'rand_value' | 'percentage' | 'free_item' | 'registration'
   earningMode: text("earning_mode").notNull().default("points"), // 'points' | 'visits' - which credits to consume
+  pointsPerCurrencyOverride: integer("points_per_currency_override"), // Override restaurant default (null = use restaurant setting)
   name: text("name").notNull(), // e.g., "R100 Off Your Bill"
   description: text("description"), // Optional details about the voucher
   rewardDetails: text("reward_details"), // Fine print, terms, etc.

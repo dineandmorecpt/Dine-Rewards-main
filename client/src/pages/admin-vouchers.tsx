@@ -87,6 +87,7 @@ export default function AdminVouchers() {
   const [voucherTypeRedemptionScope, setVoucherTypeRedemptionScope] = useState<"all_branches" | "specific_branches">("all_branches");
   const [voucherTypeRedeemableBranchIds, setVoucherTypeRedeemableBranchIds] = useState<string[]>([]);
   const [voucherTypeEarningMode, setVoucherTypeEarningMode] = useState<"points" | "visits">("points");
+  const [voucherTypePointsPerCurrency, setVoucherTypePointsPerCurrency] = useState<number | string>("");
   const [categorySelectionStep, setCategorySelectionStep] = useState(true); // Show category selection first
   
   // QR code ref for download
@@ -232,6 +233,7 @@ export default function AdminVouchers() {
     setVoucherTypeRedemptionScope("all_branches");
     setVoucherTypeRedeemableBranchIds([]);
     setVoucherTypeEarningMode("points");
+    setVoucherTypePointsPerCurrency("");
     setEditingVoucherType(null);
     setCategorySelectionStep(true);
   };
@@ -251,6 +253,7 @@ export default function AdminVouchers() {
     setVoucherTypeRedemptionScope(vt.redemptionScope || "all_branches");
     setVoucherTypeRedeemableBranchIds(vt.redeemableBranchIds || []);
     setVoucherTypeEarningMode(vt.earningMode || "points");
+    setVoucherTypePointsPerCurrency(vt.pointsPerCurrencyOverride || "");
     setCategorySelectionStep(false); // Go straight to details when editing
     setVoucherTypeDialogOpen(true);
   };
@@ -380,6 +383,7 @@ export default function AdminVouchers() {
     const data = {
       category: voucherTypeCategory,
       earningMode: voucherTypeEarningMode,
+      pointsPerCurrencyOverride: voucherTypeEarningMode === "points" && voucherTypePointsPerCurrency ? Number(voucherTypePointsPerCurrency) : undefined,
       name: voucherTypeName,
       description: voucherTypeDescription || undefined,
       rewardDetails: voucherTypeRewardDetails || undefined,
@@ -1525,6 +1529,23 @@ export default function AdminVouchers() {
                               ? "Diners earn this voucher by accumulating points from their spending."
                               : "Diners earn this voucher by reaching a visit count threshold."}
                           </p>
+                          {voucherTypeEarningMode === "points" && (
+                            <div className="grid gap-2 mt-2">
+                              <Label htmlFor="vt-points-per-currency">Points per R1 Spent</Label>
+                              <Input 
+                                id="vt-points-per-currency" 
+                                type="number" 
+                                min="1"
+                                placeholder="Default: 1"
+                                value={voucherTypePointsPerCurrency}
+                                onChange={(e) => setVoucherTypePointsPerCurrency(e.target.value)}
+                                data-testid="input-voucher-type-points-per-currency"
+                              />
+                              <p className="text-xs text-muted-foreground">
+                                Leave empty to use the restaurant default (1 point per R1)
+                              </p>
+                            </div>
+                          )}
                         </div>
                       )}
                       

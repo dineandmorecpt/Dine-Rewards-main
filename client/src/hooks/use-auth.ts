@@ -46,6 +46,8 @@ export function useAuth() {
     queryKey: ["auth"],
     queryFn: fetchAuthStatus,
     retry: false,
+    staleTime: 60000, // Keep auth data fresh for 1 minute to avoid race conditions after login
+    refetchOnMount: false, // Don't refetch on mount - use cached data from login
   });
 
   const logout = useCallback(async () => {

@@ -60,14 +60,12 @@ export default function Home() {
         throw new Error("This account is not registered as a diner.");
       }
 
-      // Invalidate all queries except auth to force fresh data, then set auth
-      queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] !== 'auth' });
-      
-      // Set auth data directly in cache to avoid race conditions
+      // Set auth data directly in cache - queries will refetch on mount due to staleTime: 0
       queryClient.setQueryData(["auth"], {
         user: data.user,
         restaurant: data.restaurant,
         portalRole: data.portalRole,
+        branchAccess: null,
       });
       
       toast({
@@ -213,14 +211,12 @@ export default function Home() {
         throw new Error(data.error || "Registration failed");
       }
 
-      // Invalidate all queries except auth to force fresh data, then set auth
-      queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] !== 'auth' });
-      
-      // Set auth data directly in cache
+      // Set auth data directly in cache - queries will refetch on mount due to staleTime: 0
       queryClient.setQueryData(["auth"], {
         user: data.user,
         restaurant: null,
         portalRole: null,
+        branchAccess: null,
       });
 
       toast({
@@ -269,14 +265,12 @@ export default function Home() {
         throw new Error("This account is not registered as a restaurant admin.");
       }
 
-      // Invalidate all queries except auth to force fresh data, then set auth
-      queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] !== 'auth' });
-      
-      // Set auth data directly in cache to avoid race conditions
+      // Set auth data directly in cache - queries will refetch on mount due to staleTime: 0
       queryClient.setQueryData(["auth"], {
         user: data.user,
         restaurant: data.restaurant,
         portalRole: data.portalRole,
+        branchAccess: data.branchAccess || null,
       });
       
       toast({

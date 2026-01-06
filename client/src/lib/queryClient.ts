@@ -46,8 +46,10 @@ export const queryClient = new QueryClient({
     queries: {
       queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
-      refetchOnWindowFocus: false,
-      staleTime: Infinity,
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
+      refetchOnMount: "always", // Always refetch on component mount/navigation
+      staleTime: 0, // Data is immediately stale, forcing refetch on every navigation
       retry: false,
     },
     mutations: {

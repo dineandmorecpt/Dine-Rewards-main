@@ -45,7 +45,6 @@ export function useAuth() {
   const { data, isLoading, refetch } = useQuery<AuthResponse>({
     queryKey: ["auth"],
     queryFn: fetchAuthStatus,
-    staleTime: 5 * 60 * 1000,
     retry: false,
   });
 
@@ -58,7 +57,8 @@ export function useAuth() {
     } catch (error) {
       console.error("Logout error:", error);
     }
-    queryClient.setQueryData(["auth"], { user: null, restaurant: null, portalRole: null, branchAccess: null });
+    // Clear all cached data to ensure fresh data on next login
+    queryClient.clear();
     window.location.href = "/";
   }, [queryClient]);
 

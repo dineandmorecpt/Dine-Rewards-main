@@ -35,7 +35,7 @@ export function DinerLayout({ children }: DinerLayoutProps) {
   ];
 
   const SidebarContent = () => (
-    <div className="flex flex-col h-full diner-sidebar text-white border-r-0">
+    <div className="flex flex-col h-full text-white border-r-0">
       <div className="p-4 sm:p-6">
         <Link href="/" onClick={() => setSidebarOpen(false)} className="block hover:opacity-80 transition-opacity">
           <h1 className="text-xl sm:text-2xl font-serif font-bold tracking-tight text-white">
@@ -110,7 +110,7 @@ export function DinerLayout({ children }: DinerLayoutProps) {
                 <Menu className="h-5 w-5 sm:h-6 sm:w-6" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="p-0 w-[280px] sm:w-72 border-r-0">
+            <SheetContent side="left" className="p-0 w-[280px] sm:w-72 border-r-0 diner-sidebar">
               <VisuallyHidden>
                 <SheetTitle>Navigation Menu</SheetTitle>
                 <SheetDescription>Main navigation menu for Dine&More</SheetDescription>
@@ -155,7 +155,7 @@ export function DinerLayout({ children }: DinerLayoutProps) {
       {/* Desktop Layout */}
       <div className="hidden lg:flex h-screen overflow-hidden">
         {/* Desktop Sidebar */}
-        <div className="w-72 shrink-0">
+        <div className="w-72 shrink-0 diner-sidebar">
           <SidebarContent />
         </div>
 

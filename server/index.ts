@@ -49,7 +49,7 @@ app.use(
       secure: true, // Always true on Replit (HTTPS proxy)
       httpOnly: true,
       maxAge: 90 * 24 * 60 * 60 * 1000, // 90 days
-      sameSite: "lax",
+      sameSite: "none", // Required for Replit's proxy environment
     },
   })
 );

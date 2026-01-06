@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { clearStoredAuth, getStoredAuth } from "@/lib/queryClient";
 
 interface User {
   id: string;
@@ -30,8 +31,16 @@ interface AuthResponse {
 }
 
 async function fetchAuthStatus(): Promise<AuthResponse> {
+  const storedAuth = getStoredAuth();
+  const headers: Record<string, string> = {};
+  if (storedAuth) {
+    headers["X-User-Id"] = storedAuth.userId;
+    headers["X-User-Type"] = storedAuth.userType;
+  }
+  
   const response = await fetch("/api/auth/me", {
     credentials: "include",
+    headers,
   });
   if (!response.ok) {
     return { user: null, restaurant: null, portalRole: null, branchAccess: null };
@@ -59,7 +68,8 @@ export function useAuth() {
     } catch (error) {
       console.error("Logout error:", error);
     }
-    // Clear all cached data to ensure fresh data on next login
+    // Clear localStorage auth and all cached data
+    clearStoredAuth();
     queryClient.clear();
     window.location.href = "/";
   }, [queryClient]);

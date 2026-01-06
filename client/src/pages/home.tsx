@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLocation, Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
+import { setStoredAuth } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -60,7 +61,10 @@ export default function Home() {
         throw new Error("This account is not registered as a diner.");
       }
 
-      // Set auth data from login response
+      // Store auth in localStorage for header-based auth
+      setStoredAuth(data.user.id, data.user.userType);
+      
+      // Set auth data in React Query cache
       queryClient.setQueryData(["auth"], {
         user: data.user,
         restaurant: data.restaurant,
@@ -73,8 +77,6 @@ export default function Home() {
         description: `Logged in as ${data.user.name}`,
       });
 
-      // Wait for browser to process the Set-Cookie header before navigating
-      await new Promise(resolve => setTimeout(resolve, 300));
       navigate("/diner/dashboard");
     } catch (error: any) {
       toast({
@@ -267,7 +269,10 @@ export default function Home() {
         throw new Error("This account is not registered as a restaurant admin.");
       }
 
-      // Set auth data from login response
+      // Store auth in localStorage for header-based auth
+      setStoredAuth(data.user.id, data.user.userType);
+      
+      // Set auth data in React Query cache
       queryClient.setQueryData(["auth"], {
         user: data.user,
         restaurant: data.restaurant,
@@ -280,8 +285,6 @@ export default function Home() {
         description: `Logged in as ${data.user.name}`,
       });
 
-      // Wait for browser to process the Set-Cookie header before navigating
-      await new Promise(resolve => setTimeout(resolve, 300));
       navigate("/admin/dashboard");
     } catch (error: any) {
       toast({

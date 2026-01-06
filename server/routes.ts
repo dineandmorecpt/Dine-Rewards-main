@@ -156,6 +156,25 @@ export async function registerRoutes(
     }
   });
 
+  // Helper to get user ID from headers or session
+  function getAuthUserId(req: any): string | null {
+    // Check header-based auth first (for Replit environment where cookies don't work)
+    const headerUserId = req.headers['x-user-id'] as string | undefined;
+    if (headerUserId) {
+      return headerUserId;
+    }
+    // Fall back to session
+    return req.session?.userId || null;
+  }
+  
+  function getAuthUserType(req: any): string | null {
+    const headerUserType = req.headers['x-user-type'] as string | undefined;
+    if (headerUserType) {
+      return headerUserType;
+    }
+    return req.session?.userType || null;
+  }
+
   // AUTH - Get current user (for session check)
   app.get("/api/auth/me", async (req, res) => {
     // Disable caching to ensure fresh session state
@@ -164,14 +183,14 @@ export async function registerRoutes(
     res.set('Expires', '0');
     
     try {
-      // Debug: log session info
-      console.log("[DEBUG] /api/auth/me - Session ID:", req.sessionID, "userId:", req.session.userId, "Cookie:", req.headers.cookie?.substring(0, 50));
+      const userId = getAuthUserId(req);
+      console.log("[DEBUG] /api/auth/me - userId:", userId, "from header:", req.headers['x-user-id']);
       
-      if (!req.session.userId) {
+      if (!userId) {
         return res.json({ user: null, restaurant: null, portalRole: null, branchAccess: null });
       }
 
-      const user = await storage.getUser(req.session.userId);
+      const user = await storage.getUser(userId);
       if (!user) {
         req.session.destroy(() => {});
         return res.json({ user: null, restaurant: null, portalRole: null });
@@ -1918,9 +1937,10 @@ export async function registerRoutes(
   // RESTAURANT STATS - Get restaurant dashboard statistics
   app.get("/api/restaurants/:restaurantId/stats", async (req, res) => {
     try {
-      console.log("[DEBUG] /stats - Session ID:", req.sessionID, "userId:", req.session.userId, "Cookie:", req.headers.cookie?.substring(0, 80));
+      const userId = getAuthUserId(req);
+      const userType = getAuthUserType(req);
       
-      if (!req.session.userId || req.session.userType !== 'restaurant_admin') {
+      if (!userId || userType !== 'restaurant_admin') {
         return res.status(401).json({ error: "Unauthorized" });
       }
 
@@ -2421,8 +2441,10 @@ export async function registerRoutes(
   // DINER REGISTRATIONS STATS - Get diner registrations by date range for charts
   app.get("/api/restaurants/:restaurantId/diner-registrations", async (req, res) => {
     try {
-      // Require authenticated admin
-      if (!req.session.userId || req.session.userType !== 'restaurant_admin') {
+      const userId = getAuthUserId(req);
+      const userType = getAuthUserType(req);
+      
+      if (!userId || userType !== 'restaurant_admin') {
         return res.status(401).json({ error: "Unauthorized" });
       }
 
@@ -2434,8 +2456,8 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Restaurant not found" });
       }
       
-      const isOwner = restaurant.adminUserId === req.session.userId;
-      const portalAccess = await storage.getPortalUserByUserAndRestaurant(req.session.userId, restaurantId);
+      const isOwner = restaurant.adminUserId === userId;
+      const portalAccess = await storage.getPortalUserByUserAndRestaurant(userId, restaurantId);
       
       if (!isOwner && !portalAccess) {
         return res.status(403).json({ error: "You don't have access to this restaurant's stats" });
@@ -2461,7 +2483,7 @@ export async function registerRoutes(
       let branchId = req.query.branchId as string | undefined;
       
       // Validate branch access
-      const branchAccess = await storage.getAccessibleBranchIds(req.session.userId, restaurantId);
+      const branchAccess = await storage.getAccessibleBranchIds(userId, restaurantId);
       if (branchId) {
         if (!branchAccess.hasAllAccess && !branchAccess.branchIds.includes(branchId)) {
           return res.status(403).json({ error: "You don't have access to this branch" });
@@ -2485,7 +2507,10 @@ export async function registerRoutes(
   // REVENUE BY DATE - Get daily revenue over time with date range filtering
   app.get("/api/restaurants/:restaurantId/revenue", async (req, res) => {
     try {
-      if (!req.session.userId || req.session.userType !== 'restaurant_admin') {
+      const userId = getAuthUserId(req);
+      const userType = getAuthUserType(req);
+      
+      if (!userId || userType !== 'restaurant_admin') {
         return res.status(401).json({ error: "Unauthorized" });
       }
 
@@ -2496,8 +2521,8 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Restaurant not found" });
       }
       
-      const isOwner = restaurant.adminUserId === req.session.userId;
-      const portalAccess = await storage.getPortalUserByUserAndRestaurant(req.session.userId, restaurantId);
+      const isOwner = restaurant.adminUserId === userId;
+      const portalAccess = await storage.getPortalUserByUserAndRestaurant(userId, restaurantId);
       
       if (!isOwner && !portalAccess) {
         return res.status(403).json({ error: "You don't have access to this restaurant's stats" });
@@ -2522,7 +2547,7 @@ export async function registerRoutes(
       let branchId = req.query.branchId as string | undefined;
       
       // Validate branch access
-      const branchAccess = await storage.getAccessibleBranchIds(req.session.userId, restaurantId);
+      const branchAccess = await storage.getAccessibleBranchIds(userId, restaurantId);
       if (branchId) {
         if (!branchAccess.hasAllAccess && !branchAccess.branchIds.includes(branchId)) {
           return res.status(403).json({ error: "You don't have access to this branch" });
@@ -2546,7 +2571,10 @@ export async function registerRoutes(
   // VOUCHER REDEMPTIONS BY TYPE - Get voucher redemptions grouped by voucher type
   app.get("/api/restaurants/:restaurantId/voucher-redemptions-by-type", async (req, res) => {
     try {
-      if (!req.session.userId || req.session.userType !== 'restaurant_admin') {
+      const userId = getAuthUserId(req);
+      const userType = getAuthUserType(req);
+      
+      if (!userId || userType !== 'restaurant_admin') {
         return res.status(401).json({ error: "Unauthorized" });
       }
 
@@ -2557,8 +2585,8 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Restaurant not found" });
       }
       
-      const isOwner = restaurant.adminUserId === req.session.userId;
-      const portalAccess = await storage.getPortalUserByUserAndRestaurant(req.session.userId, restaurantId);
+      const isOwner = restaurant.adminUserId === userId;
+      const portalAccess = await storage.getPortalUserByUserAndRestaurant(userId, restaurantId);
       
       if (!isOwner && !portalAccess) {
         return res.status(403).json({ error: "You don't have access to this restaurant's stats" });
@@ -2578,7 +2606,7 @@ export async function registerRoutes(
       let branchId = req.query.branchId as string | undefined;
       
       // Validate branch access
-      const branchAccess = await storage.getAccessibleBranchIds(req.session.userId, restaurantId);
+      const branchAccess = await storage.getAccessibleBranchIds(userId, restaurantId);
       if (branchId) {
         if (!branchAccess.hasAllAccess && !branchAccess.branchIds.includes(branchId)) {
           return res.status(403).json({ error: "You don't have access to this branch" });

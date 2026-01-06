@@ -8,6 +8,9 @@ import MemoryStore from "memorystore";
 const app = express();
 const httpServer = createServer(app);
 
+// Trust proxy for Replit (required for secure cookies behind reverse proxy)
+app.set('trust proxy', 1);
+
 const MemoryStoreSession = MemoryStore(session);
 
 declare module "http" {
@@ -43,7 +46,7 @@ app.use(
       checkPeriod: 86400000, // prune expired entries every 24h
     }),
     cookie: {
-      secure: process.env.NODE_ENV === "production",
+      secure: true, // Always true on Replit (HTTPS proxy)
       httpOnly: true,
       maxAge: 90 * 24 * 60 * 60 * 1000, // 90 days
       sameSite: "lax",

@@ -60,21 +60,25 @@ export default function Home() {
         throw new Error("This account is not registered as a diner.");
       }
 
-      // Set auth data directly in cache - queries will refetch on mount due to staleTime: 0
-      queryClient.setQueryData(["auth"], {
-        user: data.user,
-        restaurant: data.restaurant,
-        portalRole: data.portalRole,
-        branchAccess: null,
-      });
-      
       toast({
         title: "Welcome back!",
         description: `Logged in as ${data.user.name}`,
       });
 
-      // Small delay to ensure browser processes the session cookie before navigation
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Verify session is working by fetching auth status (this confirms cookie was processed)
+      const verifyResponse = await fetch("/api/auth/me", {
+        credentials: "include",
+      });
+      
+      if (!verifyResponse.ok) {
+        throw new Error("Session verification failed. Please try again.");
+      }
+      
+      const verifiedAuth = await verifyResponse.json();
+      
+      // Set verified auth data in cache
+      queryClient.setQueryData(["auth"], verifiedAuth);
+      
       navigate("/diner/dashboard");
     } catch (error: any) {
       toast({
@@ -267,21 +271,25 @@ export default function Home() {
         throw new Error("This account is not registered as a restaurant admin.");
       }
 
-      // Set auth data directly in cache - queries will refetch on mount due to staleTime: 0
-      queryClient.setQueryData(["auth"], {
-        user: data.user,
-        restaurant: data.restaurant,
-        portalRole: data.portalRole,
-        branchAccess: data.branchAccess || null,
-      });
-      
       toast({
         title: "Welcome back!",
         description: `Logged in as ${data.user.name}`,
       });
 
-      // Small delay to ensure browser processes the session cookie before navigation
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Verify session is working by fetching auth status (this confirms cookie was processed)
+      const verifyResponse = await fetch("/api/auth/me", {
+        credentials: "include",
+      });
+      
+      if (!verifyResponse.ok) {
+        throw new Error("Session verification failed. Please try again.");
+      }
+      
+      const verifiedAuth = await verifyResponse.json();
+      
+      // Set verified auth data in cache
+      queryClient.setQueryData(["auth"], verifiedAuth);
+      
       navigate("/admin/dashboard");
     } catch (error: any) {
       toast({

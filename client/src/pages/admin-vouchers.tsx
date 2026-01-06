@@ -27,7 +27,7 @@ const initialCampaigns = [
   { id: 3, name: "VIP Gala Invite", status: "Completed", voucher: "Welcome Drink", audience: "VIP", sent: 150, openRate: "82%" },
 ];
 
-export default function AdminVouchers() {
+function AdminVouchersContent() {
   const [campaigns, setCampaigns] = useState(initialCampaigns);
   const [voucherValue, setVoucherValue] = useState("R100 Loyalty Voucher");
   const [voucherValidityDays, setVoucherValidityDays] = useState<number | string>(30);
@@ -748,16 +748,15 @@ export default function AdminVouchers() {
   };
 
   return (
-    <AdminLayout>
-      <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-serif font-bold text-foreground">Rewards & Campaigns</h1>
-            <p className="text-muted-foreground mt-1">Manage your loyalty rewards and marketing campaigns.</p>
-          </div>
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-serif font-bold text-foreground">Rewards & Campaigns</h1>
+          <p className="text-muted-foreground mt-1">Manage your loyalty rewards and marketing campaigns.</p>
         </div>
+      </div>
 
-        <Tabs defaultValue="capture" className="w-full space-y-6">
+      <Tabs defaultValue="capture" className="w-full space-y-6">
           <TabsList className="grid w-full grid-cols-2 sm:max-w-[300px]">
             <TabsTrigger value="capture">Capture</TabsTrigger>
             <TabsTrigger value="vouchers">Vouchers</TabsTrigger>
@@ -1694,6 +1693,13 @@ export default function AdminVouchers() {
           </TabsContent>
         </Tabs>
       </div>
+  );
+}
+
+export default function AdminVouchers() {
+  return (
+    <AdminLayout>
+      <AdminVouchersContent />
     </AdminLayout>
   );
 }

@@ -60,8 +60,8 @@ export default function Home() {
         throw new Error("This account is not registered as a diner.");
       }
 
-      // Clear all cached data to ensure fresh data for new session
-      queryClient.clear();
+      // Invalidate all queries except auth to force fresh data, then set auth
+      queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] !== 'auth' });
       
       // Set auth data directly in cache to avoid race conditions
       queryClient.setQueryData(["auth"], {
@@ -213,8 +213,8 @@ export default function Home() {
         throw new Error(data.error || "Registration failed");
       }
 
-      // Clear all cached data to ensure fresh data for new session
-      queryClient.clear();
+      // Invalidate all queries except auth to force fresh data, then set auth
+      queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] !== 'auth' });
       
       // Set auth data directly in cache
       queryClient.setQueryData(["auth"], {
@@ -269,8 +269,8 @@ export default function Home() {
         throw new Error("This account is not registered as a restaurant admin.");
       }
 
-      // Clear all cached data to ensure fresh data for new session
-      queryClient.clear();
+      // Invalidate all queries except auth to force fresh data, then set auth
+      queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] !== 'auth' });
       
       // Set auth data directly in cache to avoid race conditions
       queryClient.setQueryData(["auth"], {

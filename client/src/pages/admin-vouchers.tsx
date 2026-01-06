@@ -1532,10 +1532,10 @@ export default function AdminVouchers() {
                         <div className="grid gap-2">
                           <Label htmlFor="vt-credits">
                             {voucherTypeCategory === "registration" 
-                              ? "Credits Required"
+                              ? "Value"
                               : voucherTypeEarningMode === "points" 
-                                ? "Points Credits Required" 
-                                : "Visits Credits Required"}
+                                ? "Points Required" 
+                                : "Visits Required"}
                           </Label>
                           <Input 
                             id="vt-credits" 

@@ -50,27 +50,99 @@ The backend uses a storage abstraction pattern (`IStorage` interface) that decou
 
 Core data models:
 - `users` - Both diners and restaurant admins (distinguished by `userType`)
+  - Includes `analyticsId` - unique anonymous identifier for trend reporting (no PII exposure)
+  - Demographic fields: `gender`, `ageRange`, `province` (collected at registration)
 - `restaurants` - Restaurant entities (organization level) with configurable loyalty rules
 - `branches` - Restaurant branches with name, address, phone, isDefault, isActive flags
-- `pointsBalances` - Points balance per diner per restaurant (organization scope)
+- `pointsBalances` - Points balance per diner per restaurant (tracks branchId when loyaltyScope='branch')
 - `transactions` - Transaction history for points earning (tracks branchId)
 - `vouchers` - Generated vouchers with codes and expiry dates (tracks branchId)
 - `campaigns` - Marketing campaigns (placeholder)
+
+### Analytics & Privacy
+- Each diner has a unique `analyticsId` (12-char random base62 string) for anonymous trend reporting
+- Restaurant partners can view user trends and demographics without accessing PII (name, email, phone)
+- Demographic data collected: gender, age range (18-29, 30-39, 40-49, 50-59, 60+), province
+- POPIA-compliant pseudonymization for data analytics
 
 ### Multi-Branch Architecture
 - Restaurants are the organization level; branches are physical locations
 - Each restaurant must have exactly one default branch
 - Data is tracked per-branch (transactions, vouchers, reconciliation) with org-wide roll-ups
 - Diners register at the organization level and can transact at any branch
-- Points balances remain at restaurant scope (not branch-specific)
 - Admin UI includes a branch switcher for multi-branch restaurants
 - Branch context managed via `useBranch` hook in `client/src/hooks/use-branch.tsx`
 
-### Points System Design
-- Points are earned based on configurable `pointsPerCurrency` rate (default: 1 point per R1 spent)
-- Vouchers are automatically generated when points reach `pointsThreshold` (default: 1000 points)
-- Points reset to 0 after voucher generation (rollover model)
+### Loyalty Scope Configuration
+- **Points Accumulation** (`loyaltyScope` field):
+  - **Organization-wide** (`loyaltyScope: 'organization'`): Points earned at any branch count towards the same balance. This is the default mode. Points balances are tracked at the restaurant level (branchId is null).
+  - **Branch-specific** (`loyaltyScope: 'branch'`): Each branch tracks its own separate points balance. Diners have different point balances per branch.
+- **Voucher Redemption** (`voucherScope` field):
+  - **Organization-wide** (`voucherScope: 'organization'`): Vouchers can be redeemed at any branch. This is the default mode.
+  - **Branch-specific** (`voucherScope: 'branch'`): Vouchers can only be redeemed at the branch where they were earned.
+- When branch-specific points mode is enabled:
+  - Transactions require a branchId parameter
+  - Points balances are tracked per-branch (branchId is set)
+  - Diner dashboard shows branch name on balance cards
+- Admin settings page (`/admin/settings`) allows restaurant owners to configure both scopes
+
+### Voucher Earning Modes
+Restaurants can choose between two voucher earning modes:
+
+- **Points-based** (`voucherEarningMode: 'points'`): Default mode
+  - Points are earned based on configurable `pointsPerCurrency` rate (default: 1 point per R1 spent)
+  - Voucher credits earned when points reach `pointsThreshold` (default: 1000 points)
+  - Points reset to 0 after earning a credit (rollover model)
+  
+- **Visits-based** (`voucherEarningMode: 'visits'`): Alternative mode
+  - Each transaction counts as 1 visit (tracked via `currentVisits` and `totalVisits`)
+  - Voucher credits earned when visits reach `visitThreshold` (default: 10 visits)
+  - Current visits reset to 0 after earning a credit
+  - Ideal for "Buy 10, get 1 free" style programs
+
+- Admin settings page allows switching between modes with appropriate configuration fields
+- Diner dashboard displays either points or visits progress based on restaurant configuration
 - Vouchers have configurable validity periods per restaurant
+
+### Admin User Management
+- Restaurant admins can view all registered diners via the Users page (`/admin/users`)
+- Diners list displays: name, contact info, points, credits, vouchers, last visit, join date
+- Staff management allows owners to add/remove portal users (managers and staff)
+- Portal users are restaurant-level access grants for multiple team members
+- Only restaurant owners can add or remove staff members
+- Search functionality for filtering diners by name, email, or phone
+
+### Business Profile Management
+- Restaurant admins can manage their business profile via the Profile page (`/admin/profile`)
+- Profile fields include:
+  - Business Details: Legal name, trading name, description, cuisine type, registration number, VAT number
+  - Business Address: Street address, city, province, postal code, country
+  - Contact Information: Contact person name, email, phone, business hours
+  - Online Presence: Website URL, Facebook, Instagram, Twitter links
+- All profile data is stored in the restaurants table
+
+### Diner Profile Management
+- Diners can edit their profile via the Profile page (`/diner/profile`)
+- Transaction history shows full earning/redemption details (`/diner/history`)
+- Profile includes name, email, phone number fields
+- Diners can view their points balances across multiple restaurants
+
+### Phone Number Change Verification
+- Phone numbers are unique identifiers for transactions and cannot be changed without verification
+- Phone changes require OTP verification via SMS:
+  - User clicks "Change" on phone field, opens verification modal
+  - Enters new phone number and clicks "Send Verification Code"
+  - 6-digit OTP sent to new phone via SMS (10-minute expiry)
+  - User enters OTP in modal to verify and complete change
+- Security features:
+  - OTP is bcrypt-hashed before storage
+  - Maximum 5 verification attempts per request
+  - Existing pending requests auto-expire when new one is created
+  - Rate limiting via `smsRateLimiter` (5 requests/minute)
+  - Phone uniqueness validated before and after verification
+- API endpoints: `/api/phone-change/request` and `/api/phone-change/verify`
+- Profile update endpoint (`/api/users/:userId/profile`) does NOT allow phone changes
+- Data model: `phone_change_requests` table tracks userId, newPhone, otpHash, attempts, status, expiresAt
 
 ### Account Deletion
 - Two-step confirmation flow: modal requiring "DELETE" text + email confirmation

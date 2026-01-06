@@ -54,7 +54,7 @@ function downloadCSV(data: Record<string, unknown>[], filename: string) {
 function AdminDashboardContent() {
   const { toast } = useToast();
   const { restaurant } = useAuth();
-  const { selectedBranch, branches } = useBranch();
+  const { selectedBranch, selectedBranchId, isAllBranchesView, hasMultipleBranches } = useBranch();
   const restaurantId = restaurant?.id;
   const [invitePhone, setInvitePhone] = useState("");
   const [inviteSuccess, setInviteSuccess] = useState<{phone: string; registrationLink: string; smsSent: boolean} | null>(null);
@@ -75,9 +75,11 @@ function AdminDashboardContent() {
   });
 
   const { data: stats, isLoading } = useQuery<RestaurantStats>({
-    queryKey: ["/api/restaurants", restaurantId, "stats"],
+    queryKey: ["/api/restaurants", restaurantId, "stats", selectedBranchId],
     queryFn: async () => {
-      const res = await fetch(`/api/restaurants/${restaurantId}/stats`, { credentials: 'include' });
+      const params = new URLSearchParams();
+      if (selectedBranchId) params.set('branchId', selectedBranchId);
+      const res = await fetch(`/api/restaurants/${restaurantId}/stats?${params}`, { credentials: 'include' });
       if (!res.ok) throw new Error("Failed to fetch stats");
       return res.json();
     },
@@ -85,11 +87,12 @@ function AdminDashboardContent() {
   });
 
   const { data: registrationData, isLoading: isLoadingRegistrations } = useQuery<{ date: string; count: number }[]>({
-    queryKey: ["/api/restaurants", restaurantId, "diner-registrations", dateRange.from?.toDateString(), dateRange.to?.toDateString()],
+    queryKey: ["/api/restaurants", restaurantId, "diner-registrations", dateRange.from?.toDateString(), dateRange.to?.toDateString(), selectedBranchId],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (dateRange.from) params.set('start', format(dateRange.from, 'yyyy-MM-dd'));
       if (dateRange.to) params.set('end', format(dateRange.to, 'yyyy-MM-dd'));
+      if (selectedBranchId) params.set('branchId', selectedBranchId);
       const res = await fetch(`/api/restaurants/${restaurantId}/diner-registrations?${params}`, { credentials: 'include' });
       if (!res.ok) throw new Error("Failed to fetch registrations");
       return res.json();
@@ -110,11 +113,12 @@ function AdminDashboardContent() {
   }, [registrationData]);
 
   const { data: redemptionsByType, isLoading: isLoadingRedemptions } = useQuery<{ voucherTypeName: string; count: number }[]>({
-    queryKey: ["/api/restaurants", restaurantId, "voucher-redemptions-by-type", redemptionsDateRange.from?.toDateString(), redemptionsDateRange.to?.toDateString()],
+    queryKey: ["/api/restaurants", restaurantId, "voucher-redemptions-by-type", redemptionsDateRange.from?.toDateString(), redemptionsDateRange.to?.toDateString(), selectedBranchId],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (redemptionsDateRange.from) params.set('start', format(redemptionsDateRange.from, 'yyyy-MM-dd'));
       if (redemptionsDateRange.to) params.set('end', format(redemptionsDateRange.to, 'yyyy-MM-dd'));
+      if (selectedBranchId) params.set('branchId', selectedBranchId);
       const res = await fetch(`/api/restaurants/${restaurantId}/voucher-redemptions-by-type?${params}`, { credentials: 'include' });
       if (!res.ok) throw new Error("Failed to fetch redemptions by type");
       return res.json();
@@ -131,11 +135,12 @@ function AdminDashboardContent() {
   }, [redemptionsByType]);
 
   const { data: revenueData, isLoading: isLoadingRevenue } = useQuery<{ date: string; amount: number }[]>({
-    queryKey: ["/api/restaurants", restaurantId, "revenue", revenueDateRange.from?.toDateString(), revenueDateRange.to?.toDateString()],
+    queryKey: ["/api/restaurants", restaurantId, "revenue", revenueDateRange.from?.toDateString(), revenueDateRange.to?.toDateString(), selectedBranchId],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (revenueDateRange.from) params.set('start', format(revenueDateRange.from, 'yyyy-MM-dd'));
       if (revenueDateRange.to) params.set('end', format(revenueDateRange.to, 'yyyy-MM-dd'));
+      if (selectedBranchId) params.set('branchId', selectedBranchId);
       const res = await fetch(`/api/restaurants/${restaurantId}/revenue?${params}`, { credentials: 'include' });
       if (!res.ok) throw new Error("Failed to fetch revenue");
       return res.json();
@@ -334,10 +339,10 @@ function AdminDashboardContent() {
             <h1 className="text-3xl font-serif font-bold text-foreground">Dashboard</h1>
             <div className="flex items-center gap-2 mt-1">
               <p className="text-muted-foreground">Welcome back, Restaurant Admin.</p>
-              {branches.length > 1 && selectedBranch && (
+              {hasMultipleBranches && (
                 <Badge variant="outline" className="gap-1">
                   <Building2 className="h-3 w-3" />
-                  {selectedBranch.name}
+                  {isAllBranchesView ? 'All Branches' : selectedBranch?.name}
                 </Badge>
               )}
             </div>

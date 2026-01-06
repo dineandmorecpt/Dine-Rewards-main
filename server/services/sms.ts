@@ -47,3 +47,8 @@ export async function sendRegistrationInvite(phone: string, restaurantName: stri
   const message = `Welcome to Fancy Frank's rewards, please use the link to register: ${registrationLink} Fancy Frank's Rewards`;
   return sendSMS(phone, message);
 }
+
+export async function sendPhoneChangeOTP(phone: string, otp: string): Promise<{ success: boolean; error?: string }> {
+  const message = `Your Dine&More verification code is: ${otp}. This code expires in 10 minutes. Do not share this code with anyone.`;
+  return sendSMS(phone, message);
+}

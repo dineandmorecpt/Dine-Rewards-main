@@ -11,9 +11,13 @@ import AdminVouchers from "@/pages/admin-vouchers";
 import AdminReconciliation from "@/pages/admin-reconciliation";
 import AdminSettings from "@/pages/admin-settings";
 import AdminActivityLogs from "@/pages/admin-activity-logs";
+import AdminOnboarding from "@/pages/admin-onboarding";
+import AdminUsers from "@/pages/admin-users";
+import AdminProfile from "@/pages/admin-profile";
 import DinerDashboard from "@/pages/diner-dashboard";
 import DinerHistory from "@/pages/diner-history";
 import DinerProfile from "@/pages/diner-profile";
+import DinerFaq from "@/pages/diner-faq";
 import Register from "@/pages/register";
 import ForgotPassword from "@/pages/forgot-password";
 import ResetPassword from "@/pages/reset-password";
@@ -51,6 +55,15 @@ function Router() {
       <Route path="/admin/activity-logs">
         <AdminGuard><AdminActivityLogs /></AdminGuard>
       </Route>
+      <Route path="/admin/onboarding">
+        <AdminGuard><AdminOnboarding /></AdminGuard>
+      </Route>
+      <Route path="/admin/users">
+        <AdminGuard><AdminUsers /></AdminGuard>
+      </Route>
+      <Route path="/admin/profile">
+        <AdminGuard><AdminProfile /></AdminGuard>
+      </Route>
       
       <Route path="/diner">
         <Redirect to="/diner/dashboard" />
@@ -63,6 +76,9 @@ function Router() {
       </Route>
       <Route path="/diner/profile">
         <DinerGuard><DinerProfile /></DinerGuard>
+      </Route>
+      <Route path="/diner/faq">
+        <DinerGuard><DinerFaq /></DinerGuard>
       </Route>
 
       <Route component={NotFound} />

@@ -10,12 +10,13 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Ticket, Megaphone, Plus, Calendar, Users, Percent, DollarSign, Gift, Clock, Send, Settings, Save, ScanLine, Check, FileUp, FileCheck, FileX, ChevronRight, Upload, Camera, X, Phone, Receipt, Coins, UserPlus, Trash2, Mail, Lock, Download, QrCode, Pencil, ToggleLeft, ToggleRight } from "lucide-react";
+import { Ticket, Megaphone, Plus, Calendar, Users, Percent, DollarSign, Gift, Clock, Send, Settings, Save, ScanLine, Check, FileUp, FileCheck, FileX, ChevronRight, Upload, Camera, X, Phone, Receipt, Coins, UserPlus, Trash2, Mail, Lock, Download, QrCode, Pencil, ToggleLeft, ToggleRight, Search, FileDown, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Html5Qrcode } from "html5-qrcode";
 import { useAuth } from "@/hooks/use-auth";
+import { useBranch } from "@/hooks/use-branch";
 import { QRCodeCanvas } from "qrcode.react";
 
 // Mock Data
@@ -42,7 +43,9 @@ export default function AdminVouchers() {
   const [isScanning, setIsScanning] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { portalRole, isOwnerOrManager, restaurant } = useAuth();
+  const { selectedBranchId } = useBranch();
   const restaurantId = restaurant?.id;
   
   const canUploadReconciliation = isOwnerOrManager;
@@ -53,10 +56,16 @@ export default function AdminVouchers() {
   const [capturePhone, setCapturePhone] = useState("");
   const [captureBillId, setCaptureBillId] = useState("");
   const [captureAmount, setCaptureAmount] = useState("");
+  const [transactionFilter, setTransactionFilter] = useState("");
   const [captureScannerOpen, setCaptureScannerOpen] = useState(false);
   const [captureIsScanning, setCaptureIsScanning] = useState(false);
   const captureScannerRef = useRef<Html5Qrcode | null>(null);
   const [captureSuccess, setCaptureSuccess] = useState<{dinerName: string; pointsEarned: number; currentPoints: number} | null>(null);
+  
+  // Phone QR scanner state
+  const [phoneScannerOpen, setPhoneScannerOpen] = useState(false);
+  const [phoneIsScanning, setPhoneIsScanning] = useState(false);
+  const phoneScannerRef = useRef<Html5Qrcode | null>(null);
   
   // Portal users state
   const [newUserEmail, setNewUserEmail] = useState("");
@@ -67,12 +76,21 @@ export default function AdminVouchers() {
   // Voucher types state
   const [voucherTypeDialogOpen, setVoucherTypeDialogOpen] = useState(false);
   const [editingVoucherType, setEditingVoucherType] = useState<any>(null);
+  const [voucherTypeCategory, setVoucherTypeCategory] = useState<"rand_value" | "percentage" | "free_item" | "registration" | "">("");
   const [voucherTypeName, setVoucherTypeName] = useState("");
   const [voucherTypeDescription, setVoucherTypeDescription] = useState("");
   const [voucherTypeRewardDetails, setVoucherTypeRewardDetails] = useState("");
+  const [voucherTypeValue, setVoucherTypeValue] = useState<number | string>("");
+  const [voucherTypeFreeItemType, setVoucherTypeFreeItemType] = useState("");
+  const [voucherTypeFreeItemDescription, setVoucherTypeFreeItemDescription] = useState("");
   const [voucherTypeCreditsCost, setVoucherTypeCreditsCost] = useState<number | string>(1);
   const [voucherTypeValidityDays, setVoucherTypeValidityDays] = useState<number | string>(30);
   const [voucherTypeIsActive, setVoucherTypeIsActive] = useState(true);
+  const [voucherTypeRedemptionScope, setVoucherTypeRedemptionScope] = useState<"all_branches" | "specific_branches">("all_branches");
+  const [voucherTypeRedeemableBranchIds, setVoucherTypeRedeemableBranchIds] = useState<string[]>([]);
+  const [voucherTypeEarningMode, setVoucherTypeEarningMode] = useState<"points" | "visits">("points");
+  const [voucherTypePointsPerCurrency, setVoucherTypePointsPerCurrency] = useState<number | string>("");
+  const [categorySelectionStep, setCategorySelectionStep] = useState(true); // Show category selection first
   
   // QR code ref for download
   const qrCodeRef = useRef<HTMLCanvasElement>(null);
@@ -97,6 +115,19 @@ export default function AdminVouchers() {
     }
   };
   
+  // Fetch recent transactions
+  const transactionsQuery = useQuery({
+    queryKey: ['restaurant-transactions', restaurantId],
+    queryFn: async () => {
+      const res = await fetch(`/api/restaurants/${restaurantId}/transactions`, {
+        credentials: 'include'
+      });
+      if (!res.ok) throw new Error('Failed to fetch transactions');
+      return res.json();
+    },
+    enabled: !!restaurantId
+  });
+
   // Fetch portal users
   const portalUsersQuery = useQuery({
     queryKey: ['portal-users', restaurantId],
@@ -176,29 +207,93 @@ export default function AdminVouchers() {
     enabled: !!restaurantId
   });
   
+  // Fetch branches for redemption scope selection
+  const branchesQuery = useQuery({
+    queryKey: ['branches', restaurantId],
+    queryFn: async () => {
+      const res = await fetch(`/api/restaurants/${restaurantId}/branches`);
+      if (!res.ok) throw new Error('Failed to fetch branches');
+      return res.json();
+    },
+    enabled: !!restaurantId
+  });
+  
+  const branches = branchesQuery.data || [];
+  const hasMultipleBranches = branches.length > 1;
+  
   const resetVoucherTypeForm = () => {
+    setVoucherTypeCategory("");
     setVoucherTypeName("");
     setVoucherTypeDescription("");
     setVoucherTypeRewardDetails("");
+    setVoucherTypeValue("");
+    setVoucherTypeFreeItemType("");
+    setVoucherTypeFreeItemDescription("");
     setVoucherTypeCreditsCost(1);
     setVoucherTypeValidityDays(30);
     setVoucherTypeIsActive(true);
+    setVoucherTypeRedemptionScope("all_branches");
+    setVoucherTypeRedeemableBranchIds([]);
+    setVoucherTypeEarningMode("points");
+    setVoucherTypePointsPerCurrency("");
     setEditingVoucherType(null);
+    setCategorySelectionStep(true);
   };
   
   const openEditVoucherType = (vt: any) => {
     setEditingVoucherType(vt);
+    setVoucherTypeCategory(vt.category || "rand_value");
     setVoucherTypeName(vt.name);
     setVoucherTypeDescription(vt.description || "");
     setVoucherTypeRewardDetails(vt.rewardDetails || "");
+    setVoucherTypeValue(vt.value || "");
+    setVoucherTypeFreeItemType(vt.freeItemType || "");
+    setVoucherTypeFreeItemDescription(vt.freeItemDescription || "");
     setVoucherTypeCreditsCost(vt.creditsCost);
     setVoucherTypeValidityDays(vt.validityDays);
     setVoucherTypeIsActive(vt.isActive);
+    setVoucherTypeRedemptionScope(vt.redemptionScope || "all_branches");
+    setVoucherTypeRedeemableBranchIds(vt.redeemableBranchIds || []);
+    setVoucherTypeEarningMode(vt.earningMode || "points");
+    setVoucherTypePointsPerCurrency(vt.pointsPerCurrencyOverride || "");
+    setCategorySelectionStep(false); // Go straight to details when editing
     setVoucherTypeDialogOpen(true);
   };
   
+  const selectCategory = (category: "rand_value" | "percentage" | "free_item" | "registration") => {
+    setVoucherTypeCategory(category);
+    setCategorySelectionStep(false);
+    // Reset mutually exclusive fields when switching categories
+    if (category === "free_item") {
+      setVoucherTypeValue("");
+    } else {
+      setVoucherTypeFreeItemType("");
+      setVoucherTypeFreeItemDescription("");
+    }
+    // Set default name based on category
+    if (!voucherTypeName) {
+      if (category === "rand_value") setVoucherTypeName("R__ Off Your Bill");
+      else if (category === "percentage") setVoucherTypeName("__% Off Your Bill");
+      else if (category === "free_item") setVoucherTypeName("Free Item");
+      else if (category === "registration") setVoucherTypeName("Welcome Voucher - R__ Off Your First Visit");
+    }
+  };
+  
+  // Check if registration voucher type already exists
+  const existingRegistrationVoucherType = voucherTypesQuery.data?.find((vt: any) => vt.category === "registration");
+  
+  const isSaveDisabled = () => {
+    if (!voucherTypeName.trim() || !voucherTypeCategory) return true;
+    if (voucherTypeCategory === "rand_value" && !voucherTypeValue) return true;
+    if (voucherTypeCategory === "percentage" && !voucherTypeValue) return true;
+    if (voucherTypeCategory === "free_item" && !voucherTypeFreeItemType) return true;
+    if (voucherTypeCategory === "registration" && !voucherTypeValue) return true;
+    if (voucherTypeRedemptionScope === "specific_branches" && voucherTypeRedeemableBranchIds.length === 0) return true;
+    return createVoucherType.isPending || updateVoucherType.isPending;
+  };
+  
   const createVoucherType = useMutation({
-    mutationFn: async (data: { name: string; description?: string; rewardDetails?: string; creditsCost: number; validityDays: number; isActive: boolean }) => {
+    mutationFn: async (data: { category: string; name: string; description?: string; rewardDetails?: string; value?: number; freeItemType?: string; freeItemDescription?: string; creditsCost: number; validityDays: number; isActive: boolean }) => {
       const res = await fetch(`/api/restaurants/${restaurantId}/voucher-types`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -229,7 +324,7 @@ export default function AdminVouchers() {
   });
   
   const updateVoucherType = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: { name?: string; description?: string; rewardDetails?: string; creditsCost?: number; validityDays?: number; isActive?: boolean } }) => {
+    mutationFn: async ({ id, data }: { id: string; data: { category?: string; name?: string; description?: string; rewardDetails?: string; value?: number; freeItemType?: string; freeItemDescription?: string; creditsCost?: number; validityDays?: number; isActive?: boolean } }) => {
       const res = await fetch(`/api/restaurants/${restaurantId}/voucher-types/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -288,9 +383,17 @@ export default function AdminVouchers() {
   
   const handleSaveVoucherType = () => {
     const data = {
+      category: voucherTypeCategory,
+      earningMode: voucherTypeEarningMode,
+      pointsPerCurrencyOverride: voucherTypeEarningMode === "points" && voucherTypePointsPerCurrency ? Number(voucherTypePointsPerCurrency) : undefined,
       name: voucherTypeName,
       description: voucherTypeDescription || undefined,
       rewardDetails: voucherTypeRewardDetails || undefined,
+      value: voucherTypeValue ? Number(voucherTypeValue) : undefined,
+      freeItemType: voucherTypeFreeItemType || undefined,
+      freeItemDescription: voucherTypeFreeItemDescription || undefined,
+      redemptionScope: voucherTypeRedemptionScope,
+      redeemableBranchIds: voucherTypeRedemptionScope === "specific_branches" ? voucherTypeRedeemableBranchIds : undefined,
       creditsCost: Number(voucherTypeCreditsCost),
       validityDays: Number(voucherTypeValidityDays),
       isActive: voucherTypeIsActive
@@ -355,6 +458,9 @@ export default function AdminVouchers() {
       if (captureScannerRef.current) {
         captureScannerRef.current.stop().catch(() => {});
       }
+      if (phoneScannerRef.current) {
+        phoneScannerRef.current.stop().catch(() => {});
+      }
     };
   }, []);
 
@@ -402,6 +508,78 @@ export default function AdminVouchers() {
     setCaptureScannerOpen(false);
   };
 
+  const startPhoneScanner = async () => {
+    try {
+      setPhoneIsScanning(true);
+      const scanner = new Html5Qrcode("phone-qr-reader");
+      phoneScannerRef.current = scanner;
+      
+      await scanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        (decodedText) => {
+          // Extract phone number from QR code - support formats like "tel:0821234567" or just the number
+          let phone = decodedText;
+          if (decodedText.startsWith('tel:')) {
+            phone = decodedText.replace('tel:', '');
+          }
+          // Clean up the phone number (remove spaces, dashes)
+          phone = phone.replace(/[\s-]/g, '');
+          setCapturePhone(phone);
+          setCaptureSuccess(null);
+          stopPhoneScanner();
+          toast({
+            title: "Customer QR Scanned",
+            description: `Phone: ${phone}`
+          });
+        },
+        () => {}
+      );
+    } catch (err) {
+      console.error("Phone scanner error:", err);
+      setPhoneIsScanning(false);
+      setPhoneScannerOpen(false);
+      toast({
+        title: "Camera Error",
+        description: "Could not access camera. Please enter phone number manually.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const stopPhoneScanner = async () => {
+    if (phoneScannerRef.current) {
+      try {
+        await phoneScannerRef.current.stop();
+        phoneScannerRef.current = null;
+      } catch (err) {
+        console.error("Error stopping phone scanner:", err);
+      }
+    }
+    setPhoneIsScanning(false);
+    setPhoneScannerOpen(false);
+  };
+
+  // Auto-start phone scanner when dialog opens
+  useEffect(() => {
+    if (phoneScannerOpen && !phoneIsScanning) {
+      const timer = setTimeout(() => {
+        startPhoneScanner();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [phoneScannerOpen]);
+
+  // Auto-start capture scanner when dialog opens
+  useEffect(() => {
+    if (captureScannerOpen && !captureIsScanning) {
+      const timer = setTimeout(() => {
+        startCaptureScanner();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [captureScannerOpen]);
+
   const recordTransaction = useMutation({
     mutationFn: async ({ phone, billId, amountSpent }: { phone: string; billId?: string; amountSpent: number }) => {
       const res = await fetch(`/api/restaurants/${restaurantId}/transactions/record`, {
@@ -424,6 +602,8 @@ export default function AdminVouchers() {
       setCapturePhone("");
       setCaptureBillId("");
       setCaptureAmount("");
+      queryClient.invalidateQueries({ queryKey: ['restaurant-transactions', restaurantId] });
+      transactionsQuery.refetch();
       toast({
         title: "Transaction Recorded!",
         description: `${data.dinerName} earned ${data.transaction.pointsEarned} points`
@@ -495,7 +675,7 @@ export default function AdminVouchers() {
       const res = await fetch(`/api/restaurants/${restaurantId}/vouchers/redeem`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, billId: billId || undefined })
+        body: JSON.stringify({ code, billId: billId || undefined, branchId: selectedBranchId || undefined })
       });
       if (!res.ok) {
         const data = await res.json();
@@ -597,24 +777,62 @@ export default function AdminVouchers() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4 max-w-md">
-                  {/* Phone Number Input */}
-                  <div className="space-y-2">
-                    <Label htmlFor="capture-phone" className="flex items-center gap-2">
-                      <Phone className="h-4 w-4" />
-                      Customer Phone Number
-                    </Label>
-                    <Input
-                      id="capture-phone"
-                      placeholder="e.g., 0821234567"
-                      value={capturePhone}
-                      onChange={(e) => {
-                        setCapturePhone(e.target.value);
-                        setCaptureSuccess(null);
-                      }}
-                      className="font-mono"
-                      data-testid="input-capture-phone"
-                    />
-                  </div>
+                  {/* Phone Number Input with QR Scanner */}
+                  {phoneScannerOpen ? (
+                    <div className="space-y-3">
+                      <Label className="flex items-center gap-2">
+                        <QrCode className="h-4 w-4" />
+                        Scan Customer QR Code
+                      </Label>
+                      <div className="relative">
+                        <div id="phone-qr-reader" className="w-full rounded-lg overflow-hidden"></div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="absolute top-2 right-2 gap-1"
+                          onClick={stopPhoneScanner}
+                          data-testid="button-phone-close-scanner"
+                        >
+                          <X className="h-4 w-4" /> Close
+                        </Button>
+                      </div>
+                      {!phoneIsScanning && (
+                        <div className="flex items-center justify-center py-4 text-muted-foreground text-sm gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Starting camera...
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Label htmlFor="capture-phone" className="flex items-center gap-2">
+                        <Phone className="h-4 w-4" />
+                        Customer Phone Number
+                      </Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="capture-phone"
+                          placeholder="e.g., 0821234567"
+                          value={capturePhone}
+                          onChange={(e) => {
+                            setCapturePhone(e.target.value);
+                            setCaptureSuccess(null);
+                          }}
+                          className="font-mono"
+                          data-testid="input-capture-phone"
+                        />
+                        <Button
+                          variant="outline"
+                          onClick={() => setPhoneScannerOpen(true)}
+                          className="gap-2 shrink-0"
+                          data-testid="button-scan-customer-qr"
+                        >
+                          <QrCode className="h-4 w-4" />
+                          Scan
+                        </Button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Bill ID Scanner */}
                   {captureScannerOpen ? (
@@ -636,13 +854,10 @@ export default function AdminVouchers() {
                         </Button>
                       </div>
                       {!captureIsScanning && (
-                        <Button 
-                          onClick={startCaptureScanner} 
-                          className="w-full gap-2"
-                          data-testid="button-capture-start-camera"
-                        >
-                          <Camera className="h-4 w-4" /> Start Camera
-                        </Button>
+                        <div className="flex items-center justify-center py-4 text-muted-foreground text-sm gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Starting camera...
+                        </div>
                       )}
                     </div>
                   ) : (
@@ -732,6 +947,127 @@ export default function AdminVouchers() {
                     </div>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+
+            {/* Recent Transactions */}
+            <Card>
+              <CardHeader>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div>
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Receipt className="h-5 w-5" />
+                      Recent Transactions
+                    </CardTitle>
+                    <CardDescription>
+                      Transactions captured in the last 30 days
+                    </CardDescription>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2 w-full sm:w-auto"
+                    onClick={() => {
+                      const transactions = transactionsQuery.data || [];
+                      const filtered = transactions.filter((tx: any) => {
+                        if (!transactionFilter) return true;
+                        const search = transactionFilter.toLowerCase();
+                        return tx.dinerName?.toLowerCase().includes(search) ||
+                               tx.dinerPhone?.includes(search);
+                      });
+                      const csvContent = [
+                        ['Customer Name', 'Phone', 'Amount (R)', 'Points Earned', 'Date'].join(','),
+                        ...filtered.map((tx: any) => [
+                          `"${tx.dinerName || ''}"`,
+                          tx.dinerPhone || '',
+                          parseFloat(tx.amountSpent).toFixed(2),
+                          tx.pointsEarned,
+                          new Date(tx.transactionDate).toLocaleDateString()
+                        ].join(','))
+                      ].join('\n');
+                      const blob = new Blob([csvContent], { type: 'text/csv' });
+                      const url = URL.createObjectURL(blob);
+                      const link = document.createElement('a');
+                      link.href = url;
+                      link.download = `transactions-${new Date().toISOString().split('T')[0]}.csv`;
+                      link.click();
+                      URL.revokeObjectURL(url);
+                      toast({ title: "Export Complete", description: "Transactions exported to CSV" });
+                    }}
+                    disabled={!transactionsQuery.data?.length}
+                    data-testid="button-export-transactions"
+                  >
+                    <FileDown className="h-4 w-4" />
+                    Export CSV
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {/* Filter Input */}
+                <div className="relative mb-4">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by customer name or phone..."
+                    value={transactionFilter}
+                    onChange={(e) => setTransactionFilter(e.target.value)}
+                    className="pl-9"
+                    data-testid="input-transaction-filter"
+                  />
+                </div>
+
+                {transactionsQuery.isLoading ? (
+                  <div className="text-center py-8 text-muted-foreground">Loading transactions...</div>
+                ) : transactionsQuery.data?.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Receipt className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                    <p>No transactions captured yet</p>
+                  </div>
+                ) : (() => {
+                  const filteredTransactions = (transactionsQuery.data || []).filter((tx: any) => {
+                    if (!transactionFilter) return true;
+                    const search = transactionFilter.toLowerCase();
+                    return tx.dinerName?.toLowerCase().includes(search) ||
+                           tx.dinerPhone?.includes(search);
+                  });
+                  
+                  if (filteredTransactions.length === 0) {
+                    return (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Search className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                        <p>No transactions match your search</p>
+                      </div>
+                    );
+                  }
+                  
+                  return (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-4 gap-2 text-xs font-medium text-muted-foreground border-b pb-2">
+                        <div>Customer</div>
+                        <div>Amount</div>
+                        <div>Points</div>
+                        <div>Date</div>
+                      </div>
+                      {filteredTransactions.slice(0, 50).map((tx: any) => (
+                        <div key={tx.id} className="grid grid-cols-4 gap-2 text-sm py-2 border-b border-dashed last:border-0">
+                          <div className="truncate">
+                            <p className="font-medium truncate">{tx.dinerName}</p>
+                            <p className="text-xs text-muted-foreground truncate">{tx.dinerPhone}</p>
+                          </div>
+                          <div className="font-mono">R{parseFloat(tx.amountSpent).toFixed(2)}</div>
+                          <div className="text-green-600 dark:text-green-400 font-medium">+{tx.pointsEarned}</div>
+                          <div className="text-muted-foreground text-xs">
+                            {new Date(tx.transactionDate).toLocaleDateString()}
+                          </div>
+                        </div>
+                      ))}
+                      {filteredTransactions.length > 50 && (
+                        <p className="text-xs text-muted-foreground text-center pt-2">
+                          Showing 50 of {filteredTransactions.length} transactions. Export to see all.
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
               </CardContent>
             </Card>
           </TabsContent>
@@ -893,6 +1229,12 @@ export default function AdminVouchers() {
                       </CardHeader>
                       <CardContent className="pb-2 space-y-2">
                         <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Earned By</span>
+                          <Badge variant="outline" className="font-normal">
+                            {vt.earningMode === "visits" ? "Visits" : "Points"}
+                          </Badge>
+                        </div>
+                        <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground">Credits Required</span>
                           <span className="font-medium">{vt.creditsCost}</span>
                         </div>
@@ -948,101 +1290,405 @@ export default function AdminVouchers() {
               setVoucherTypeDialogOpen(open);
               if (!open) resetVoucherTypeForm();
             }}>
-              <DialogContent className="sm:max-w-[500px]">
-                <DialogHeader>
-                  <DialogTitle>{editingVoucherType ? "Edit Voucher Type" : "Create Voucher Type"}</DialogTitle>
-                  <DialogDescription>
-                    {editingVoucherType ? "Update the voucher type details." : "Define a new reward option that diners can choose."}
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="vt-name">Name *</Label>
-                    <Input 
-                      id="vt-name" 
-                      placeholder="e.g., R100 Off Your Bill"
-                      value={voucherTypeName}
-                      onChange={(e) => setVoucherTypeName(e.target.value)}
-                      data-testid="input-voucher-type-name"
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="vt-description">Description</Label>
-                    <Textarea 
-                      id="vt-description" 
-                      placeholder="Brief description of the reward..."
-                      value={voucherTypeDescription}
-                      onChange={(e) => setVoucherTypeDescription(e.target.value)}
-                      data-testid="input-voucher-type-description"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="vt-credits">Credits Required</Label>
-                      <Input 
-                        id="vt-credits" 
-                        type="number" 
-                        min="1"
-                        value={voucherTypeCreditsCost}
-                        onChange={(e) => setVoucherTypeCreditsCost(e.target.value)}
-                        data-testid="input-voucher-type-credits"
-                      />
+              <DialogContent className="sm:max-w-[500px] max-h-[85vh] overflow-y-auto">
+                {categorySelectionStep && !editingVoucherType ? (
+                  <>
+                    <DialogHeader>
+                      <DialogTitle>Choose Voucher Type</DialogTitle>
+                      <DialogDescription>
+                        Select the type of reward you want to offer your diners.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-3 py-4">
+                      <Button
+                        variant="outline"
+                        className="h-auto p-4 justify-start text-left flex-col items-start gap-1"
+                        onClick={() => selectCategory("rand_value")}
+                        data-testid="button-category-rand-value"
+                      >
+                        <div className="flex items-center gap-2 font-semibold">
+                          <DollarSign className="h-5 w-5 text-green-600" />
+                          Rand Value Off Your Bill
+                        </div>
+                        <p className="text-sm text-muted-foreground font-normal">
+                          A fixed Rand amount discount (e.g., R50 off, R100 off)
+                        </p>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="h-auto p-4 justify-start text-left flex-col items-start gap-1"
+                        onClick={() => selectCategory("percentage")}
+                        data-testid="button-category-percentage"
+                      >
+                        <div className="flex items-center gap-2 font-semibold">
+                          <Percent className="h-5 w-5 text-blue-600" />
+                          Percentage Off Your Bill
+                        </div>
+                        <p className="text-sm text-muted-foreground font-normal">
+                          A percentage discount (e.g., 10% off, 20% off)
+                        </p>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="h-auto p-4 justify-start text-left flex-col items-start gap-1"
+                        onClick={() => selectCategory("free_item")}
+                        data-testid="button-category-free-item"
+                      >
+                        <div className="flex items-center gap-2 font-semibold">
+                          <Gift className="h-5 w-5 text-purple-600" />
+                          Free Item on Your Next Visit
+                        </div>
+                        <p className="text-sm text-muted-foreground font-normal">
+                          A complimentary item (e.g., free beverage, starter, dessert)
+                        </p>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "h-auto p-4 justify-start text-left flex-col items-start gap-1",
+                          existingRegistrationVoucherType && "opacity-50"
+                        )}
+                        onClick={() => selectCategory("registration")}
+                        disabled={!!existingRegistrationVoucherType}
+                        data-testid="button-category-registration"
+                      >
+                        <div className="flex items-center gap-2 font-semibold">
+                          <UserPlus className="h-5 w-5 text-orange-600" />
+                          Registration Voucher (First Visit)
+                        </div>
+                        <p className="text-sm text-muted-foreground font-normal">
+                          {existingRegistrationVoucherType 
+                            ? "Already configured - only one registration voucher per restaurant" 
+                            : "One-time welcome discount for new diners on their first visit"}
+                        </p>
+                      </Button>
                     </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="vt-validity">Validity (Days)</Label>
-                      <Input 
-                        id="vt-validity" 
-                        type="number" 
-                        min="1"
-                        value={voucherTypeValidityDays}
-                        onChange={(e) => setVoucherTypeValidityDays(e.target.value)}
-                        data-testid="input-voucher-type-validity"
-                      />
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setVoucherTypeDialogOpen(false)}>
+                        Cancel
+                      </Button>
+                    </DialogFooter>
+                  </>
+                ) : (
+                  <>
+                    <DialogHeader>
+                      <DialogTitle>{editingVoucherType ? "Edit Voucher Type" : "Create Voucher Type"}</DialogTitle>
+                      <DialogDescription>
+                        {voucherTypeCategory === "rand_value" && "Rand value off the customer's bill"}
+                        {voucherTypeCategory === "percentage" && "Percentage off the customer's bill"}
+                        {voucherTypeCategory === "free_item" && "Free item on next visit"}
+                        {voucherTypeCategory === "registration" && "One-time welcome voucher for new diners (first visit only)"}
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      {/* Category-specific fields */}
+                      {voucherTypeCategory === "rand_value" && (
+                        <div className="grid gap-2">
+                          <Label htmlFor="vt-value">Rand Value *</Label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">R</span>
+                            <Input 
+                              id="vt-value" 
+                              type="number"
+                              min="1"
+                              className="pl-7"
+                              placeholder="e.g., 50"
+                              value={voucherTypeValue}
+                              onChange={(e) => setVoucherTypeValue(e.target.value)}
+                              data-testid="input-voucher-type-value"
+                            />
+                          </div>
+                        </div>
+                      )}
+                      {voucherTypeCategory === "percentage" && (
+                        <div className="grid gap-2">
+                          <Label htmlFor="vt-value">Percentage *</Label>
+                          <div className="relative">
+                            <Input 
+                              id="vt-value" 
+                              type="number"
+                              min="1"
+                              max="100"
+                              className="pr-7"
+                              placeholder="e.g., 10"
+                              value={voucherTypeValue}
+                              onChange={(e) => setVoucherTypeValue(e.target.value)}
+                              data-testid="input-voucher-type-value"
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+                          </div>
+                        </div>
+                      )}
+                      {voucherTypeCategory === "free_item" && (
+                        <>
+                          <div className="grid gap-2">
+                            <Label htmlFor="vt-free-item-type">Item Type *</Label>
+                            <Select
+                              value={voucherTypeFreeItemType}
+                              onValueChange={setVoucherTypeFreeItemType}
+                            >
+                              <SelectTrigger data-testid="select-free-item-type">
+                                <SelectValue placeholder="Select item type" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="beverage">Beverage</SelectItem>
+                                <SelectItem value="starter">Starter</SelectItem>
+                                <SelectItem value="main">Main Course</SelectItem>
+                                <SelectItem value="dessert">Dessert</SelectItem>
+                                <SelectItem value="side">Side Dish</SelectItem>
+                                <SelectItem value="other">Other</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="grid gap-2">
+                            <Label htmlFor="vt-free-item-desc">Item Description</Label>
+                            <Input 
+                              id="vt-free-item-desc" 
+                              placeholder="e.g., Any soft drink, House wine, etc."
+                              value={voucherTypeFreeItemDescription}
+                              onChange={(e) => setVoucherTypeFreeItemDescription(e.target.value)}
+                              data-testid="input-free-item-description"
+                            />
+                          </div>
+                        </>
+                      )}
+                      {voucherTypeCategory === "registration" && (
+                        <>
+                          <div className="grid gap-2">
+                            <Label htmlFor="vt-value">Welcome Discount Value (Rand) *</Label>
+                            <div className="relative">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">R</span>
+                              <Input 
+                                id="vt-value" 
+                                type="number"
+                                min="1"
+                                className="pl-7"
+                                placeholder="e.g., 50"
+                                value={voucherTypeValue}
+                                onChange={(e) => setVoucherTypeValue(e.target.value)}
+                                data-testid="input-voucher-type-value"
+                              />
+                            </div>
+                          </div>
+                          <div className="rounded-lg bg-orange-50 border border-orange-200 p-3">
+                            <p className="text-sm text-orange-800">
+                              <strong>Note:</strong> This voucher is automatically issued to new diners when they register. 
+                              Each diner can only receive one registration voucher per restaurant in their lifetime, 
+                              redeemable only on their first visit.
+                            </p>
+                          </div>
+                        </>
+                      )}
+                      
+                      <Separator />
+                      
+                      <div className="grid gap-2">
+                        <Label htmlFor="vt-name">Voucher Name *</Label>
+                        <Input 
+                          id="vt-name" 
+                          placeholder="e.g., R100 Off Your Bill"
+                          value={voucherTypeName}
+                          onChange={(e) => setVoucherTypeName(e.target.value)}
+                          data-testid="input-voucher-type-name"
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="vt-description">Description</Label>
+                        <Textarea 
+                          id="vt-description" 
+                          placeholder="Brief description of the reward..."
+                          value={voucherTypeDescription}
+                          onChange={(e) => setVoucherTypeDescription(e.target.value)}
+                          data-testid="input-voucher-type-description"
+                        />
+                      </div>
+                      {/* Earning Mode Selection */}
+                      {voucherTypeCategory !== "registration" && (
+                        <div className="grid gap-3">
+                          <Label>How is this voucher earned?</Label>
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              variant={voucherTypeEarningMode === "points" ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setVoucherTypeEarningMode("points")}
+                              data-testid="button-earning-points"
+                            >
+                              Points
+                            </Button>
+                            <Button
+                              type="button"
+                              variant={voucherTypeEarningMode === "visits" ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setVoucherTypeEarningMode("visits")}
+                              data-testid="button-earning-visits"
+                            >
+                              Visits
+                            </Button>
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {voucherTypeEarningMode === "points" 
+                              ? "Diners earn this voucher by accumulating points from their spending."
+                              : "Diners earn this voucher by reaching a visit count threshold."}
+                          </p>
+                          {voucherTypeEarningMode === "points" && (
+                            <div className="grid gap-2 mt-2">
+                              <Label htmlFor="vt-points-per-currency">Points per R1 Spent</Label>
+                              <Input 
+                                id="vt-points-per-currency" 
+                                type="number" 
+                                min="1"
+                                placeholder="Default: 1"
+                                value={voucherTypePointsPerCurrency}
+                                onChange={(e) => setVoucherTypePointsPerCurrency(e.target.value)}
+                                data-testid="input-voucher-type-points-per-currency"
+                              />
+                              <p className="text-xs text-muted-foreground">
+                                Leave empty to use the restaurant default (1 point per R1)
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="grid gap-2">
+                          <Label htmlFor="vt-credits">
+                            {voucherTypeCategory === "registration" 
+                              ? "Value"
+                              : voucherTypeEarningMode === "points" 
+                                ? "Points Required" 
+                                : "Visits Required"}
+                          </Label>
+                          <Input 
+                            id="vt-credits" 
+                            type="number" 
+                            min="1"
+                            value={voucherTypeCreditsCost}
+                            onChange={(e) => setVoucherTypeCreditsCost(e.target.value)}
+                            data-testid="input-voucher-type-credits"
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="vt-validity">Validity (Days)</Label>
+                          <Input 
+                            id="vt-validity" 
+                            type="number" 
+                            min="1"
+                            value={voucherTypeValidityDays}
+                            onChange={(e) => setVoucherTypeValidityDays(e.target.value)}
+                            data-testid="input-voucher-type-validity"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="vt-reward-details">Terms & Conditions</Label>
+                        <Textarea 
+                          id="vt-reward-details" 
+                          placeholder="Fine print, exclusions, terms..."
+                          value={voucherTypeRewardDetails}
+                          onChange={(e) => setVoucherTypeRewardDetails(e.target.value)}
+                          data-testid="input-voucher-type-reward-details"
+                        />
+                      </div>
+                      
+                      {/* Branch Redemption Scope */}
+                      {hasMultipleBranches && (
+                        <div className="grid gap-3">
+                          <Label>Where can this voucher be redeemed?</Label>
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              variant={voucherTypeRedemptionScope === "all_branches" ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => {
+                                setVoucherTypeRedemptionScope("all_branches");
+                                setVoucherTypeRedeemableBranchIds([]);
+                              }}
+                              data-testid="button-redemption-all-branches"
+                            >
+                              All Branches
+                            </Button>
+                            <Button
+                              type="button"
+                              variant={voucherTypeRedemptionScope === "specific_branches" ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setVoucherTypeRedemptionScope("specific_branches")}
+                              data-testid="button-redemption-specific-branches"
+                            >
+                              Specific Branches
+                            </Button>
+                          </div>
+                          {voucherTypeRedemptionScope === "specific_branches" && (
+                            <div className="grid gap-2 pl-2 border-l-2 border-muted">
+                              <p className="text-sm text-muted-foreground">Select branches where this voucher can be redeemed:</p>
+                              {branches.map((branch: any) => (
+                                <label key={branch.id} className="flex items-center gap-2 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={voucherTypeRedeemableBranchIds.includes(branch.id)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setVoucherTypeRedeemableBranchIds([...voucherTypeRedeemableBranchIds, branch.id]);
+                                      } else {
+                                        setVoucherTypeRedeemableBranchIds(voucherTypeRedeemableBranchIds.filter((id: string) => id !== branch.id));
+                                      }
+                                    }}
+                                    className="h-4 w-4 rounded border-gray-300"
+                                    data-testid={`checkbox-branch-${branch.id}`}
+                                  />
+                                  <span className="text-sm">{branch.name}</span>
+                                  {branch.isDefault && <Badge variant="secondary" className="text-xs">Default</Badge>}
+                                </label>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="vt-active">Active (visible to diners)</Label>
+                        <Button
+                          type="button"
+                          variant={voucherTypeIsActive ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setVoucherTypeIsActive(!voucherTypeIsActive)}
+                          className="gap-2"
+                          data-testid="button-voucher-type-active"
+                        >
+                          {voucherTypeIsActive ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}
+                          {voucherTypeIsActive ? "Active" : "Inactive"}
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="vt-reward-details">Terms & Conditions</Label>
-                    <Textarea 
-                      id="vt-reward-details" 
-                      placeholder="Fine print, exclusions, terms..."
-                      value={voucherTypeRewardDetails}
-                      onChange={(e) => setVoucherTypeRewardDetails(e.target.value)}
-                      data-testid="input-voucher-type-reward-details"
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="vt-active">Active (visible to diners)</Label>
-                    <Button
-                      type="button"
-                      variant={voucherTypeIsActive ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setVoucherTypeIsActive(!voucherTypeIsActive)}
-                      className="gap-2"
-                      data-testid="button-voucher-type-active"
-                    >
-                      {voucherTypeIsActive ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}
-                      {voucherTypeIsActive ? "Active" : "Inactive"}
-                    </Button>
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => {
-                      setVoucherTypeDialogOpen(false);
-                      resetVoucherTypeForm();
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button 
-                    onClick={handleSaveVoucherType}
-                    disabled={!voucherTypeName.trim() || createVoucherType.isPending || updateVoucherType.isPending}
-                    data-testid="button-save-voucher-type"
-                  >
-                    {(createVoucherType.isPending || updateVoucherType.isPending) ? "Saving..." : (editingVoucherType ? "Update" : "Create")}
-                  </Button>
-                </DialogFooter>
+                    <DialogFooter>
+                      {!editingVoucherType && (
+                        <Button 
+                          variant="ghost" 
+                          onClick={() => setCategorySelectionStep(true)}
+                        >
+                          Back
+                        </Button>
+                      )}
+                      <Button 
+                        variant="outline" 
+                        onClick={() => {
+                          setVoucherTypeDialogOpen(false);
+                          resetVoucherTypeForm();
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button 
+                        onClick={handleSaveVoucherType}
+                        disabled={isSaveDisabled()}
+                        data-testid="button-save-voucher-type"
+                      >
+                        {(createVoucherType.isPending || updateVoucherType.isPending) ? "Saving..." : (editingVoucherType ? "Update" : "Create")}
+                      </Button>
+                    </DialogFooter>
+                  </>
+                )}
               </DialogContent>
             </Dialog>
           </TabsContent>

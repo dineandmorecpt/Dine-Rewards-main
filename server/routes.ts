@@ -2,8 +2,9 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { createLoyaltyServices } from "./services/loyalty";
-import { sendRegistrationInvite } from "./services/sms";
+import { sendRegistrationInvite, sendPhoneChangeOTP, sendSMS } from "./services/sms";
 import { sendPasswordResetEmail, sendAccountDeletionConfirmationEmail } from "./services/email";
+import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { insertTransactionSchema } from "@shared/schema";
 import { z } from "zod";
 import crypto from "crypto";
@@ -19,12 +20,23 @@ const authRateLimiter = rateLimit({
   validate: { xForwardedForHeader: false },
 });
 
+// Stricter rate limiter for SMS-based endpoints to prevent abuse
+const smsRateLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute window
+  max: 5, // 5 requests per minute per IP
+  message: { error: "Too many SMS requests. Please wait a minute before trying again." },
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { xForwardedForHeader: false },
+});
+
 const recordTransactionSchema = z.object({
   phone: z.string()
     .transform(val => val.trim().replace(/[\s\-()]/g, ''))
     .refine(val => val.length >= 7, { message: "Phone number must be at least 7 digits" })
     .refine(val => /^[0-9+]+$/.test(val), { message: "Phone number contains invalid characters" }),
   billId: z.string().optional(),
+  branchId: z.string().optional(), // Optional branch ID for branch-specific tracking
   amountSpent: z.coerce.number()
     .refine(val => !isNaN(val), { message: "Amount must be a valid number" })
     .refine(val => val > 0, { message: "Amount must be greater than zero" })
@@ -36,6 +48,9 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  
+  // Register object storage routes for file uploads
+  registerObjectStorageRoutes(app);
   
   // SHORT REGISTRATION REDIRECT - /r/:token redirects to /register?token=...
   app.get("/r/:token", (req, res) => {
@@ -157,6 +172,7 @@ export async function registerRoutes(
 
       let restaurant = null;
       let portalRole = null; // 'owner' | 'manager' | 'staff' | null
+      let branchAccess: { branchIds: string[]; hasAllAccess: boolean } | null = null;
       
       if (user.userType === 'restaurant_admin') {
         // Check if user owns any restaurants
@@ -165,6 +181,7 @@ export async function registerRoutes(
         if (ownedRestaurants.length > 0) {
           restaurant = ownedRestaurants[0];
           portalRole = 'owner'; // Restaurant owner has full permissions
+          branchAccess = await storage.getAccessibleBranchIds(user.id, restaurant.id);
         } else {
           // Check if user has portal access to any restaurant
           const allRestaurants = await storage.getAllRestaurants();
@@ -173,6 +190,7 @@ export async function registerRoutes(
             if (portalAccess) {
               restaurant = r;
               portalRole = portalAccess.role; // 'manager' or 'staff'
+              branchAccess = await storage.getAccessibleBranchIds(user.id, r.id);
               break;
             }
           }
@@ -193,6 +211,7 @@ export async function registerRoutes(
           name: restaurant.name,
         } : null,
         portalRole, // 'owner' | 'manager' | 'staff' | null
+        branchAccess, // { branchIds: string[], hasAllAccess: boolean }
       });
     } catch (error) {
       console.error("Get current user error:", error);
@@ -257,6 +276,65 @@ export async function registerRoutes(
       res.json({ success: true, message: "If an account with that email exists, a password reset link has been sent." });
     } catch (error: any) {
       console.error("Forgot password error:", error);
+      res.status(500).json({ error: "Failed to process request" });
+    }
+  });
+
+  // AUTH - Forgot Password via SMS (for diners - sends reset link to phone)
+  const forgotPasswordSmsSchema = z.object({
+    phone: z.string()
+      .transform(val => val.trim().replace(/[\s\-()]/g, ''))
+      .refine(val => val.length >= 7, { message: "Phone number must be at least 7 digits" }),
+  });
+
+  app.post("/api/auth/forgot-password-sms", smsRateLimiter, async (req, res) => {
+    try {
+      const parseResult = forgotPasswordSmsSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(422).json({ 
+          error: parseResult.error.errors[0]?.message || "Invalid input" 
+        });
+      }
+
+      const { phone } = parseResult.data;
+      const user = await storage.getUserByPhone(phone);
+
+      // Always return success to prevent phone number enumeration
+      if (!user) {
+        console.log(`Password reset requested for non-existent phone: ${phone}`);
+        return res.json({ success: true, message: "If an account with that phone number exists, a password reset link has been sent." });
+      }
+
+      // Allow SMS password reset for both diners and restaurant admins
+      if (user.userType !== 'diner' && user.userType !== 'restaurant_admin') {
+        console.log(`SMS password reset attempted for unsupported account type: ${phone}`);
+        return res.json({ success: true, message: "If an account with that phone number exists, a password reset link has been sent." });
+      }
+
+      // Generate token (32 bytes = 64 hex characters)
+      const token = crypto.randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
+
+      await storage.createPasswordResetToken(user.id, token, expiresAt);
+
+      // Build reset link
+      const baseUrl = process.env.REPLIT_DEV_DOMAIN 
+        ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+        : 'http://localhost:5000';
+      const resetLink = `${baseUrl}/reset-password?token=${token}`;
+
+      // Send SMS with reset link
+      const { sendSMS } = await import("./services/sms");
+      const smsResult = await sendSMS(phone, `Reset your Dine&More password: ${resetLink} (expires in 1 hour)`);
+      
+      if (!smsResult.success) {
+        console.error('Failed to send password reset SMS:', smsResult.error);
+        // Don't reveal to user that SMS failed - still return success for security
+      }
+
+      res.json({ success: true, message: "If an account with that phone number exists, a password reset link has been sent." });
+    } catch (error: any) {
+      console.error("Forgot password SMS error:", error);
       res.status(500).json({ error: "Failed to process request" });
     }
   });
@@ -491,6 +569,9 @@ export async function registerRoutes(
       .refine(val => val.length >= 7, { message: "Phone number must be at least 7 digits" })
       .refine(val => /^[0-9+]+$/.test(val), { message: "Phone number contains invalid characters" }),
     password: passwordSchema,
+    gender: z.enum(["male", "female", "other", "prefer_not_to_say"]),
+    ageRange: z.enum(["18-29", "30-39", "40-49", "50-59", "60+"]),
+    province: z.string().min(1, "Province is required"),
   });
 
   app.post("/api/auth/register-diner", authRateLimiter, async (req, res) => {
@@ -502,7 +583,12 @@ export async function registerRoutes(
         });
       }
 
-      const { name, lastName, email, phone, password } = parseResult.data;
+      const { name, lastName, email, phone, password, gender, ageRange, province } = parseResult.data;
+
+      // Verify that the phone number was verified via OTP
+      if (!req.session.verifiedPhone || req.session.verifiedPhone !== phone) {
+        return res.status(400).json({ error: "Phone number must be verified before registration" });
+      }
 
       // Check if email already exists
       const existingEmail = await storage.getUserByEmail(email);
@@ -510,7 +596,7 @@ export async function registerRoutes(
         return res.status(400).json({ error: "An account with this email already exists" });
       }
 
-      // Check if phone already exists
+      // Check if phone already exists (double-check in case of race condition)
       const existingPhone = await storage.getUserByPhone(phone);
       if (existingPhone) {
         return res.status(400).json({ error: "An account with this phone number already exists" });
@@ -527,11 +613,15 @@ export async function registerRoutes(
         phone,
         password: hashedPassword,
         userType: 'diner',
+        gender,
+        ageRange,
+        province,
       });
 
-      // Set session
+      // Set session and clear verified phone
       req.session.userId = user.id;
       req.session.userType = user.userType;
+      delete req.session.verifiedPhone;
 
       // Explicitly save session before responding
       req.session.save((err) => {
@@ -688,7 +778,7 @@ export async function registerRoutes(
       .refine(val => /^[0-9+]+$/.test(val), { message: "Phone number contains invalid characters" }),
   });
 
-  app.post("/api/auth/request-otp", async (req, res) => {
+  app.post("/api/auth/request-otp", smsRateLimiter, async (req, res) => {
     try {
       const parseResult = requestOtpSchema.safeParse(req.body);
       if (!parseResult.success) {
@@ -701,16 +791,19 @@ export async function registerRoutes(
 
       // Check if user exists with this phone
       const user = await storage.getUserByPhone(phone);
-      if (!user) {
-        return res.status(404).json({ error: "No account found with this phone number" });
-      }
-
-      if (user.userType !== 'diner') {
-        return res.status(400).json({ error: "This phone number is not registered as a diner" });
+      
+      // Return generic success message to prevent phone enumeration
+      // Only actually send OTP if user exists and is a diner
+      if (!user || user.userType !== 'diner') {
+        console.log(`OTP request for non-existent or non-diner phone: ${phone}`);
+        return res.json({
+          success: true,
+          message: "If an account with that phone number exists, a code has been sent.",
+        });
       }
 
       // Generate 6-digit OTP
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const otp = crypto.randomInt(100000, 1000000).toString();
       
       // Store OTP with 5-minute expiry
       const expiresAt = new Date();
@@ -723,11 +816,7 @@ export async function registerRoutes(
 
       res.json({
         success: true,
-        smsSent: smsResult.success,
-        smsError: smsResult.error,
-        message: smsResult.success 
-          ? "OTP sent to your phone" 
-          : "Could not send SMS. Please try again.",
+        message: "If an account with that phone number exists, a code has been sent.",
       });
     } catch (error: any) {
       console.error("Request OTP error:", error);
@@ -806,14 +895,112 @@ export async function registerRoutes(
     }
   });
 
+  // AUTH - Request OTP for registration (phone verification)
+  app.post("/api/auth/request-registration-otp", smsRateLimiter, async (req, res) => {
+    try {
+      const parseResult = requestOtpSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(422).json({ 
+          error: parseResult.error.errors[0]?.message || "Invalid phone number" 
+        });
+      }
+
+      const { phone } = parseResult.data;
+
+      // Check if phone is already registered
+      const existingUser = await storage.getUserByPhone(phone);
+      if (existingUser) {
+        return res.status(400).json({ error: "This phone number is already registered" });
+      }
+
+      // Generate 6-digit OTP
+      const otp = crypto.randomInt(100000, 1000000).toString();
+      
+      // Store OTP with 5-minute expiry (using same store with prefix to differentiate)
+      const expiresAt = new Date();
+      expiresAt.setMinutes(expiresAt.getMinutes() + 5);
+      otpStore.set(`reg_${phone}`, { otp, expiresAt });
+
+      // Send OTP via SMS
+      const { sendSMS } = await import("./services/sms");
+      const smsResult = await sendSMS(phone, `Your Dine&More verification code is: ${otp}. Valid for 5 minutes.`);
+
+      res.json({
+        success: true,
+        smsSent: smsResult.success,
+        smsError: smsResult.error,
+        message: smsResult.success 
+          ? "Verification code sent to your phone" 
+          : "Could not send SMS. Please try again.",
+      });
+    } catch (error: any) {
+      console.error("Request registration OTP error:", error);
+      res.status(500).json({ error: "Failed to send verification code" });
+    }
+  });
+
+  // AUTH - Verify OTP for registration (stores verified phone in session)
+  app.post("/api/auth/verify-registration-otp", async (req, res) => {
+    try {
+      const parseResult = verifyOtpSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(422).json({ 
+          error: parseResult.error.errors[0]?.message || "Invalid input" 
+        });
+      }
+
+      const { phone, otp } = parseResult.data;
+
+      // Check stored OTP (with registration prefix)
+      const storedOtp = otpStore.get(`reg_${phone}`);
+      if (!storedOtp) {
+        return res.status(400).json({ error: "No verification code found. Please request a new one." });
+      }
+
+      if (new Date() > storedOtp.expiresAt) {
+        otpStore.delete(`reg_${phone}`);
+        return res.status(400).json({ error: "Verification code has expired. Please request a new one." });
+      }
+
+      if (storedOtp.otp !== otp) {
+        return res.status(401).json({ error: "Invalid verification code" });
+      }
+
+      // OTP is valid - clear it and store verified phone in session
+      otpStore.delete(`reg_${phone}`);
+      
+      // Store verified phone in session (valid for 15 minutes)
+      req.session.verifiedPhone = phone;
+      
+      req.session.save((err) => {
+        if (err) {
+          console.error("Session save error:", err);
+          return res.status(500).json({ error: "Verification failed" });
+        }
+        res.json({
+          success: true,
+          message: "Phone number verified successfully",
+          verifiedPhone: phone,
+        });
+      });
+    } catch (error: any) {
+      console.error("Verify registration OTP error:", error);
+      res.status(500).json({ error: "Verification failed" });
+    }
+  });
+
   // TRANSACTIONS - Record a transaction and calculate points
   app.post("/api/transactions", async (req, res) => {
     try {
-      const { dinerId, restaurantId, amountSpent } = insertTransactionSchema.parse(req.body);
+      const { dinerId, restaurantId, amountSpent, branchId } = insertTransactionSchema.extend({
+        branchId: z.string().optional()
+      }).parse(req.body);
       const result = await services.loyalty.recordTransaction(
         dinerId, 
         restaurantId, 
-        Number(amountSpent)
+        Number(amountSpent),
+        undefined, // billId
+        branchId
       );
       res.json(result);
     } catch (error: any) {
@@ -846,12 +1033,11 @@ export async function registerRoutes(
     }
   });
 
-  // USER PROFILE - Update user profile
+  // USER PROFILE - Update user profile (phone changes require OTP verification via /phone-change endpoints)
   const updateProfileSchema = z.object({
     name: z.string().min(1, "First name is required"),
     lastName: z.string().optional(),
     email: z.string().email("Invalid email address"),
-    phone: z.string().optional(),
   });
 
   app.patch("/api/users/:userId/profile", async (req, res) => {
@@ -870,7 +1056,7 @@ export async function registerRoutes(
         });
       }
       
-      const { name, lastName, email, phone } = parseResult.data;
+      const { name, lastName, email } = parseResult.data;
       
       // Check if email is being changed and if it's already taken
       const currentUser = await storage.getUser(userId);
@@ -885,19 +1071,13 @@ export async function registerRoutes(
         }
       }
       
-      // Check if phone is being changed and if it's already taken
-      if (phone && phone !== currentUser.phone) {
-        const existingPhone = await storage.getUserByPhone(phone);
-        if (existingPhone) {
-          return res.status(400).json({ error: "This phone number is already in use" });
-        }
-      }
+      // Note: Phone changes are NOT allowed via this endpoint
+      // Users must use /api/phone-change/request and /api/phone-change/verify
       
       const updatedUser = await storage.updateUserProfile(userId, { 
         name, 
         lastName: lastName || undefined, 
-        email, 
-        phone: phone || undefined 
+        email
       });
       
       res.json({
@@ -914,6 +1094,142 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Update profile error:", error);
       res.status(500).json({ error: "Failed to update profile" });
+    }
+  });
+
+  // PHONE CHANGE - Request OTP for phone number change
+  const phoneChangeRequestSchema = z.object({
+    newPhone: z.string()
+      .transform(val => val.trim().replace(/[\s\-()]/g, ''))
+      .refine(val => val.length >= 10, { message: "Phone number must be at least 10 digits" })
+  });
+
+  app.post("/api/phone-change/request", smsRateLimiter, async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const parseResult = phoneChangeRequestSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(422).json({ 
+          error: parseResult.error.errors[0]?.message || "Invalid phone number" 
+        });
+      }
+
+      const { newPhone } = parseResult.data;
+
+      // Check if phone is already in use
+      const existingUser = await storage.getUserByPhone(newPhone);
+      if (existingUser && existingUser.id !== req.session.userId) {
+        return res.status(400).json({ error: "This phone number is already registered to another account" });
+      }
+
+      // Generate 6-digit OTP
+      const otp = crypto.randomInt(100000, 1000000).toString();
+      const otpHash = await bcrypt.hash(otp, 10);
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+      // Create phone change request
+      await storage.createPhoneChangeRequest({
+        userId: req.session.userId,
+        newPhone,
+        otpHash,
+        expiresAt
+      });
+
+      // Send OTP via SMS
+      const smsResult = await sendPhoneChangeOTP(newPhone, otp);
+      if (!smsResult.success) {
+        console.error("Failed to send phone change OTP:", smsResult.error);
+        return res.status(500).json({ error: "Failed to send verification code. Please try again." });
+      }
+
+      res.json({ 
+        success: true, 
+        message: "Verification code sent to your new phone number",
+        expiresAt: expiresAt.toISOString()
+      });
+    } catch (error: any) {
+      console.error("Phone change request error:", error);
+      res.status(500).json({ error: "Failed to initiate phone change" });
+    }
+  });
+
+  // PHONE CHANGE - Verify OTP and update phone number
+  const phoneChangeVerifySchema = z.object({
+    otp: z.string().length(6, "Verification code must be 6 digits")
+  });
+
+  app.post("/api/phone-change/verify", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const parseResult = phoneChangeVerifySchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(422).json({ 
+          error: parseResult.error.errors[0]?.message || "Invalid verification code" 
+        });
+      }
+
+      const { otp } = parseResult.data;
+
+      // Get active phone change request
+      const request = await storage.getActivePhoneChangeRequest(req.session.userId);
+      if (!request) {
+        return res.status(400).json({ error: "No pending phone change request found. Please request a new code." });
+      }
+
+      // Check if request has expired
+      if (new Date() > request.expiresAt) {
+        await storage.expirePhoneChangeRequest(request.id);
+        return res.status(400).json({ error: "Verification code has expired. Please request a new code." });
+      }
+
+      // Check attempts (max 5)
+      if (request.attempts >= 5) {
+        await storage.expirePhoneChangeRequest(request.id);
+        return res.status(400).json({ error: "Too many failed attempts. Please request a new code." });
+      }
+
+      // Verify OTP
+      const isValid = await bcrypt.compare(otp, request.otpHash);
+      if (!isValid) {
+        await storage.incrementPhoneChangeAttempts(request.id);
+        const remainingAttempts = 5 - (request.attempts + 1);
+        return res.status(400).json({ 
+          error: `Incorrect verification code. ${remainingAttempts} attempts remaining.` 
+        });
+      }
+
+      // Double-check phone isn't taken (race condition protection)
+      const existingUser = await storage.getUserByPhone(request.newPhone);
+      if (existingUser && existingUser.id !== req.session.userId) {
+        await storage.expirePhoneChangeRequest(request.id);
+        return res.status(400).json({ error: "This phone number is already registered to another account" });
+      }
+
+      // Mark request as verified and update user's phone
+      await storage.markPhoneChangeVerified(request.id);
+      const updatedUser = await storage.updateUserPhone(req.session.userId, request.newPhone);
+
+      res.json({ 
+        success: true, 
+        message: "Phone number updated successfully",
+        user: {
+          id: updatedUser.id,
+          email: updatedUser.email,
+          name: updatedUser.name,
+          lastName: updatedUser.lastName,
+          phone: updatedUser.phone,
+          userType: updatedUser.userType,
+        }
+      });
+    } catch (error: any) {
+      console.error("Phone change verify error:", error);
+      res.status(500).json({ error: "Failed to verify phone change" });
     }
   });
 
@@ -968,8 +1284,8 @@ export async function registerRoutes(
   app.post("/api/restaurants/:restaurantId/vouchers/redeem", async (req, res) => {
     try {
       const { restaurantId } = req.params;
-      const { code, billId } = req.body;
-      const result = await services.voucher.redeemVoucherByCode(restaurantId, code, billId);
+      const { code, billId, branchId } = req.body;
+      const result = await services.voucher.redeemVoucherByCode(restaurantId, code, billId, branchId);
       
       // Log activity
       await storage.createActivityLog({
@@ -978,7 +1294,7 @@ export async function registerRoutes(
         action: 'voucher_redeemed',
         targetType: 'voucher',
         targetId: result.voucher?.id || code,
-        details: JSON.stringify({ code, billId, dinerId: result.voucher?.dinerId }),
+        details: JSON.stringify({ code, billId, branchId, dinerId: result.voucher?.dinerId }),
       });
       
       res.json(result);
@@ -1018,7 +1334,39 @@ export async function registerRoutes(
   app.patch("/api/restaurants/:restaurantId/settings", async (req, res) => {
     try {
       const { restaurantId } = req.params;
-      const settings = req.body;
+      const rawSettings = req.body;
+      
+      // Coerce numeric fields from potential string values, skip NaN
+      const settings: Record<string, any> = {};
+      if (rawSettings.voucherValue !== undefined && rawSettings.voucherValue !== '') {
+        settings.voucherValue = rawSettings.voucherValue;
+      }
+      if (rawSettings.voucherValidityDays !== undefined && rawSettings.voucherValidityDays !== '') {
+        const val = Number(rawSettings.voucherValidityDays);
+        if (!isNaN(val)) settings.voucherValidityDays = val;
+      }
+      if (rawSettings.pointsPerCurrency !== undefined && rawSettings.pointsPerCurrency !== '') {
+        const val = Number(rawSettings.pointsPerCurrency);
+        if (!isNaN(val)) settings.pointsPerCurrency = val;
+      }
+      if (rawSettings.pointsThreshold !== undefined && rawSettings.pointsThreshold !== '') {
+        const val = Number(rawSettings.pointsThreshold);
+        if (!isNaN(val)) settings.pointsThreshold = val;
+      }
+      if (rawSettings.voucherEarningMode !== undefined && rawSettings.voucherEarningMode !== '') {
+        settings.voucherEarningMode = rawSettings.voucherEarningMode;
+      }
+      if (rawSettings.visitThreshold !== undefined && rawSettings.visitThreshold !== '') {
+        const val = Number(rawSettings.visitThreshold);
+        if (!isNaN(val)) settings.visitThreshold = val;
+      }
+      if (rawSettings.loyaltyScope !== undefined && rawSettings.loyaltyScope !== '') {
+        settings.loyaltyScope = rawSettings.loyaltyScope;
+      }
+      if (rawSettings.voucherScope !== undefined && rawSettings.voucherScope !== '') {
+        settings.voucherScope = rawSettings.voucherScope;
+      }
+      
       const updatedRestaurant = await services.config.updateRestaurantSettings(restaurantId, settings);
       
       // Log activity
@@ -1035,6 +1383,208 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Update restaurant settings error:", error);
       res.status(400).json({ error: error.message || "Failed to update settings" });
+    }
+  });
+
+  // RESTAURANT PROFILE - Update business profile information
+  const profileSchema = z.object({
+    name: z.string().min(1).optional(),
+    tradingName: z.string().optional(),
+    description: z.string().optional(),
+    cuisineType: z.string().optional(),
+    websiteUrl: z.string().url().optional().or(z.literal('')),
+    vatNumber: z.string().optional(),
+    registrationNumber: z.string().optional(),
+    streetAddress: z.string().optional(),
+    city: z.string().optional(),
+    province: z.string().optional(),
+    postalCode: z.string().optional(),
+    country: z.string().optional(),
+    contactName: z.string().optional(),
+    contactEmail: z.string().email().optional().or(z.literal('')),
+    contactPhone: z.string().optional(),
+    facebookUrl: z.string().url().optional().or(z.literal('')),
+    instagramUrl: z.string().url().optional().or(z.literal('')),
+    twitterUrl: z.string().url().optional().or(z.literal('')),
+    businessHours: z.string().optional(),
+    logoUrl: z.string().optional(),
+  });
+
+  app.patch("/api/restaurants/:restaurantId/profile", async (req, res) => {
+    try {
+      const { restaurantId } = req.params;
+      
+      if (!req.session.userId || req.session.userType !== 'restaurant_admin') {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const restaurant = await storage.getRestaurant(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+
+      const isOwner = restaurant.adminUserId === req.session.userId;
+      const portalAccess = await storage.getPortalUserByUserAndRestaurant(req.session.userId, restaurantId);
+      
+      if (!isOwner && !portalAccess) {
+        return res.status(403).json({ error: "You don't have access to this restaurant" });
+      }
+
+      const parseResult = profileSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(422).json({ error: parseResult.error.errors[0]?.message });
+      }
+
+      const updatedRestaurant = await storage.updateRestaurantProfile(restaurantId, parseResult.data);
+      
+      await storage.createActivityLog({
+        restaurantId,
+        userId: req.session.userId,
+        action: 'profile_updated',
+        targetType: 'restaurant',
+        targetId: restaurantId,
+        details: JSON.stringify({ fields: Object.keys(parseResult.data) }),
+      });
+
+      res.json(updatedRestaurant);
+    } catch (error: any) {
+      console.error("Update restaurant profile error:", error);
+      res.status(400).json({ error: error.message || "Failed to update profile" });
+    }
+  });
+
+  // RESTAURANT ONBOARDING - Save onboarding data (draft or submit)
+  const onboardingSchema = z.object({
+    registrationNumber: z.string().optional(),
+    streetAddress: z.string().optional(),
+    city: z.string().optional(),
+    province: z.string().optional(),
+    postalCode: z.string().optional(),
+    country: z.string().optional(),
+    contactName: z.string().optional(),
+    contactEmail: z.string().email().optional().or(z.literal('')),
+    contactPhone: z.string().optional(),
+    hasAdditionalBranches: z.boolean().optional(),
+    logoUrl: z.string().optional(),
+  });
+
+  app.patch("/api/restaurants/:restaurantId/onboarding", async (req, res) => {
+    try {
+      const { restaurantId } = req.params;
+      
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const parseResult = onboardingSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(422).json({ error: parseResult.error.errors[0]?.message });
+      }
+
+      const updatedRestaurant = await storage.updateRestaurantOnboarding(restaurantId, parseResult.data);
+      
+      await storage.createActivityLog({
+        restaurantId,
+        userId: req.session.userId,
+        action: 'onboarding_updated',
+        targetType: 'restaurant',
+        targetId: restaurantId,
+        details: JSON.stringify({ fields: Object.keys(parseResult.data) }),
+      });
+
+      res.json(updatedRestaurant);
+    } catch (error: any) {
+      console.error("Update onboarding error:", error);
+      res.status(400).json({ error: error.message || "Failed to update onboarding data" });
+    }
+  });
+
+  // RESTAURANT ONBOARDING - Submit for activation
+  app.post("/api/restaurants/:restaurantId/onboarding/submit", async (req, res) => {
+    try {
+      const { restaurantId } = req.params;
+      
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const restaurant = await storage.getRestaurant(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+
+      // Validate state transition - only allow draft -> submitted
+      if (restaurant.onboardingStatus !== 'draft') {
+        return res.status(422).json({ error: "Restaurant has already been submitted or is active" });
+      }
+
+      // Validate required fields
+      if (!restaurant.registrationNumber) {
+        return res.status(422).json({ error: "Registration number is required" });
+      }
+      if (!restaurant.streetAddress || !restaurant.city) {
+        return res.status(422).json({ error: "Address details are required" });
+      }
+      if (!restaurant.contactName || !restaurant.contactEmail || !restaurant.contactPhone) {
+        return res.status(422).json({ error: "Contact details are required" });
+      }
+
+      const updatedRestaurant = await storage.updateRestaurantOnboarding(restaurantId, {
+        onboardingStatus: 'submitted',
+      });
+
+      await storage.createActivityLog({
+        restaurantId,
+        userId: req.session.userId,
+        action: 'onboarding_submitted',
+        targetType: 'restaurant',
+        targetId: restaurantId,
+        details: null,
+      });
+
+      res.json(updatedRestaurant);
+    } catch (error: any) {
+      console.error("Submit onboarding error:", error);
+      res.status(400).json({ error: error.message || "Failed to submit onboarding" });
+    }
+  });
+
+  // RESTAURANT ONBOARDING - Activate (go live)
+  app.post("/api/restaurants/:restaurantId/onboarding/activate", async (req, res) => {
+    try {
+      const { restaurantId } = req.params;
+      
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const restaurant = await storage.getRestaurant(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+
+      if (restaurant.onboardingStatus !== 'submitted') {
+        return res.status(422).json({ error: "Restaurant must be submitted before activation" });
+      }
+
+      const updatedRestaurant = await storage.updateRestaurantOnboarding(restaurantId, {
+        onboardingStatus: 'active',
+        onboardingCompletedAt: new Date(),
+      });
+
+      await storage.createActivityLog({
+        restaurantId,
+        userId: req.session.userId,
+        action: 'restaurant_activated',
+        targetType: 'restaurant',
+        targetId: restaurantId,
+        details: null,
+      });
+
+      res.json(updatedRestaurant);
+    } catch (error: any) {
+      console.error("Activate restaurant error:", error);
+      res.status(400).json({ error: error.message || "Failed to activate restaurant" });
     }
   });
 
@@ -1189,7 +1739,7 @@ export async function registerRoutes(
 
   app.post("/api/restaurants/:restaurantId/voucher-types", async (req, res) => {
     try {
-      if (!req.session.userId || req.session.userType !== 'admin') {
+      if (!req.session.userId || req.session.userType !== 'restaurant_admin') {
         return res.status(401).json({ error: "Unauthorized" });
       }
 
@@ -1239,7 +1789,7 @@ export async function registerRoutes(
   // VOUCHER TYPES - Update voucher type (owner/manager only)
   app.patch("/api/restaurants/:restaurantId/voucher-types/:voucherTypeId", async (req, res) => {
     try {
-      if (!req.session.userId || req.session.userType !== 'admin') {
+      if (!req.session.userId || req.session.userType !== 'restaurant_admin') {
         return res.status(401).json({ error: "Unauthorized" });
       }
 
@@ -1284,7 +1834,7 @@ export async function registerRoutes(
   // VOUCHER TYPES - Delete voucher type (owner/manager only)
   app.delete("/api/restaurants/:restaurantId/voucher-types/:voucherTypeId", async (req, res) => {
     try {
-      if (!req.session.userId || req.session.userType !== 'admin') {
+      if (!req.session.userId || req.session.userType !== 'restaurant_admin') {
         return res.status(401).json({ error: "Unauthorized" });
       }
 
@@ -1327,6 +1877,7 @@ export async function registerRoutes(
   // DINER REDEEM VOUCHER CREDIT - Diner selects a voucher type to redeem their credit
   const redeemVoucherCreditSchema = z.object({
     voucherTypeId: z.string().min(1, "Voucher type is required"),
+    branchId: z.string().optional(),
   });
 
   app.post("/api/diners/:dinerId/restaurants/:restaurantId/redeem-credit", async (req, res) => {
@@ -1348,8 +1899,8 @@ export async function registerRoutes(
         });
       }
 
-      const { voucherTypeId } = parseResult.data;
-      const result = await services.loyalty.redeemVoucherCredit(dinerId, restaurantId, voucherTypeId);
+      const { voucherTypeId, branchId } = parseResult.data;
+      const result = await services.loyalty.redeemVoucherCredit(dinerId, restaurantId, voucherTypeId, branchId);
       res.json(result);
     } catch (error: any) {
       console.error("Redeem voucher credit error:", error);
@@ -1360,12 +1911,103 @@ export async function registerRoutes(
   // RESTAURANT STATS - Get restaurant dashboard statistics
   app.get("/api/restaurants/:restaurantId/stats", async (req, res) => {
     try {
+      if (!req.session.userId || req.session.userType !== 'restaurant_admin') {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
       const { restaurantId } = req.params;
-      const stats = await services.stats.getRestaurantStats(restaurantId);
+      
+      // Verify user has access to this restaurant
+      const restaurant = await storage.getRestaurant(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+      
+      const isOwner = restaurant.adminUserId === req.session.userId;
+      const portalAccess = await storage.getPortalUserByUserAndRestaurant(req.session.userId, restaurantId);
+      
+      if (!isOwner && !portalAccess) {
+        return res.status(403).json({ error: "You don't have access to this restaurant's stats" });
+      }
+      
+      let branchId = req.query.branchId as string | undefined;
+      
+      // Validate branch access and enforce restrictions for staff without full access
+      const branchAccess = await storage.getAccessibleBranchIds(req.session.userId, restaurantId);
+      if (branchId) {
+        if (!branchAccess.hasAllAccess && !branchAccess.branchIds.includes(branchId)) {
+          return res.status(403).json({ error: "You don't have access to this branch" });
+        }
+      } else if (!branchAccess.hasAllAccess) {
+        // Staff without full access must specify a branch - default to first accessible
+        if (branchAccess.branchIds.length > 0) {
+          branchId = branchAccess.branchIds[0];
+        } else {
+          return res.status(403).json({ error: "You don't have access to any branches" });
+        }
+      }
+      
+      const stats = await services.stats.getRestaurantStats(restaurantId, branchId || null);
       res.json(stats);
     } catch (error) {
       console.error("Get restaurant stats error:", error);
       res.status(500).json({ error: "Failed to fetch restaurant stats" });
+    }
+  });
+
+  // RESTAURANT GET TRANSACTIONS - Get recent transactions for a restaurant
+  app.get("/api/restaurants/:restaurantId/transactions", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const { restaurantId } = req.params;
+      
+      // Check user's access to this restaurant
+      const restaurant = await storage.getRestaurant(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+      
+      const isOwner = restaurant.adminUserId === req.session.userId;
+      const portalAccess = await storage.getPortalUserByUserAndRestaurant(req.session.userId, restaurantId);
+      
+      if (!isOwner && !portalAccess) {
+        return res.status(403).json({ error: "You don't have access to this restaurant" });
+      }
+      
+      let branchId = req.query.branchId as string | undefined;
+      
+      // Validate branch access
+      const branchAccess = await storage.getAccessibleBranchIds(req.session.userId, restaurantId);
+      if (branchId) {
+        if (!branchAccess.hasAllAccess && !branchAccess.branchIds.includes(branchId)) {
+          return res.status(403).json({ error: "You don't have access to this branch" });
+        }
+      } else if (!branchAccess.hasAllAccess && branchAccess.branchIds.length > 0) {
+        branchId = branchAccess.branchIds[0];
+      }
+      
+      // Get transactions (last 30 days by default)
+      const transactions = await storage.getTransactionsByRestaurant(restaurantId, true, branchId || null);
+      
+      // Enrich with diner info
+      const enrichedTransactions = await Promise.all(
+        transactions.map(async (tx) => {
+          const diner = await storage.getUser(tx.dinerId);
+          return {
+            ...tx,
+            dinerName: diner?.name || 'Unknown',
+            dinerPhone: diner?.phone || ''
+          };
+        })
+      );
+      
+      res.json(enrichedTransactions);
+    } catch (error) {
+      console.error("Get restaurant transactions error:", error);
+      res.status(500).json({ error: "Failed to fetch transactions" });
     }
   });
 
@@ -1382,7 +2024,7 @@ export async function registerRoutes(
         });
       }
       
-      const { phone, billId, amountSpent } = parseResult.data;
+      const { phone, billId, branchId, amountSpent } = parseResult.data;
       
       // Look up diner by phone
       const diner = await storage.getUserByPhone(phone);
@@ -1394,12 +2036,13 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Phone number is not registered as a diner" });
       }
       
-      // Record the transaction
+      // Record the transaction with optional branchId for branch-specific tracking
       const result = await services.loyalty.recordTransaction(
         diner.id,
         restaurantId,
         amountSpent,
-        billId || undefined
+        billId || undefined,
+        branchId || undefined
       );
       
       res.json({
@@ -1413,17 +2056,17 @@ export async function registerRoutes(
     }
   });
 
-  // RECONCILIATION - Upload CSV for bill matching (owner/manager only, staff cannot upload)
+  // RECONCILIATION - Upload CSV for bill matching (any user with restaurant access)
   app.post("/api/restaurants/:restaurantId/reconciliation/upload", async (req, res) => {
     try {
-      // Require authenticated admin
-      if (!req.session.userId || req.session.userType !== 'admin') {
+      // Require authenticated user
+      if (!req.session.userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
 
       const { restaurantId } = req.params;
       
-      // Check user's role for this restaurant
+      // Check user's access to this restaurant
       const restaurant = await storage.getRestaurant(restaurantId);
       if (!restaurant) {
         return res.status(404).json({ error: "Restaurant not found" });
@@ -1432,9 +2075,9 @@ export async function registerRoutes(
       const isOwner = restaurant.adminUserId === req.session.userId;
       const portalAccess = await storage.getPortalUserByUserAndRestaurant(req.session.userId, restaurantId);
       
-      // Staff cannot upload reconciliation files - only owner/manager
-      if (!isOwner && (!portalAccess || portalAccess.role === 'staff')) {
-        return res.status(403).json({ error: "You don't have permission to upload reconciliation files" });
+      // Allow any user with access to the restaurant (owner, manager, or staff)
+      if (!isOwner && !portalAccess) {
+        return res.status(403).json({ error: "You don't have access to this restaurant" });
       }
 
       const { fileName, csvContent } = req.body;
@@ -1451,10 +2094,28 @@ export async function registerRoutes(
     }
   });
 
-  // RECONCILIATION - Get all batches for a restaurant
+  // RECONCILIATION - Get all batches for a restaurant (any user with restaurant access)
   app.get("/api/restaurants/:restaurantId/reconciliation/batches", async (req, res) => {
     try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
       const { restaurantId } = req.params;
+      
+      // Check user's access to this restaurant
+      const restaurant = await storage.getRestaurant(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+      
+      const isOwner = restaurant.adminUserId === req.session.userId;
+      const portalAccess = await storage.getPortalUserByUserAndRestaurant(req.session.userId, restaurantId);
+      
+      if (!isOwner && !portalAccess) {
+        return res.status(403).json({ error: "You don't have access to this restaurant" });
+      }
+      
       const batches = await services.reconciliation.getBatches(restaurantId);
       res.json(batches);
     } catch (error) {
@@ -1463,9 +2124,28 @@ export async function registerRoutes(
     }
   });
 
-  // RECONCILIATION - Get batch details
+  // RECONCILIATION - Get batch details (any user with restaurant access)
   app.get("/api/restaurants/:restaurantId/reconciliation/batches/:batchId", async (req, res) => {
     try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const { restaurantId } = req.params;
+      
+      // Check user's access to this restaurant
+      const restaurant = await storage.getRestaurant(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+      
+      const isOwner = restaurant.adminUserId === req.session.userId;
+      const portalAccess = await storage.getPortalUserByUserAndRestaurant(req.session.userId, restaurantId);
+      
+      if (!isOwner && !portalAccess) {
+        return res.status(403).json({ error: "You don't have access to this restaurant" });
+      }
+      
       const { batchId } = req.params;
       const result = await services.reconciliation.getBatchDetails(batchId);
       if (!result) {
@@ -1591,6 +2271,11 @@ export async function registerRoutes(
       // Get restaurant details
       const restaurant = await storage.getRestaurant(invitation.restaurantId);
       
+      // Check if restaurant is active (completed onboarding)
+      if (!restaurant || restaurant.onboardingStatus !== 'active') {
+        return res.status(400).json({ error: "This restaurant is not yet accepting registrations" });
+      }
+      
       res.json({
         valid: true,
         phone: invitation.phone,
@@ -1610,6 +2295,9 @@ export async function registerRoutes(
     email: z.string().email("Invalid email address"),
     name: z.string().min(1, "Name is required"),
     lastName: z.string().min(1, "Surname is required"),
+    gender: z.enum(["male", "female", "other", "prefer_not_to_say"]),
+    ageRange: z.enum(["18-29", "30-39", "40-49", "50-59", "60+"]),
+    province: z.string().min(1, "Province is required"),
     termsAccepted: z.boolean().refine(val => val === true, { message: "You must accept the Terms & Conditions" }),
     privacyAccepted: z.boolean().refine(val => val === true, { message: "You must accept the Privacy Policy" }),
   });
@@ -1624,7 +2312,7 @@ export async function registerRoutes(
         });
       }
       
-      const { token, email, name, lastName, termsAccepted, privacyAccepted } = parseResult.data;
+      const { token, email, name, lastName, gender, ageRange, province, termsAccepted, privacyAccepted } = parseResult.data;
       
       // Get and validate invitation
       const invitation = await storage.getDinerInvitationByToken(token);
@@ -1638,6 +2326,12 @@ export async function registerRoutes(
       
       if (invitation.status === 'registered') {
         return res.status(400).json({ error: "This invitation has already been used" });
+      }
+      
+      // Check if restaurant is active (completed onboarding)
+      const restaurant = await storage.getRestaurant(invitation.restaurantId);
+      if (!restaurant || restaurant.onboardingStatus !== 'active') {
+        return res.status(400).json({ error: "This restaurant is not yet accepting registrations" });
       }
       
       // Check if email already exists
@@ -1662,6 +2356,9 @@ export async function registerRoutes(
         lastName,
         phone: invitation.phone,
         userType: 'diner',
+        gender,
+        ageRange,
+        province,
         termsAcceptedAt: termsAccepted ? now : null,
         privacyAcceptedAt: privacyAccepted ? now : null,
       });
@@ -1711,165 +2408,6 @@ export async function registerRoutes(
     }
   });
 
-  // PORTAL USERS - Get all portal users for a restaurant
-  app.get("/api/restaurants/:restaurantId/portal-users", async (req, res) => {
-    try {
-      // Require authenticated admin
-      if (!req.session.userId || req.session.userType !== 'admin') {
-        return res.status(401).json({ error: "Unauthorized" });
-      }
-
-      const { restaurantId } = req.params;
-      
-      // Verify user has access to this restaurant (owner or portal user)
-      const restaurant = await storage.getRestaurant(restaurantId);
-      if (!restaurant) {
-        return res.status(404).json({ error: "Restaurant not found" });
-      }
-      
-      const isOwner = restaurant.adminUserId === req.session.userId;
-      const portalAccess = await storage.getPortalUserByUserAndRestaurant(req.session.userId, restaurantId);
-      
-      if (!isOwner && !portalAccess) {
-        return res.status(403).json({ error: "You don't have access to this restaurant" });
-      }
-
-      const portalUsers = await storage.getPortalUsersByRestaurant(restaurantId);
-      res.json(portalUsers);
-    } catch (error) {
-      console.error("Get portal users error:", error);
-      res.status(500).json({ error: "Failed to fetch portal users" });
-    }
-  });
-
-  // PORTAL USERS - Add a new portal user
-  const addPortalUserSchema = z.object({
-    email: z.string().email("Invalid email address"),
-    name: z.string().min(1, "Name is required"),
-    role: z.enum(["manager", "staff"]).default("staff"),
-  });
-
-  app.post("/api/restaurants/:restaurantId/portal-users", async (req, res) => {
-    try {
-      // Require authenticated admin
-      if (!req.session.userId || req.session.userType !== 'admin') {
-        return res.status(401).json({ error: "Unauthorized" });
-      }
-
-      const { restaurantId } = req.params;
-      
-      // Verify user is owner of this restaurant (only owners can add portal users)
-      const restaurant = await storage.getRestaurant(restaurantId);
-      if (!restaurant) {
-        return res.status(404).json({ error: "Restaurant not found" });
-      }
-      
-      if (restaurant.adminUserId !== req.session.userId) {
-        return res.status(403).json({ error: "Only restaurant owners can add portal users" });
-      }
-
-      const parseResult = addPortalUserSchema.safeParse(req.body);
-      if (!parseResult.success) {
-        return res.status(422).json({ 
-          error: parseResult.error.errors[0]?.message || "Invalid input" 
-        });
-      }
-
-      const { email, name, role } = parseResult.data;
-
-      // Check if user already exists
-      let user = await storage.getUserByEmail(email);
-      
-      if (!user) {
-        // Create new admin user with random password
-        const hashedPassword = await bcrypt.hash(crypto.randomBytes(16).toString('hex'), 12);
-        user = await storage.createUser({
-          email,
-          name,
-          password: hashedPassword,
-          userType: 'admin',
-        });
-      }
-
-      // Check if already a portal user for this restaurant
-      const existingPortalUser = await storage.getPortalUserByUserAndRestaurant(user.id, restaurantId);
-      if (existingPortalUser) {
-        return res.status(400).json({ error: "This user already has access to this restaurant" });
-      }
-
-      // Add as portal user
-      const portalUser = await storage.addPortalUser({
-        restaurantId,
-        userId: user.id,
-        role,
-        addedBy: req.session.userId || null,
-      });
-
-      // Log activity
-      await storage.createActivityLog({
-        restaurantId,
-        userId: req.session.userId,
-        action: 'portal_user_added',
-        targetType: 'portal_user',
-        targetId: portalUser.id,
-        details: JSON.stringify({ email, name, role }),
-      });
-
-      res.json({
-        success: true,
-        portalUser: {
-          ...portalUser,
-          user: {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-          }
-        }
-      });
-    } catch (error: any) {
-      console.error("Add portal user error:", error);
-      res.status(500).json({ error: error.message || "Failed to add user" });
-    }
-  });
-
-  // PORTAL USERS - Remove a portal user
-  app.delete("/api/restaurants/:restaurantId/portal-users/:portalUserId", async (req, res) => {
-    try {
-      // Require authenticated admin
-      if (!req.session.userId || req.session.userType !== 'admin') {
-        return res.status(401).json({ error: "Unauthorized" });
-      }
-
-      const { restaurantId, portalUserId } = req.params;
-      
-      // Verify user is owner of this restaurant (only owners can remove portal users)
-      const restaurant = await storage.getRestaurant(restaurantId);
-      if (!restaurant) {
-        return res.status(404).json({ error: "Restaurant not found" });
-      }
-      
-      if (restaurant.adminUserId !== req.session.userId) {
-        return res.status(403).json({ error: "Only restaurant owners can remove portal users" });
-      }
-
-      await storage.removePortalUser(portalUserId);
-      
-      // Log activity
-      await storage.createActivityLog({
-        restaurantId,
-        userId: req.session.userId,
-        action: 'portal_user_removed',
-        targetType: 'portal_user',
-        targetId: portalUserId,
-        details: null,
-      });
-      
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Remove portal user error:", error);
-      res.status(500).json({ error: "Failed to remove user" });
-    }
-  });
 
   // DINER REGISTRATIONS STATS - Get diner registrations by date range for charts
   app.get("/api/restaurants/:restaurantId/diner-registrations", async (req, res) => {
@@ -1911,8 +2449,23 @@ export async function registerRoutes(
       
       const endDate = parseDate(req.query.end as string, today);
       const startDate = parseDate(req.query.start as string, thirtyDaysAgo);
+      let branchId = req.query.branchId as string | undefined;
       
-      const data = await storage.getDinerRegistrationsByDateRange(restaurantId, startDate, endDate);
+      // Validate branch access
+      const branchAccess = await storage.getAccessibleBranchIds(req.session.userId, restaurantId);
+      if (branchId) {
+        if (!branchAccess.hasAllAccess && !branchAccess.branchIds.includes(branchId)) {
+          return res.status(403).json({ error: "You don't have access to this branch" });
+        }
+      } else if (!branchAccess.hasAllAccess) {
+        if (branchAccess.branchIds.length > 0) {
+          branchId = branchAccess.branchIds[0];
+        } else {
+          return res.status(403).json({ error: "You don't have access to any branches" });
+        }
+      }
+      
+      const data = await storage.getDinerRegistrationsByDateRange(restaurantId, startDate, endDate, branchId || null);
       res.json(data);
     } catch (error) {
       console.error("Get diner registrations error:", error);
@@ -1957,8 +2510,23 @@ export async function registerRoutes(
       
       const endDate = parseDate(req.query.end as string, today);
       const startDate = parseDate(req.query.start as string, thirtyDaysAgo);
+      let branchId = req.query.branchId as string | undefined;
       
-      const data = await storage.getRevenueByDateRange(restaurantId, startDate, endDate);
+      // Validate branch access
+      const branchAccess = await storage.getAccessibleBranchIds(req.session.userId, restaurantId);
+      if (branchId) {
+        if (!branchAccess.hasAllAccess && !branchAccess.branchIds.includes(branchId)) {
+          return res.status(403).json({ error: "You don't have access to this branch" });
+        }
+      } else if (!branchAccess.hasAllAccess) {
+        if (branchAccess.branchIds.length > 0) {
+          branchId = branchAccess.branchIds[0];
+        } else {
+          return res.status(403).json({ error: "You don't have access to any branches" });
+        }
+      }
+      
+      const data = await storage.getRevenueByDateRange(restaurantId, startDate, endDate, branchId || null);
       res.json(data);
     } catch (error) {
       console.error("Get revenue error:", error);
@@ -1998,12 +2566,259 @@ export async function registerRoutes(
       
       const startDate = parseDate(req.query.start as string);
       const endDate = parseDate(req.query.end as string);
+      let branchId = req.query.branchId as string | undefined;
       
-      const data = await storage.getVoucherRedemptionsByType(restaurantId, startDate, endDate);
+      // Validate branch access
+      const branchAccess = await storage.getAccessibleBranchIds(req.session.userId, restaurantId);
+      if (branchId) {
+        if (!branchAccess.hasAllAccess && !branchAccess.branchIds.includes(branchId)) {
+          return res.status(403).json({ error: "You don't have access to this branch" });
+        }
+      } else if (!branchAccess.hasAllAccess) {
+        if (branchAccess.branchIds.length > 0) {
+          branchId = branchAccess.branchIds[0];
+        } else {
+          return res.status(403).json({ error: "You don't have access to any branches" });
+        }
+      }
+      
+      const data = await storage.getVoucherRedemptionsByType(restaurantId, startDate, endDate, branchId || null);
       res.json(data);
     } catch (error) {
       console.error("Get voucher redemptions by type error:", error);
       res.status(500).json({ error: "Failed to fetch voucher redemptions" });
+    }
+  });
+
+  // REGISTERED DINERS - Get all registered diners for a restaurant
+  app.get("/api/restaurants/:restaurantId/diners", async (req, res) => {
+    try {
+      if (!req.session.userId || req.session.userType !== 'restaurant_admin') {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { restaurantId } = req.params;
+      
+      const restaurant = await storage.getRestaurant(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+      
+      const isOwner = restaurant.adminUserId === req.session.userId;
+      const portalAccess = await storage.getPortalUserByUserAndRestaurant(req.session.userId, restaurantId);
+      
+      if (!isOwner && !portalAccess) {
+        return res.status(403).json({ error: "You don't have access to this restaurant" });
+      }
+      
+      const diners = await storage.getRegisteredDinersByRestaurant(restaurantId);
+      res.json(diners);
+    } catch (error) {
+      console.error("Get registered diners error:", error);
+      res.status(500).json({ error: "Failed to fetch registered diners" });
+    }
+  });
+
+  // PORTAL USERS - Get all portal users (staff) for a restaurant
+  app.get("/api/restaurants/:restaurantId/portal-users", async (req, res) => {
+    try {
+      if (!req.session.userId || req.session.userType !== 'restaurant_admin') {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { restaurantId } = req.params;
+      
+      const restaurant = await storage.getRestaurant(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+      
+      const isOwner = restaurant.adminUserId === req.session.userId;
+      if (!isOwner) {
+        return res.status(403).json({ error: "Only the restaurant owner can manage staff" });
+      }
+      
+      const portalUsersList = await storage.getPortalUsersByRestaurant(restaurantId);
+      res.json(portalUsersList);
+    } catch (error) {
+      console.error("Get portal users error:", error);
+      res.status(500).json({ error: "Failed to fetch staff members" });
+    }
+  });
+
+  // PORTAL USERS - Add a new portal user (staff member)
+  const addStaffUserSchema = z.object({
+    email: z.string().email("Valid email is required"),
+    role: z.enum(["manager", "staff"]).default("staff"),
+    hasAllBranchAccess: z.boolean().default(true),
+    branchIds: z.array(z.string()).default([]),
+  });
+
+  app.post("/api/restaurants/:restaurantId/portal-users", async (req, res) => {
+    try {
+      if (!req.session.userId || req.session.userType !== 'restaurant_admin') {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { restaurantId } = req.params;
+      
+      const restaurant = await storage.getRestaurant(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+      
+      const isOwner = restaurant.adminUserId === req.session.userId;
+      if (!isOwner) {
+        return res.status(403).json({ error: "Only the restaurant owner can add staff" });
+      }
+      
+      const parseResult = addStaffUserSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(422).json({ error: parseResult.error.errors[0]?.message });
+      }
+      
+      const { email, role, hasAllBranchAccess, branchIds } = parseResult.data;
+      
+      const existingUser = await storage.getUserByEmail(email);
+      if (!existingUser) {
+        return res.status(404).json({ error: "No user found with that email. They must register first." });
+      }
+      
+      if (existingUser.userType !== 'restaurant_admin') {
+        return res.status(400).json({ error: "This email belongs to a diner account, not a restaurant admin." });
+      }
+      
+      const existingPortalUser = await storage.getPortalUserByUserAndRestaurant(existingUser.id, restaurantId);
+      if (existingPortalUser) {
+        return res.status(400).json({ error: "This user is already a staff member of this restaurant." });
+      }
+      
+      const portalUser = await storage.addPortalUser({
+        restaurantId,
+        userId: existingUser.id,
+        role,
+        addedBy: req.session.userId,
+        hasAllBranchAccess,
+      });
+      
+      if (!hasAllBranchAccess && branchIds.length > 0) {
+        const restaurantBranches = await storage.getBranchesByRestaurant(restaurantId);
+        const validBranchIds = restaurantBranches.map(b => b.id);
+        const invalidBranches = branchIds.filter(id => !validBranchIds.includes(id));
+        if (invalidBranches.length > 0) {
+          return res.status(400).json({ error: "One or more branch IDs are invalid for this restaurant" });
+        }
+        await storage.setPortalUserBranches(portalUser.id, branchIds);
+      }
+      
+      await storage.createActivityLog({
+        restaurantId,
+        userId: req.session.userId,
+        action: 'staff_added',
+        targetType: 'portal_user',
+        targetId: portalUser.id,
+        details: JSON.stringify({ email, role }),
+      });
+      
+      res.json({ ...portalUser, user: existingUser });
+    } catch (error: any) {
+      console.error("Add portal user error:", error);
+      res.status(500).json({ error: error.message || "Failed to add staff member" });
+    }
+  });
+
+  // PORTAL USERS - Remove a portal user (staff member)
+  app.delete("/api/restaurants/:restaurantId/portal-users/:portalUserId", async (req, res) => {
+    try {
+      if (!req.session.userId || req.session.userType !== 'restaurant_admin') {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { restaurantId, portalUserId } = req.params;
+      
+      const restaurant = await storage.getRestaurant(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+      
+      const isOwner = restaurant.adminUserId === req.session.userId;
+      if (!isOwner) {
+        return res.status(403).json({ error: "Only the restaurant owner can remove staff" });
+      }
+      
+      await storage.removePortalUser(portalUserId);
+      
+      await storage.createActivityLog({
+        restaurantId,
+        userId: req.session.userId,
+        action: 'staff_removed',
+        targetType: 'portal_user',
+        targetId: portalUserId,
+        details: null,
+      });
+      
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Remove portal user error:", error);
+      res.status(500).json({ error: error.message || "Failed to remove staff member" });
+    }
+  });
+
+  // PORTAL USERS - Update branch access for a portal user
+  const updateBranchAccessSchema = z.object({
+    hasAllBranchAccess: z.boolean(),
+    branchIds: z.array(z.string()),
+  });
+
+  app.put("/api/restaurants/:restaurantId/portal-users/:portalUserId/branch-access", async (req, res) => {
+    try {
+      if (!req.session.userId || req.session.userType !== 'restaurant_admin') {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { restaurantId, portalUserId } = req.params;
+      
+      const restaurant = await storage.getRestaurant(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+      
+      const isOwner = restaurant.adminUserId === req.session.userId;
+      if (!isOwner) {
+        return res.status(403).json({ error: "Only the restaurant owner can update staff access" });
+      }
+      
+      const parseResult = updateBranchAccessSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(422).json({ error: parseResult.error.errors[0]?.message });
+      }
+      
+      const { hasAllBranchAccess, branchIds } = parseResult.data;
+      
+      if (!hasAllBranchAccess && branchIds.length > 0) {
+        const restaurantBranches = await storage.getBranchesByRestaurant(restaurantId);
+        const validBranchIds = restaurantBranches.map(b => b.id);
+        const invalidBranches = branchIds.filter(id => !validBranchIds.includes(id));
+        if (invalidBranches.length > 0) {
+          return res.status(400).json({ error: "One or more branch IDs are invalid for this restaurant" });
+        }
+      }
+      
+      await storage.updatePortalUserBranchAccess(portalUserId, hasAllBranchAccess, branchIds);
+      
+      await storage.createActivityLog({
+        restaurantId,
+        userId: req.session.userId,
+        action: 'staff_branch_access_updated',
+        targetType: 'portal_user',
+        targetId: portalUserId,
+        details: JSON.stringify({ hasAllBranchAccess, branchIds }),
+      });
+      
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Update branch access error:", error);
+      res.status(500).json({ error: error.message || "Failed to update branch access" });
     }
   });
 

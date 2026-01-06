@@ -6,12 +6,16 @@ import { z } from "zod";
 // User Types: 'diner' or 'restaurant_admin'
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  analyticsId: text("analytics_id").unique(), // Anonymous ID for analytics (no PII exposure)
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
   name: text("name").notNull(),
   lastName: text("last_name"), // Surname for diners
   phone: text("phone").unique(), // Phone number for diner identification
   userType: text("user_type").notNull(), // 'diner' | 'restaurant_admin'
+  gender: text("gender"), // 'male' | 'female' | 'other' | 'prefer_not_to_say'
+  ageRange: text("age_range"), // '18-29' | '30-39' | '40-49' | '50-59' | '60+'
+  province: text("province"), // South African province
   accessToken: text("access_token").unique(), // Persistent token for auto-login (valid for 90 days)
   accessTokenExpiresAt: timestamp("access_token_expires_at"), // When the access token expires
   activeVoucherCode: text("active_voucher_code"), // Currently selected voucher code for redemption
@@ -39,6 +43,37 @@ export const restaurants = pgTable("restaurants", {
   // Configurable points calculation rules per restaurant
   pointsPerCurrency: integer("points_per_currency").notNull().default(1), // Points earned per R1 spent
   pointsThreshold: integer("points_threshold").notNull().default(1000), // Points needed to generate a voucher
+  // Voucher earning mode: 'points' = earn based on spend, 'visits' = earn based on visit count
+  voucherEarningMode: text("voucher_earning_mode").notNull().default("points"), // 'points' | 'visits'
+  visitThreshold: integer("visit_threshold").notNull().default(10), // Visits needed to generate a voucher (when mode='visits')
+  // Loyalty scope: 'organization' = points work across all branches, 'branch' = branch-specific
+  loyaltyScope: text("loyalty_scope").notNull().default("organization"), // 'organization' | 'branch'
+  // Voucher scope: 'organization' = vouchers redeemable at all branches, 'branch' = branch-specific redemption
+  voucherScope: text("voucher_scope").notNull().default("organization"), // 'organization' | 'branch'
+  // Onboarding fields
+  onboardingStatus: text("onboarding_status").notNull().default("draft"), // 'draft' | 'submitted' | 'active'
+  registrationNumber: text("registration_number"),
+  streetAddress: text("street_address"),
+  city: text("city"),
+  province: text("province"),
+  postalCode: text("postal_code"),
+  country: text("country").default("South Africa"),
+  contactName: text("contact_name"),
+  contactEmail: text("contact_email"),
+  contactPhone: text("contact_phone"),
+  hasAdditionalBranches: boolean("has_additional_branches").default(false),
+  logoUrl: text("logo_url"),
+  onboardingCompletedAt: timestamp("onboarding_completed_at"),
+  // Business profile fields
+  tradingName: text("trading_name"), // Trading name if different from legal name
+  description: text("description"), // About the business
+  cuisineType: text("cuisine_type"), // Type of cuisine/food
+  websiteUrl: text("website_url"),
+  vatNumber: text("vat_number"),
+  facebookUrl: text("facebook_url"),
+  instagramUrl: text("instagram_url"),
+  twitterUrl: text("twitter_url"),
+  businessHours: text("business_hours"), // JSON string with hours per day
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -68,16 +103,23 @@ export const insertBranchSchema = createInsertSchema(branches).omit({
 export type InsertBranch = z.infer<typeof insertBranchSchema>;
 export type Branch = typeof branches.$inferSelect;
 
-// Points balance per diner per restaurant
+// Points balance per diner per restaurant (or per branch when loyaltyScope='branch')
 // Rule: Points do not fall away, but reset to 0 after reaching threshold and earning a voucher credit
+// Credits are tracked separately for points-based and visits-based vouchers
 export const pointsBalances = pgTable("points_balances", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   dinerId: varchar("diner_id").notNull().references(() => users.id),
   restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id),
+  branchId: varchar("branch_id").references(() => branches.id), // null = org-wide, set when loyaltyScope='branch'
   currentPoints: integer("current_points").notNull().default(0),
   totalPointsEarned: integer("total_points_earned").notNull().default(0),
+  currentVisits: integer("current_visits").notNull().default(0), // Visits since last voucher (resets on credit earn)
+  totalVisits: integer("total_visits").notNull().default(0), // Total visits ever
   totalVouchersGenerated: integer("total_vouchers_generated").notNull().default(0),
-  availableVoucherCredits: integer("available_voucher_credits").notNull().default(0), // Credits diner can redeem for vouchers
+  // Mode-specific credits
+  pointsCredits: integer("points_credits").notNull().default(0), // Credits earned from points threshold
+  visitCredits: integer("visit_credits").notNull().default(0), // Credits earned from visit threshold
+  availableVoucherCredits: integer("available_voucher_credits").notNull().default(0), // Legacy/aggregate credits (deprecated)
   totalVoucherCreditsEarned: integer("total_voucher_credits_earned").notNull().default(0), // Total credits ever earned
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -109,13 +151,24 @@ export type InsertTransaction = z.infer<typeof insertTransactionSchema>;
 export type Transaction = typeof transactions.$inferSelect;
 
 // Voucher types - templates created by restaurant owners that diners can choose from
+// Voucher categories: 'rand_value' | 'percentage' | 'free_item' | 'registration'
+// Registration vouchers: issued once per diner per restaurant on first visit, rand value off bill
+// Each voucher type specifies whether it's earned through points or visits
 export const voucherTypes = pgTable("voucher_types", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id),
   branchId: varchar("branch_id").references(() => branches.id), // Branch-specific voucher type (null = org-wide)
+  category: text("category").notNull().default("rand_value"), // 'rand_value' | 'percentage' | 'free_item' | 'registration'
+  earningMode: text("earning_mode").notNull().default("points"), // 'points' | 'visits' - which credits to consume
+  pointsPerCurrencyOverride: integer("points_per_currency_override"), // Override restaurant default (null = use restaurant setting)
   name: text("name").notNull(), // e.g., "R100 Off Your Bill"
   description: text("description"), // Optional details about the voucher
   rewardDetails: text("reward_details"), // Fine print, terms, etc.
+  value: integer("value"), // Rand amount or percentage value (null for free_item)
+  freeItemType: text("free_item_type"), // 'beverage' | 'starter' | 'main' | 'dessert' | 'side' | 'other' (only for free_item category)
+  freeItemDescription: text("free_item_description"), // Specific item description for free_item category
+  redemptionScope: text("redemption_scope").notNull().default("all_branches"), // 'all_branches' | 'specific_branches'
+  redeemableBranchIds: text("redeemable_branch_ids").array(), // Array of branch IDs where voucher can be redeemed (only used when redemptionScope = 'specific_branches')
   creditsCost: integer("credits_cost").notNull().default(1), // How many credits to redeem this voucher
   validityDays: integer("validity_days").notNull().default(30), // Days until voucher expires
   isActive: boolean("is_active").notNull().default(true), // Can diners select this?
@@ -151,6 +204,23 @@ export const insertVoucherSchema = createInsertSchema(vouchers).omit({
 });
 export type InsertVoucher = z.infer<typeof insertVoucherSchema>;
 export type Voucher = typeof vouchers.$inferSelect;
+
+// Registration voucher tracking - ensures one registration voucher per diner per restaurant
+export const registrationVoucherStatus = pgTable("registration_voucher_status", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  dinerId: varchar("diner_id").notNull().references(() => users.id),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id),
+  voucherId: varchar("voucher_id").references(() => vouchers.id), // The registration voucher issued
+  issuedAt: timestamp("issued_at").defaultNow().notNull(),
+  redeemedAt: timestamp("redeemed_at"), // When the voucher was used (first visit)
+});
+
+export const insertRegistrationVoucherStatusSchema = createInsertSchema(registrationVoucherStatus).omit({
+  id: true,
+  issuedAt: true,
+});
+export type InsertRegistrationVoucherStatus = z.infer<typeof insertRegistrationVoucherStatusSchema>;
+export type RegistrationVoucherStatus = typeof registrationVoucherStatus.$inferSelect;
 
 // Campaign for pushing vouchers to diners
 export const campaigns = pgTable("campaigns", {
@@ -241,6 +311,7 @@ export const portalUsers = pgTable("portal_users", {
   restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id),
   userId: varchar("user_id").notNull().references(() => users.id),
   role: text("role").notNull().default("staff"), // 'owner' | 'manager' | 'staff'
+  hasAllBranchAccess: boolean("has_all_branch_access").notNull().default(false), // Owners typically have all access
   addedBy: varchar("added_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -251,6 +322,21 @@ export const insertPortalUserSchema = createInsertSchema(portalUsers).omit({
 });
 export type InsertPortalUser = z.infer<typeof insertPortalUserSchema>;
 export type PortalUser = typeof portalUsers.$inferSelect;
+
+// Portal user branch assignments - which branches a portal user can access
+export const portalUserBranches = pgTable("portal_user_branches", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  portalUserId: varchar("portal_user_id").notNull().references(() => portalUsers.id, { onDelete: 'cascade' }),
+  branchId: varchar("branch_id").notNull().references(() => branches.id, { onDelete: 'cascade' }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertPortalUserBranchSchema = createInsertSchema(portalUserBranches).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertPortalUserBranch = z.infer<typeof insertPortalUserBranchSchema>;
+export type PortalUserBranch = typeof portalUserBranches.$inferSelect;
 
 // Activity logs - audit trail for important actions
 export const activityLogs = pgTable("activity_logs", {
@@ -327,3 +413,22 @@ export const insertArchivedUserSchema = createInsertSchema(archivedUsers).omit({
 });
 export type InsertArchivedUser = z.infer<typeof insertArchivedUserSchema>;
 export type ArchivedUser = typeof archivedUsers.$inferSelect;
+
+// Phone change requests - OTP verification for phone number changes
+export const phoneChangeRequests = pgTable("phone_change_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  newPhone: text("new_phone").notNull(),
+  otpHash: text("otp_hash").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  attempts: integer("attempts").notNull().default(0),
+  status: text("status").notNull().default("pending"), // 'pending' | 'verified' | 'expired' | 'failed'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertPhoneChangeRequestSchema = createInsertSchema(phoneChangeRequests).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertPhoneChangeRequest = z.infer<typeof insertPhoneChangeRequestSchema>;
+export type PhoneChangeRequest = typeof phoneChangeRequests.$inferSelect;

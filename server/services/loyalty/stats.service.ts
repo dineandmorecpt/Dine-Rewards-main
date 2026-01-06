@@ -9,14 +9,14 @@ export interface RestaurantStats {
 }
 
 export interface IStatsService {
-  getRestaurantStats(restaurantId: string): Promise<RestaurantStats>;
+  getRestaurantStats(restaurantId: string, branchId?: string | null): Promise<RestaurantStats>;
 }
 
 export class StatsService implements IStatsService {
   constructor(private storage: IStorage) {}
 
-  async getRestaurantStats(restaurantId: string): Promise<RestaurantStats> {
-    const recentTransactions = await this.storage.getTransactionsByRestaurant(restaurantId, true);
+  async getRestaurantStats(restaurantId: string, branchId?: string | null): Promise<RestaurantStats> {
+    const recentTransactions = await this.storage.getTransactionsByRestaurant(restaurantId, true, branchId);
     
     const uniqueDinerIds = new Set(recentTransactions.map(t => t.dinerId));
     const dinersLast30Days = uniqueDinerIds.size;
@@ -26,7 +26,7 @@ export class StatsService implements IStatsService {
       0
     );
     
-    const restaurantVouchers = await this.storage.getVouchersByRestaurant(restaurantId);
+    const restaurantVouchers = await this.storage.getVouchersByRestaurant(restaurantId, branchId);
     const vouchersRedeemed = restaurantVouchers.filter(v => v.isRedeemed).length;
     
     const totalRegisteredDiners = await this.storage.countAllDiners();

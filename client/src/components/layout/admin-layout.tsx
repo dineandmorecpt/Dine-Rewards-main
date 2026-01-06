@@ -11,51 +11,74 @@ import {
   CalendarDays,
   Activity,
   Building2,
-  ChevronDown
+  ChevronDown,
+  Users
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { BranchProvider, useBranch } from "@/hooks/use-branch";
+import { useQuery } from "@tanstack/react-query";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
 }
 
 function AdminLayoutContent({ children }: AdminLayoutProps) {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { logout, restaurant } = useAuth();
-  const { branches, selectedBranch, setSelectedBranchId } = useBranch();
+  const { branches, accessibleBranches, selectedBranch, setSelectedBranchId, isAllBranchesView, hasMultipleBranches, canViewAllBranches } = useBranch();
+
+  const { data: restaurantData } = useQuery({
+    queryKey: ["/api/restaurants", restaurant?.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/restaurants/${restaurant?.id}`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!restaurant?.id,
+  });
+
+  useEffect(() => {
+    if (restaurantData && restaurantData.onboardingStatus !== 'active' && !location.startsWith('/admin/onboarding')) {
+      setLocation('/admin/onboarding');
+    }
+  }, [restaurantData, location, setLocation]);
 
   const navigation = [
     { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
     { name: "Vouchers", href: "/admin/vouchers", icon: Ticket },
+    { name: "Users", href: "/admin/users", icon: Users },
     { name: "Reconciliation", href: "/admin/reconciliation", icon: FileCheck },
     { name: "Activity Logs", href: "/admin/activity-logs", icon: Activity },
     { name: "Reservations", href: null, icon: CalendarDays, comingSoon: true },
     { name: "Campaigns", href: null, icon: Megaphone, comingSoon: true },
+    { name: "Business Profile", href: "/admin/profile", icon: Building2 },
     { name: "Settings", href: "/admin/settings", icon: Settings },
   ];
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
       <div className="p-6">
-        <h1 className="text-2xl font-serif font-bold tracking-tight text-primary-foreground">
-          Dine<span className="text-sidebar-primary">&</span>More
-        </h1>
+        <Link href="/" onClick={() => setSidebarOpen(false)} className="block hover:opacity-80 transition-opacity">
+          <h1 className="text-2xl font-serif font-bold tracking-tight text-primary-foreground">
+            Dine<span className="text-sidebar-primary">&</span>More
+          </h1>
+        </Link>
         <p className="text-sm text-sidebar-primary font-semibold mt-1">{restaurant?.name || 'Restaurant'}</p>
         <p className="text-xs text-sidebar-foreground/60 uppercase tracking-wider font-medium">Restaurant Admin</p>
         
-        {branches.length > 1 && (
+        {(hasMultipleBranches || accessibleBranches.length > 0) && accessibleBranches.length > 0 && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button 
@@ -65,19 +88,35 @@ function AdminLayoutContent({ children }: AdminLayoutProps) {
               >
                 <div className="flex items-center gap-2 truncate">
                   <Building2 className="h-4 w-4 text-sidebar-primary shrink-0" />
-                  <span className="truncate">{selectedBranch?.name || 'Select branch'}</span>
+                  <span className="truncate">{isAllBranchesView ? 'All Branches' : (selectedBranch?.name || 'Select branch')}</span>
                 </div>
                 <ChevronDown className="h-4 w-4 text-sidebar-foreground/60 shrink-0" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-56">
-              {branches.map((branch) => (
+              {canViewAllBranches && hasMultipleBranches && (
+                <>
+                  <DropdownMenuItem
+                    onClick={() => setSelectedBranchId(null)}
+                    className={cn(
+                      "cursor-pointer",
+                      isAllBranchesView && "bg-accent"
+                    )}
+                    data-testid="menu-branch-all"
+                  >
+                    <Building2 className="h-4 w-4 mr-2" />
+                    All Branches
+                  </DropdownMenuItem>
+                  <div className="h-px bg-border my-1" />
+                </>
+              )}
+              {accessibleBranches.map((branch) => (
                 <DropdownMenuItem
                   key={branch.id}
                   onClick={() => setSelectedBranchId(branch.id)}
                   className={cn(
                     "cursor-pointer",
-                    selectedBranch?.id === branch.id && "bg-accent"
+                    selectedBranch?.id === branch.id && !isAllBranchesView && "bg-accent"
                   )}
                   data-testid={`menu-branch-${branch.id}`}
                 >
@@ -148,9 +187,9 @@ function AdminLayoutContent({ children }: AdminLayoutProps) {
 
   return (
     <div className="min-h-screen bg-background font-sans">
-      {/* Mobile Sidebar */}
-      <div className="lg:hidden p-4 border-b flex items-center justify-between bg-card">
-        <span className="font-serif font-bold text-xl">Dine&More</span>
+      {/* Mobile Header - sticky at top */}
+      <div className="lg:hidden p-4 border-b flex items-center justify-between bg-card sticky top-0 z-40">
+        <Link href="/" className="font-serif font-bold text-xl hover:opacity-80 transition-opacity">Dine&More</Link>
         <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon">
@@ -158,12 +197,16 @@ function AdminLayoutContent({ children }: AdminLayoutProps) {
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="p-0 w-72 border-r-0">
+            <VisuallyHidden>
+              <SheetTitle>Admin Navigation</SheetTitle>
+              <SheetDescription>Admin navigation menu for restaurant management</SheetDescription>
+            </VisuallyHidden>
             <SidebarContent />
           </SheetContent>
         </Sheet>
       </div>
 
-      <div className="flex h-screen overflow-hidden">
+      <div className="flex lg:h-screen lg:overflow-hidden">
         {/* Desktop Sidebar */}
         <div className="hidden lg:block w-72 shrink-0">
           <SidebarContent />

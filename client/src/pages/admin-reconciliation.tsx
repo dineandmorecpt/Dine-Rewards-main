@@ -18,7 +18,9 @@ export default function AdminReconciliation() {
   const reconciliationBatches = useQuery({
     queryKey: ['reconciliation-batches', restaurantId],
     queryFn: async () => {
-      const res = await fetch(`/api/restaurants/${restaurantId}/reconciliation/batches`);
+      const res = await fetch(`/api/restaurants/${restaurantId}/reconciliation/batches`, {
+        credentials: 'include'
+      });
       if (!res.ok) throw new Error('Failed to fetch batches');
       return res.json();
     },
@@ -29,7 +31,9 @@ export default function AdminReconciliation() {
     queryKey: ['batch-details', selectedBatchId],
     queryFn: async () => {
       if (!selectedBatchId) return null;
-      const res = await fetch(`/api/restaurants/${restaurantId}/reconciliation/batches/${selectedBatchId}`);
+      const res = await fetch(`/api/restaurants/${restaurantId}/reconciliation/batches/${selectedBatchId}`, {
+        credentials: 'include'
+      });
       if (!res.ok) throw new Error('Failed to fetch batch details');
       return res.json();
     },
@@ -42,7 +46,8 @@ export default function AdminReconciliation() {
       const res = await fetch(`/api/restaurants/${restaurantId}/reconciliation/upload`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fileName: file.name, csvContent: content })
+        body: JSON.stringify({ fileName: file.name, csvContent: content }),
+        credentials: 'include'
       });
       if (!res.ok) {
         const data = await res.json();

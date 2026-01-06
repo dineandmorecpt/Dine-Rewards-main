@@ -6,6 +6,10 @@ export interface RestaurantSettings {
   voucherValidityDays?: number;
   pointsPerCurrency?: number;
   pointsThreshold?: number;
+  voucherEarningMode?: 'points' | 'visits'; // How vouchers are earned: spending-based or visit-based
+  visitThreshold?: number; // Visits needed to earn a voucher (when mode='visits')
+  loyaltyScope?: 'organization' | 'branch'; // Points accumulation scope: org-wide or per-branch
+  voucherScope?: 'organization' | 'branch'; // Voucher redemption scope: all branches or branch-specific
 }
 
 export interface IConfigService {
@@ -48,6 +52,33 @@ export class ConfigService implements IConfigService {
 
     if (settings.voucherValue !== undefined && !settings.voucherValue.trim()) {
       errors.push("Voucher value cannot be empty");
+    }
+
+    if (settings.loyaltyScope !== undefined) {
+      if (settings.loyaltyScope !== 'organization' && settings.loyaltyScope !== 'branch') {
+        errors.push("Loyalty scope must be 'organization' or 'branch'");
+      }
+    }
+
+    if (settings.voucherScope !== undefined) {
+      if (settings.voucherScope !== 'organization' && settings.voucherScope !== 'branch') {
+        errors.push("Voucher scope must be 'organization' or 'branch'");
+      }
+    }
+
+    if (settings.voucherEarningMode !== undefined) {
+      if (settings.voucherEarningMode !== 'points' && settings.voucherEarningMode !== 'visits') {
+        errors.push("Voucher earning mode must be 'points' or 'visits'");
+      }
+    }
+
+    if (settings.visitThreshold !== undefined) {
+      if (settings.visitThreshold < 1) {
+        errors.push("Visit threshold must be at least 1");
+      }
+      if (settings.visitThreshold > 100) {
+        errors.push("Visit threshold cannot exceed 100");
+      }
     }
 
     return { valid: errors.length === 0, errors };

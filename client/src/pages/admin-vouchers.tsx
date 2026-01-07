@@ -90,7 +90,13 @@ function AdminVouchersContent() {
   const [voucherTypeRedeemableBranchIds, setVoucherTypeRedeemableBranchIds] = useState<string[]>([]);
   const [voucherTypeEarningMode, setVoucherTypeEarningMode] = useState<"points" | "visits">("points");
   const [voucherTypePointsPerCurrency, setVoucherTypePointsPerCurrency] = useState<number | string>("");
+  const [voucherTypeExpiresAt, setVoucherTypeExpiresAt] = useState<string>("");
   const [categorySelectionStep, setCategorySelectionStep] = useState(true); // Show category selection first
+  
+  // Calculate minimum expiry date (6 months from today)
+  const minExpiryDate = new Date();
+  minExpiryDate.setMonth(minExpiryDate.getMonth() + 6);
+  const minExpiryDateStr = minExpiryDate.toISOString().split('T')[0];
   
   // QR code ref for download
   const qrCodeRef = useRef<HTMLCanvasElement>(null);
@@ -231,6 +237,7 @@ function AdminVouchersContent() {
     setVoucherTypeFreeItemDescription("");
     setVoucherTypeCreditsCost(1);
     setVoucherTypeValidityDays(30);
+    setVoucherTypeExpiresAt(minExpiryDateStr);
     setVoucherTypeIsActive(true);
     setVoucherTypeRedemptionScope("all_branches");
     setVoucherTypeRedeemableBranchIds([]);
@@ -251,6 +258,7 @@ function AdminVouchersContent() {
     setVoucherTypeFreeItemDescription(vt.freeItemDescription || "");
     setVoucherTypeCreditsCost(vt.creditsCost);
     setVoucherTypeValidityDays(vt.validityDays);
+    setVoucherTypeExpiresAt(vt.expiresAt ? new Date(vt.expiresAt).toISOString().split('T')[0] : "");
     setVoucherTypeIsActive(vt.isActive);
     setVoucherTypeRedemptionScope(vt.redemptionScope || "all_branches");
     setVoucherTypeRedeemableBranchIds(vt.redeemableBranchIds || []);
@@ -289,11 +297,13 @@ function AdminVouchersContent() {
     if (voucherTypeCategory === "free_item" && !voucherTypeFreeItemType) return true;
     if (voucherTypeCategory === "registration" && !voucherTypeValue) return true;
     if (voucherTypeRedemptionScope === "specific_branches" && voucherTypeRedeemableBranchIds.length === 0) return true;
+    // Expiry date is required when creating (not editing)
+    if (!editingVoucherType && !voucherTypeExpiresAt) return true;
     return createVoucherType.isPending || updateVoucherType.isPending;
   };
   
   const createVoucherType = useMutation({
-    mutationFn: async (data: { category: string; name: string; description?: string; rewardDetails?: string; value?: number; freeItemType?: string; freeItemDescription?: string; creditsCost: number; validityDays: number; isActive: boolean }) => {
+    mutationFn: async (data: { category: string; name: string; description?: string; rewardDetails?: string; value?: number; freeItemType?: string; freeItemDescription?: string; creditsCost: number; validityDays: number; expiresAt?: string; isActive: boolean }) => {
       const res = await fetch(`/api/restaurants/${restaurantId}/voucher-types`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -382,7 +392,7 @@ function AdminVouchersContent() {
   });
   
   const handleSaveVoucherType = () => {
-    const data = {
+    const data: any = {
       category: voucherTypeCategory,
       earningMode: voucherTypeEarningMode,
       pointsPerCurrencyOverride: voucherTypeEarningMode === "points" && voucherTypePointsPerCurrency ? Number(voucherTypePointsPerCurrency) : undefined,
@@ -398,6 +408,11 @@ function AdminVouchersContent() {
       validityDays: Number(voucherTypeValidityDays),
       isActive: voucherTypeIsActive
     };
+    
+    // Only include expiresAt when creating (not updating)
+    if (!editingVoucherType && voucherTypeExpiresAt) {
+      data.expiresAt = new Date(voucherTypeExpiresAt).toISOString();
+    }
     
     if (editingVoucherType) {
       updateVoucherType.mutate({ id: editingVoucherType.id, data });
@@ -1241,6 +1256,12 @@ function AdminVouchersContent() {
                           <span className="text-muted-foreground">Valid For</span>
                           <span className="font-medium">{vt.validityDays} days</span>
                         </div>
+                        {vt.expiresAt && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Expires</span>
+                            <span className="font-medium">{new Date(vt.expiresAt).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                          </div>
+                        )}
                         {vt.rewardDetails && (
                           <p className="text-xs text-muted-foreground pt-2 border-t">{vt.rewardDetails}</p>
                         )}
@@ -1263,19 +1284,6 @@ function AdminVouchersContent() {
                           data-testid={`button-toggle-voucher-type-${vt.id}`}
                         >
                           {vt.isActive ? <ToggleRight className="h-3 w-3" /> : <ToggleLeft className="h-3 w-3" />}
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => {
-                            if (confirm("Are you sure you want to delete this voucher type?")) {
-                              deleteVoucherType.mutate(vt.id);
-                            }
-                          }}
-                          data-testid={`button-delete-voucher-type-${vt.id}`}
-                        >
-                          <Trash2 className="h-3 w-3" />
                         </Button>
                       </CardFooter>
                     </Card>
@@ -1635,6 +1643,34 @@ function AdminVouchersContent() {
                           )}
                         </div>
                       </div>
+                      {/* Expiry Date - when this voucher type expires */}
+                      <div className="grid gap-2">
+                        <Label htmlFor="vt-expires-at">Voucher Type Expiry Date *</Label>
+                        {editingVoucherType ? (
+                          <div className="p-3 bg-muted rounded-md">
+                            <p className="text-sm font-medium">
+                              {voucherTypeExpiresAt 
+                                ? new Date(voucherTypeExpiresAt).toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' })
+                                : "No expiry set"}
+                            </p>
+                          </div>
+                        ) : (
+                          <>
+                            <Input 
+                              id="vt-expires-at" 
+                              type="date" 
+                              min={minExpiryDateStr}
+                              value={voucherTypeExpiresAt}
+                              onChange={(e) => setVoucherTypeExpiresAt(e.target.value)}
+                              data-testid="input-voucher-type-expires-at"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Minimum 6 months from today. After this date, diners cannot earn or redeem this voucher type.
+                            </p>
+                          </>
+                        )}
+                      </div>
+                      
                       <div className="grid gap-2">
                         <Label htmlFor="vt-reward-details">Terms & Conditions</Label>
                         <Textarea 

@@ -1758,8 +1758,17 @@ export async function registerRoutes(
     name: z.string().min(1, "Name is required"),
     description: z.string().optional(),
     rewardDetails: z.string().optional(),
+    category: z.string().optional(),
+    earningMode: z.string().optional(),
+    pointsPerCurrencyOverride: z.number().optional(),
+    value: z.number().optional(),
+    freeItemType: z.string().optional(),
+    freeItemDescription: z.string().optional(),
+    redemptionScope: z.string().optional(),
+    redeemableBranchIds: z.array(z.string()).optional(),
     creditsCost: z.number().int().min(1).default(1),
     validityDays: z.number().int().min(1).default(30),
+    expiresAt: z.string().optional(),
     isActive: z.boolean().default(true),
   });
 
@@ -1789,10 +1798,25 @@ export async function registerRoutes(
           error: parseResult.error.errors[0]?.message || "Invalid input" 
         });
       }
+      
+      // Validate expiry date - must be at least 6 months from now
+      if (parseResult.data.expiresAt) {
+        const expiryDate = new Date(parseResult.data.expiresAt);
+        const minExpiry = new Date();
+        minExpiry.setMonth(minExpiry.getMonth() + 6);
+        minExpiry.setHours(0, 0, 0, 0); // Start of day
+        
+        if (expiryDate < minExpiry) {
+          return res.status(422).json({ 
+            error: "Voucher type expiry date must be at least 6 months from today" 
+          });
+        }
+      }
 
       const voucherType = await storage.createVoucherType({
         restaurantId,
         ...parseResult.data,
+        expiresAt: parseResult.data.expiresAt ? new Date(parseResult.data.expiresAt) : undefined,
       });
 
       // Log activity

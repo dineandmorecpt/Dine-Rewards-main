@@ -355,13 +355,13 @@ export default function DinerDashboard() {
                   data-testid={`card-restaurant-${selectedRestaurant.restaurantName.toLowerCase().replace(/\s+/g, '-')}`}
                 >
                   {/* Available Vouchers Banner */}
-                  {((selectedRestaurant.pointsCredits || 0) > 0 || (selectedRestaurant.visitCredits || 0) > 0) && (
+                  {((selectedRestaurant.pointsCredits || 0) + (selectedRestaurant.visitCredits || 0) > 0) && (
                     <div 
                       className="bg-gradient-to-r from-amber-500 to-orange-500 text-white px-3 py-2 flex items-center justify-between"
                     >
                       <span className="text-sm font-medium flex items-center gap-1">
                         <Sparkles className="h-4 w-4" />
-                        Vouchers Ready: {selectedRestaurant.pointsCredits || 0} points, {selectedRestaurant.visitCredits || 0} visits
+                        {(selectedRestaurant.pointsCredits || 0) + (selectedRestaurant.visitCredits || 0)} voucher{(selectedRestaurant.pointsCredits || 0) + (selectedRestaurant.visitCredits || 0) !== 1 ? 's' : ''} available
                       </span>
                       <span className="text-xs opacity-90">
                         View in My Vouchers tab

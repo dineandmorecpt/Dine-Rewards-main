@@ -1384,77 +1384,11 @@ function AdminVouchersContent() {
                       {voucherTypeCategory === "rand_value" && (
                         <div className="grid gap-2">
                           <Label htmlFor="vt-value">Rand Value *</Label>
-                          <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">R</span>
-                            <Input 
-                              id="vt-value" 
-                              type="number"
-                              min="1"
-                              className="pl-7"
-                              placeholder="e.g., 50"
-                              value={voucherTypeValue}
-                              onChange={(e) => setVoucherTypeValue(e.target.value)}
-                              data-testid="input-voucher-type-value"
-                            />
-                          </div>
-                        </div>
-                      )}
-                      {voucherTypeCategory === "percentage" && (
-                        <div className="grid gap-2">
-                          <Label htmlFor="vt-value">Percentage *</Label>
-                          <div className="relative">
-                            <Input 
-                              id="vt-value" 
-                              type="number"
-                              min="1"
-                              max="100"
-                              className="pr-7"
-                              placeholder="e.g., 10"
-                              value={voucherTypeValue}
-                              onChange={(e) => setVoucherTypeValue(e.target.value)}
-                              data-testid="input-voucher-type-value"
-                            />
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
-                          </div>
-                        </div>
-                      )}
-                      {voucherTypeCategory === "free_item" && (
-                        <>
-                          <div className="grid gap-2">
-                            <Label htmlFor="vt-free-item-type">Item Type *</Label>
-                            <Select
-                              value={voucherTypeFreeItemType}
-                              onValueChange={setVoucherTypeFreeItemType}
-                            >
-                              <SelectTrigger data-testid="select-free-item-type">
-                                <SelectValue placeholder="Select item type" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="beverage">Beverage</SelectItem>
-                                <SelectItem value="starter">Starter</SelectItem>
-                                <SelectItem value="main">Main Course</SelectItem>
-                                <SelectItem value="dessert">Dessert</SelectItem>
-                                <SelectItem value="side">Side Dish</SelectItem>
-                                <SelectItem value="other">Other</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="grid gap-2">
-                            <Label htmlFor="vt-free-item-desc">Item Description</Label>
-                            <Input 
-                              id="vt-free-item-desc" 
-                              placeholder="e.g., Any soft drink, House wine, etc."
-                              value={voucherTypeFreeItemDescription}
-                              onChange={(e) => setVoucherTypeFreeItemDescription(e.target.value)}
-                              data-testid="input-free-item-description"
-                            />
-                          </div>
-                        </>
-                      )}
-                      {voucherTypeCategory === "registration" && (
-                        <>
-                          <div className="grid gap-2">
-                            <Label htmlFor="vt-value">Welcome Discount Value (Rand) *</Label>
+                          {editingVoucherType ? (
+                            <div className="p-3 bg-muted rounded-md">
+                              <p className="text-sm font-medium">R{voucherTypeValue}</p>
+                            </div>
+                          ) : (
                             <div className="relative">
                               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">R</span>
                               <Input 
@@ -1468,6 +1402,102 @@ function AdminVouchersContent() {
                                 data-testid="input-voucher-type-value"
                               />
                             </div>
+                          )}
+                        </div>
+                      )}
+                      {voucherTypeCategory === "percentage" && (
+                        <div className="grid gap-2">
+                          <Label htmlFor="vt-value">Percentage *</Label>
+                          {editingVoucherType ? (
+                            <div className="p-3 bg-muted rounded-md">
+                              <p className="text-sm font-medium">{voucherTypeValue}%</p>
+                            </div>
+                          ) : (
+                            <div className="relative">
+                              <Input 
+                                id="vt-value" 
+                                type="number"
+                                min="1"
+                                max="100"
+                                className="pr-7"
+                                placeholder="e.g., 10"
+                                value={voucherTypeValue}
+                                onChange={(e) => setVoucherTypeValue(e.target.value)}
+                                data-testid="input-voucher-type-value"
+                              />
+                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {voucherTypeCategory === "free_item" && (
+                        <>
+                          <div className="grid gap-2">
+                            <Label htmlFor="vt-free-item-type">Item Type *</Label>
+                            {editingVoucherType ? (
+                              <div className="p-3 bg-muted rounded-md">
+                                <p className="text-sm font-medium capitalize">{voucherTypeFreeItemType || "Not specified"}</p>
+                              </div>
+                            ) : (
+                              <Select
+                                value={voucherTypeFreeItemType}
+                                onValueChange={setVoucherTypeFreeItemType}
+                              >
+                                <SelectTrigger data-testid="select-free-item-type">
+                                  <SelectValue placeholder="Select item type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="beverage">Beverage</SelectItem>
+                                  <SelectItem value="starter">Starter</SelectItem>
+                                  <SelectItem value="main">Main Course</SelectItem>
+                                  <SelectItem value="dessert">Dessert</SelectItem>
+                                  <SelectItem value="side">Side Dish</SelectItem>
+                                  <SelectItem value="other">Other</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            )}
+                          </div>
+                          <div className="grid gap-2">
+                            <Label htmlFor="vt-free-item-desc">Item Description</Label>
+                            {editingVoucherType ? (
+                              <div className="p-3 bg-muted rounded-md">
+                                <p className="text-sm font-medium">{voucherTypeFreeItemDescription || "Not specified"}</p>
+                              </div>
+                            ) : (
+                              <Input 
+                                id="vt-free-item-desc" 
+                                placeholder="e.g., Any soft drink, House wine, etc."
+                                value={voucherTypeFreeItemDescription}
+                                onChange={(e) => setVoucherTypeFreeItemDescription(e.target.value)}
+                                data-testid="input-free-item-description"
+                              />
+                            )}
+                          </div>
+                        </>
+                      )}
+                      {voucherTypeCategory === "registration" && (
+                        <>
+                          <div className="grid gap-2">
+                            <Label htmlFor="vt-value">Welcome Discount Value (Rand) *</Label>
+                            {editingVoucherType ? (
+                              <div className="p-3 bg-muted rounded-md">
+                                <p className="text-sm font-medium">R{voucherTypeValue}</p>
+                              </div>
+                            ) : (
+                              <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">R</span>
+                                <Input 
+                                  id="vt-value" 
+                                  type="number"
+                                  min="1"
+                                  className="pl-7"
+                                  placeholder="e.g., 50"
+                                  value={voucherTypeValue}
+                                  onChange={(e) => setVoucherTypeValue(e.target.value)}
+                                  data-testid="input-voucher-type-value"
+                                />
+                              </div>
+                            )}
                           </div>
                           <div className="rounded-lg bg-orange-50 border border-orange-200 p-3">
                             <p className="text-sm text-orange-800">
@@ -1505,32 +1535,45 @@ function AdminVouchersContent() {
                       {voucherTypeCategory !== "registration" && (
                         <div className="grid gap-3">
                           <Label>How is this voucher earned?</Label>
-                          <div className="flex gap-2">
-                            <Button
-                              type="button"
-                              variant={voucherTypeEarningMode === "points" ? "default" : "outline"}
-                              size="sm"
-                              onClick={() => setVoucherTypeEarningMode("points")}
-                              data-testid="button-earning-points"
-                            >
-                              Points
-                            </Button>
-                            <Button
-                              type="button"
-                              variant={voucherTypeEarningMode === "visits" ? "default" : "outline"}
-                              size="sm"
-                              onClick={() => setVoucherTypeEarningMode("visits")}
-                              data-testid="button-earning-visits"
-                            >
-                              Visits
-                            </Button>
-                          </div>
-                          <p className="text-sm text-muted-foreground">
-                            {voucherTypeEarningMode === "points" 
-                              ? "Diners earn this voucher by accumulating points from their spending."
-                              : "Diners earn this voucher by reaching a visit count threshold."}
-                          </p>
-                          {voucherTypeEarningMode === "points" && (
+                          {editingVoucherType ? (
+                            <div className="p-3 bg-muted rounded-md">
+                              <p className="text-sm font-medium">{voucherTypeEarningMode === "points" ? "Points" : "Visits"}</p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {voucherTypeEarningMode === "points" 
+                                  ? "Diners earn this voucher by accumulating points from their spending."
+                                  : "Diners earn this voucher by reaching a visit count threshold."}
+                              </p>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="flex gap-2">
+                                <Button
+                                  type="button"
+                                  variant={voucherTypeEarningMode === "points" ? "default" : "outline"}
+                                  size="sm"
+                                  onClick={() => setVoucherTypeEarningMode("points")}
+                                  data-testid="button-earning-points"
+                                >
+                                  Points
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant={voucherTypeEarningMode === "visits" ? "default" : "outline"}
+                                  size="sm"
+                                  onClick={() => setVoucherTypeEarningMode("visits")}
+                                  data-testid="button-earning-visits"
+                                >
+                                  Visits
+                                </Button>
+                              </div>
+                              <p className="text-sm text-muted-foreground">
+                                {voucherTypeEarningMode === "points" 
+                                  ? "Diners earn this voucher by accumulating points from their spending."
+                                  : "Diners earn this voucher by reaching a visit count threshold."}
+                              </p>
+                            </>
+                          )}
+                          {voucherTypeEarningMode === "points" && !editingVoucherType && (
                             <div className="grid gap-2 mt-2">
                               <Label htmlFor="vt-points-per-currency">Points per R1 Spent</Label>
                               <Input 
@@ -1559,25 +1602,37 @@ function AdminVouchersContent() {
                                 ? "Points Required" 
                                 : "Visits Required"}
                           </Label>
-                          <Input 
-                            id="vt-credits" 
-                            type="number" 
-                            min="1"
-                            value={voucherTypeCreditsCost}
-                            onChange={(e) => setVoucherTypeCreditsCost(e.target.value)}
-                            data-testid="input-voucher-type-credits"
-                          />
+                          {editingVoucherType ? (
+                            <div className="p-3 bg-muted rounded-md">
+                              <p className="text-sm font-medium">{voucherTypeCreditsCost}</p>
+                            </div>
+                          ) : (
+                            <Input 
+                              id="vt-credits" 
+                              type="number" 
+                              min="1"
+                              value={voucherTypeCreditsCost}
+                              onChange={(e) => setVoucherTypeCreditsCost(e.target.value)}
+                              data-testid="input-voucher-type-credits"
+                            />
+                          )}
                         </div>
                         <div className="grid gap-2">
                           <Label htmlFor="vt-validity">Validity (Days)</Label>
-                          <Input 
-                            id="vt-validity" 
-                            type="number" 
-                            min="1"
-                            value={voucherTypeValidityDays}
-                            onChange={(e) => setVoucherTypeValidityDays(e.target.value)}
-                            data-testid="input-voucher-type-validity"
-                          />
+                          {editingVoucherType ? (
+                            <div className="p-3 bg-muted rounded-md">
+                              <p className="text-sm font-medium">{voucherTypeValidityDays} days</p>
+                            </div>
+                          ) : (
+                            <Input 
+                              id="vt-validity" 
+                              type="number" 
+                              min="1"
+                              value={voucherTypeValidityDays}
+                              onChange={(e) => setVoucherTypeValidityDays(e.target.value)}
+                              data-testid="input-voucher-type-validity"
+                            />
+                          )}
                         </div>
                       </div>
                       <div className="grid gap-2">

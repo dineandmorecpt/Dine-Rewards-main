@@ -595,6 +595,16 @@ function AdminVouchersContent() {
     }
   }, [captureScannerOpen]);
 
+  // Auto-start voucher scanner when opened
+  useEffect(() => {
+    if (scannerOpen && !isScanning) {
+      const timer = setTimeout(() => {
+        startScanner();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [scannerOpen]);
+
   const recordTransaction = useMutation({
     mutationFn: async ({ phone, billId, amountSpent }: { phone: string; billId?: string; amountSpent: number }) => {
       const res = await fetch(`/api/restaurants/${restaurantId}/transactions/record`, {
@@ -1116,9 +1126,7 @@ function AdminVouchersContent() {
                         </Button>
                       </div>
                       {!isScanning && (
-                        <Button onClick={startScanner} className="w-full gap-2">
-                          <Camera className="h-4 w-4" /> Start Camera
-                        </Button>
+                        <p className="text-sm text-muted-foreground text-center">Starting camera...</p>
                       )}
                     </div>
                   ) : (

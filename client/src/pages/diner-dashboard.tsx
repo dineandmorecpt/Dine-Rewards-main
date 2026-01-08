@@ -81,8 +81,6 @@ export default function DinerDashboard() {
   const [codeExpiresAt, setCodeExpiresAt] = useState<Date | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<string>("");
   const [selectedRestaurantId, setSelectedRestaurantId] = useState<string | null>(null);
-  const [redeemCreditsOpen, setRedeemCreditsOpen] = useState(false);
-  const [redeemingRestaurant, setRedeemingRestaurant] = useState<PointsBalance | null>(null);
   const [showMyQRCode, setShowMyQRCode] = useState(false);
   const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null);
   const [showVoucherQR, setShowVoucherQR] = useState(false);
@@ -158,49 +156,6 @@ export default function DinerDashboard() {
     enabled: !!dinerId && !!selectedRestaurant,
   });
 
-  // Fetch active voucher types for redeeming restaurant
-  const { data: voucherTypes = [], isLoading: loadingVoucherTypes } = useQuery<VoucherType[]>({
-    queryKey: ["/api/restaurants", redeemingRestaurant?.restaurantId, "voucher-types", "active"],
-    queryFn: async () => {
-      const res = await fetch(`/api/restaurants/${redeemingRestaurant!.restaurantId}/voucher-types/active`);
-      if (!res.ok) throw new Error("Failed to fetch voucher types");
-      return res.json();
-    },
-    enabled: !!redeemingRestaurant,
-  });
-
-  // Redeem credit for voucher
-  const redeemCredit = useMutation({
-    mutationFn: async ({ restaurantId, voucherTypeId, branchId }: { restaurantId: string; voucherTypeId: string; branchId?: string | null }) => {
-      const res = await fetch(`/api/diners/${dinerId}/restaurants/${restaurantId}/redeem-credit`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ voucherTypeId, branchId: branchId || undefined }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to redeem credit");
-      }
-      return res.json();
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/diners", dinerId, "points"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/diners", dinerId, "vouchers"] });
-      setRedeemCreditsOpen(false);
-      setRedeemingRestaurant(null);
-      toast({
-        title: "Voucher Created!",
-        description: `You now have a new voucher: ${data.voucher.title}`,
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Redemption Failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
 
   // Create transaction mutation (simulates spending)
   const createTransaction = useMutation({
@@ -356,25 +311,6 @@ export default function DinerDashboard() {
                   className="overflow-hidden border-none shadow-md relative" 
                   data-testid={`card-restaurant-${selectedRestaurant.restaurantName.toLowerCase().replace(/\s+/g, '-')}`}
                 >
-                  {/* Available Vouchers Banner */}
-                  {((selectedRestaurant.pointsCredits || 0) + (selectedRestaurant.visitCredits || 0) > 0) && (
-                    <div 
-                      className="bg-gradient-to-r from-rose-100 to-rose-50 text-rose-800 px-3 py-2 flex items-center justify-between cursor-pointer hover:from-rose-200 hover:to-rose-100 transition-colors border-b border-rose-200"
-                      onClick={() => {
-                        setRedeemingRestaurant(selectedRestaurant);
-                        setRedeemCreditsOpen(true);
-                      }}
-                      data-testid="banner-redeem-credits"
-                    >
-                      <span className="text-sm font-medium flex items-center gap-1">
-                        <Sparkles className="h-4 w-4" />
-                        {(selectedRestaurant.pointsCredits || 0) + (selectedRestaurant.visitCredits || 0)} reward credit{(selectedRestaurant.pointsCredits || 0) + (selectedRestaurant.visitCredits || 0) !== 1 ? 's' : ''} available
-                      </span>
-                      <span className="text-xs bg-rose-200 text-rose-700 px-2 py-1 rounded">
-                        Tap to redeem
-                      </span>
-                    </div>
-                  )}
                   
                   <div className={`h-2 w-full ${selectedRestaurant.restaurantColor}`} />
                   <CardHeader className="flex flex-row items-center justify-between p-4 pb-2">
@@ -502,31 +438,6 @@ export default function DinerDashboard() {
                 );
               }
               
-              if (filteredVouchers.length === 0 && hasCredits) {
-                // Show redeem credits prompt when diner has credits but no vouchers yet
-                return (
-                  <Card className="p-6 sm:p-8 text-center border-rose-200 bg-rose-50/50">
-                    <Sparkles className="h-12 w-12 sm:h-16 sm:w-16 mx-auto text-rose-500 mb-3 sm:mb-4" />
-                    <p className="text-base sm:text-lg font-medium text-foreground">
-                      You have {(selectedRestaurant?.pointsCredits || 0) + (selectedRestaurant?.visitCredits || 0)} reward credit{((selectedRestaurant?.pointsCredits || 0) + (selectedRestaurant?.visitCredits || 0)) !== 1 ? 's' : ''} to redeem!
-                    </p>
-                    <p className="text-xs sm:text-sm text-muted-foreground mt-2 mb-4">
-                      Choose a voucher reward from {selectedRestaurant?.restaurantName}
-                    </p>
-                    <Button 
-                      className="bg-rose-100 hover:bg-rose-200 text-rose-800 border-0"
-                      onClick={() => {
-                        setRedeemingRestaurant(selectedRestaurant);
-                        setRedeemCreditsOpen(true);
-                      }}
-                      data-testid="button-redeem-credits"
-                    >
-                      <Gift className="h-4 w-4 mr-2" />
-                      Choose Your Reward
-                    </Button>
-                  </Card>
-                );
-              }
               
               return (
                 <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
@@ -637,92 +548,6 @@ export default function DinerDashboard() {
           </DialogContent>
         </Dialog>
 
-        {/* Credit Redemption Dialog */}
-        <Dialog open={redeemCreditsOpen} onOpenChange={(open) => {
-          setRedeemCreditsOpen(open);
-          if (!open) setRedeemingRestaurant(null);
-        }}>
-          <DialogContent className="w-[calc(100%-24px)] max-w-lg mx-auto rounded-lg">
-            <DialogHeader>
-              <DialogTitle className="font-serif text-lg sm:text-xl flex items-center gap-2">
-                <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-rose-600 shrink-0" />
-                Choose Your Reward
-              </DialogTitle>
-              <DialogDescription className="text-xs sm:text-sm">
-                {redeemingRestaurant?.restaurantName} - {redeemingRestaurant?.pointsCredits || 0} points credit{(redeemingRestaurant?.pointsCredits || 0) !== 1 ? 's' : ''}, {redeemingRestaurant?.visitCredits || 0} visit credit{(redeemingRestaurant?.visitCredits || 0) !== 1 ? 's' : ''}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="py-2 sm:py-4">
-              {loadingVoucherTypes ? (
-                <div className="flex items-center justify-center py-6 sm:py-8">
-                  <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-primary"></div>
-                </div>
-              ) : voucherTypes.length === 0 ? (
-                <div className="text-center py-6 sm:py-8">
-                  <Gift className="h-10 w-10 sm:h-12 sm:w-12 mx-auto text-muted-foreground/50 mb-2 sm:mb-3" />
-                  <p className="text-sm sm:text-base text-muted-foreground">No rewards available</p>
-                  <p className="text-xs sm:text-sm text-muted-foreground mt-1">The restaurant hasn't set up any reward options yet.</p>
-                </div>
-              ) : (
-                <div className="space-y-2 sm:space-y-3 max-h-[300px] sm:max-h-[400px] overflow-y-auto">
-                  {voucherTypes.map((vt) => {
-                    const vtEarningMode = vt.earningMode || 'points';
-                    const availableCredits = vtEarningMode === 'visits' 
-                      ? (redeemingRestaurant?.visitCredits || 0) 
-                      : (redeemingRestaurant?.pointsCredits || 0);
-                    const canAfford = availableCredits >= vt.creditsCost;
-                    return (
-                      <Card 
-                        key={vt.id} 
-                        className={`p-3 sm:p-4 cursor-pointer transition-all ${canAfford ? 'hover:border-primary hover:shadow-md active:scale-[0.98]' : 'opacity-50 cursor-not-allowed'}`}
-                        onClick={() => {
-                          if (canAfford && redeemingRestaurant) {
-                            redeemCredit.mutate({ 
-                              restaurantId: redeemingRestaurant.restaurantId, 
-                              voucherTypeId: vt.id,
-                              branchId: redeemingRestaurant.branchId
-                            });
-                          }
-                        }}
-                        data-testid={`card-select-voucher-type-${vt.id}`}
-                      >
-                        <div className="flex justify-between items-start gap-2">
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-medium font-serif text-sm sm:text-base">{vt.name}</h3>
-                            <Badge variant="outline" className="text-[10px] font-normal mt-1">
-                              {vtEarningMode === 'visits' ? 'Visits' : 'Points'}
-                            </Badge>
-                            {vt.description && (
-                              <p className="text-xs sm:text-sm text-muted-foreground mt-1">{vt.description}</p>
-                            )}
-                            <div className="flex gap-4 mt-1.5 sm:mt-2 text-[10px] sm:text-xs text-muted-foreground">
-                              <span className="flex items-center gap-1">
-                                <Clock className="h-3 w-3" />
-                                Valid {vt.validityDays} days
-                              </span>
-                            </div>
-                            {vt.rewardDetails && (
-                              <p className="text-[10px] sm:text-xs text-muted-foreground mt-1.5 sm:mt-2 pt-1.5 sm:pt-2 border-t">{vt.rewardDetails}</p>
-                            )}
-                          </div>
-                          <div className="shrink-0">
-                            <Badge 
-                              variant={canAfford ? "default" : "secondary"}
-                              className={`text-[10px] sm:text-xs ${canAfford ? "bg-rose-600 hover:bg-rose-600" : ""}`}
-                            >
-                              <Star className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-0.5 sm:mr-1" />
-                              {vt.creditsCost} Credit{vt.creditsCost !== 1 ? 's' : ''}
-                            </Badge>
-                          </div>
-                        </div>
-                      </Card>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
 
         {/* My QR Code Dialog */}
         <Dialog open={showMyQRCode} onOpenChange={setShowMyQRCode}>

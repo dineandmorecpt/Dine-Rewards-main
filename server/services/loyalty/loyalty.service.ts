@@ -5,6 +5,7 @@ export interface TransactionResult {
   transaction: Transaction;
   balance: PointsBalance;
   creditsEarned: number; // How many voucher credits were earned from this transaction
+  vouchersGenerated: Voucher[]; // Vouchers auto-generated from earned credits
 }
 
 export interface VoucherRedemptionResult {
@@ -198,10 +199,70 @@ export class LoyaltyService implements ILoyaltyService {
       totalVoucherCreditsEarned: newTotalCreditsEarned
     });
 
+    // Auto-generate vouchers for earned credits
+    const vouchersGenerated: Voucher[] = [];
+    let currentBalance = updatedBalance;
+    
+    // Get active voucher types for this restaurant
+    const voucherTypes = await this.storage.getActiveVoucherTypesByRestaurant(restaurantId);
+    
+    if (voucherTypes.length > 0) {
+      // Process points credits - find voucher types that use 'points' earning mode
+      const pointsVoucherType = voucherTypes.find(vt => vt.earningMode === 'points');
+      if (pointsVoucherType && currentBalance.pointsCredits >= pointsVoucherType.creditsCost) {
+        // Generate vouchers for each credit the diner can afford
+        while (currentBalance.pointsCredits >= pointsVoucherType.creditsCost) {
+          const voucher = await this.storage.createVoucher({
+            dinerId,
+            restaurantId,
+            branchId: isBranchSpecific ? branchId : null,
+            voucherTypeId: pointsVoucherType.id,
+            title: pointsVoucherType.name,
+            code: this.generateVoucherCode(restaurant.name),
+            expiryDate: this.calculateExpiryDate(pointsVoucherType.validityDays),
+            isRedeemed: false,
+            redeemedAt: null
+          });
+          vouchersGenerated.push(voucher);
+          
+          // Deduct credits
+          currentBalance = await this.storage.updatePointsBalance(currentBalance.id, {
+            pointsCredits: currentBalance.pointsCredits - pointsVoucherType.creditsCost,
+            totalVouchersGenerated: currentBalance.totalVouchersGenerated + 1
+          });
+        }
+      }
+      
+      // Process visit credits - find voucher types that use 'visits' earning mode
+      const visitsVoucherType = voucherTypes.find(vt => vt.earningMode === 'visits');
+      if (visitsVoucherType && currentBalance.visitCredits >= visitsVoucherType.creditsCost) {
+        while (currentBalance.visitCredits >= visitsVoucherType.creditsCost) {
+          const voucher = await this.storage.createVoucher({
+            dinerId,
+            restaurantId,
+            branchId: isBranchSpecific ? branchId : null,
+            voucherTypeId: visitsVoucherType.id,
+            title: visitsVoucherType.name,
+            code: this.generateVoucherCode(restaurant.name),
+            expiryDate: this.calculateExpiryDate(visitsVoucherType.validityDays),
+            isRedeemed: false,
+            redeemedAt: null
+          });
+          vouchersGenerated.push(voucher);
+          
+          currentBalance = await this.storage.updatePointsBalance(currentBalance.id, {
+            visitCredits: currentBalance.visitCredits - visitsVoucherType.creditsCost,
+            totalVouchersGenerated: currentBalance.totalVouchersGenerated + 1
+          });
+        }
+      }
+    }
+
     return {
       transaction,
-      balance: updatedBalance,
-      creditsEarned
+      balance: currentBalance,
+      creditsEarned,
+      vouchersGenerated
     };
   }
 

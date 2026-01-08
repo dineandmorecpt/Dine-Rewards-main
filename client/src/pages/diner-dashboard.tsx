@@ -357,14 +357,19 @@ export default function DinerDashboard() {
                   {/* Available Vouchers Banner */}
                   {((selectedRestaurant.pointsCredits || 0) + (selectedRestaurant.visitCredits || 0) > 0) && (
                     <div 
-                      className="bg-gradient-to-r from-rose-700 to-rose-600 text-white px-3 py-2 flex items-center justify-between"
+                      className="bg-gradient-to-r from-rose-700 to-rose-600 text-white px-3 py-2 flex items-center justify-between cursor-pointer hover:from-rose-800 hover:to-rose-700 transition-colors"
+                      onClick={() => {
+                        setRedeemingRestaurant(selectedRestaurant);
+                        setRedeemCreditsOpen(true);
+                      }}
+                      data-testid="banner-redeem-credits"
                     >
                       <span className="text-sm font-medium flex items-center gap-1">
                         <Sparkles className="h-4 w-4" />
-                        {(selectedRestaurant.pointsCredits || 0) + (selectedRestaurant.visitCredits || 0)} voucher{(selectedRestaurant.pointsCredits || 0) + (selectedRestaurant.visitCredits || 0) !== 1 ? 's' : ''} available
+                        {(selectedRestaurant.pointsCredits || 0) + (selectedRestaurant.visitCredits || 0)} reward credit{(selectedRestaurant.pointsCredits || 0) + (selectedRestaurant.visitCredits || 0) !== 1 ? 's' : ''} available
                       </span>
-                      <span className="text-xs opacity-90">
-                        View in My Vouchers tab
+                      <span className="text-xs bg-white/20 px-2 py-1 rounded">
+                        Tap to redeem
                       </span>
                     </div>
                   )}
@@ -495,8 +500,30 @@ export default function DinerDashboard() {
                 );
               }
               
-              if (filteredVouchers.length === 0) {
-                return null;
+              if (filteredVouchers.length === 0 && hasCredits) {
+                // Show redeem credits prompt when diner has credits but no vouchers yet
+                return (
+                  <Card className="p-6 sm:p-8 text-center border-rose-200 bg-rose-50/50">
+                    <Sparkles className="h-12 w-12 sm:h-16 sm:w-16 mx-auto text-rose-500 mb-3 sm:mb-4" />
+                    <p className="text-base sm:text-lg font-medium text-foreground">
+                      You have {(selectedRestaurant?.pointsCredits || 0) + (selectedRestaurant?.visitCredits || 0)} reward credit{((selectedRestaurant?.pointsCredits || 0) + (selectedRestaurant?.visitCredits || 0)) !== 1 ? 's' : ''} to redeem!
+                    </p>
+                    <p className="text-xs sm:text-sm text-muted-foreground mt-2 mb-4">
+                      Choose a voucher reward from {selectedRestaurant?.restaurantName}
+                    </p>
+                    <Button 
+                      className="bg-rose-100 hover:bg-rose-200 text-rose-800 border-0"
+                      onClick={() => {
+                        setRedeemingRestaurant(selectedRestaurant);
+                        setRedeemCreditsOpen(true);
+                      }}
+                      data-testid="button-redeem-credits"
+                    >
+                      <Gift className="h-4 w-4 mr-2" />
+                      Choose Your Reward
+                    </Button>
+                  </Card>
+                );
               }
               
               return (

@@ -161,57 +161,57 @@
   }
 }
 
-/* Diner Portal Warm Gold/Amber Theme */
+/* Diner Portal Deep Burgundy/Wine Theme */
 .diner-theme {
-  --background: 40 40% 97%;
-  --foreground: 30 30% 15%;
+  --background: 350 25% 97%;
+  --foreground: 350 30% 15%;
   
   --card: 0 0% 100%;
-  --card-foreground: 30 30% 15%;
+  --card-foreground: 350 30% 15%;
   
   --popover: 0 0% 100%;
-  --popover-foreground: 30 30% 15%;
+  --popover-foreground: 350 30% 15%;
   
-  --primary: 35 85% 45%;
+  --primary: 345 60% 35%;
   --primary-foreground: 0 0% 100%;
   
-  --secondary: 40 30% 92%;
-  --secondary-foreground: 30 30% 25%;
+  --secondary: 350 20% 92%;
+  --secondary-foreground: 350 30% 25%;
   
-  --muted: 40 20% 94%;
-  --muted-foreground: 30 15% 45%;
+  --muted: 350 15% 94%;
+  --muted-foreground: 350 15% 45%;
   
-  --accent: 40 40% 94%;
-  --accent-foreground: 30 30% 25%;
+  --accent: 350 25% 94%;
+  --accent-foreground: 350 30% 25%;
   
-  --border: 40 20% 88%;
-  --input: 40 20% 88%;
-  --ring: 35 85% 45%;
+  --border: 350 15% 88%;
+  --input: 350 15% 88%;
+  --ring: 345 60% 35%;
   
-  --chart-1: 35 85% 45%;
-  --chart-2: 40 75% 55%;
-  --chart-3: 45 65% 60%;
-  --chart-4: 30 70% 50%;
-  --chart-5: 25 70% 55%;
+  --chart-1: 345 60% 35%;
+  --chart-2: 350 50% 45%;
+  --chart-3: 355 45% 55%;
+  --chart-4: 340 55% 40%;
+  --chart-5: 335 50% 45%;
 }
 
-/* Diner theme sidebar - warm gold/amber gradient */
+/* Diner theme sidebar - deep burgundy gradient */
 .diner-sidebar {
-  background: linear-gradient(180deg, hsl(30 70% 35%) 0%, hsl(25 65% 28%) 100%) !important;
+  background: linear-gradient(180deg, hsl(345 55% 30%) 0%, hsl(340 50% 22%) 100%) !important;
 }
 
-/* Diner gold button utility - matches lightest voucher banner color */
+/* Diner burgundy button utility */
 .btn-diner-primary {
-  background-color: hsl(38 92% 50%) !important;
+  background-color: hsl(345 60% 35%) !important;
   color: white !important;
   border: none !important;
 }
 
 .btn-diner-primary:hover {
-  background-color: hsl(38 92% 45%) !important;
+  background-color: hsl(345 60% 30%) !important;
 }
 
-/* Diner gradient header - matches lightest voucher banner color */
+/* Diner gradient header - deep burgundy */
 .diner-header-gradient {
-  background: hsl(38 92% 50%);
+  background: linear-gradient(135deg, hsl(345 55% 35%) 0%, hsl(340 50% 28%) 100%);
 }

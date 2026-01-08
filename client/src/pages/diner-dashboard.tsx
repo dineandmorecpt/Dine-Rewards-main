@@ -216,9 +216,10 @@ export default function DinerDashboard() {
       setShowVoucherQR(true);
     },
     onError: (error: Error) => {
+      setSelectedVoucher(null);
       toast({
-        title: "Error",
-        description: error.message,
+        title: "Voucher could not load",
+        description: "Please retry by tapping the voucher again.",
         variant: "destructive",
       });
     },

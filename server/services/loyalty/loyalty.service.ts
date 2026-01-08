@@ -100,9 +100,12 @@ export class LoyaltyService implements ILoyaltyService {
   }
 
   private generateVoucherCode(restaurantName: string): string {
-    const prefix = restaurantName.substring(0, 4).toUpperCase().replace(/\s/g, '');
-    const suffix = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-    return `${prefix}-${suffix}`;
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = '';
+    for (let i = 0; i < 12; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
   }
 
   private calculateExpiryDate(validityDays: number): Date {

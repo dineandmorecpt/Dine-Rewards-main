@@ -639,7 +639,7 @@ export default function DinerDashboard() {
                 </div>
                 <div className="bg-white p-4 rounded-xl shadow-sm border">
                   <QRCodeSVG 
-                    value={selectedVoucher.id} 
+                    value={selectedVoucher.code} 
                     size={180}
                     level="H"
                     includeMargin={false}

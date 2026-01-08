@@ -331,9 +331,9 @@ export default function DinerDashboard() {
         </div>
 
         <Tabs defaultValue="points" className="w-full space-y-4 sm:space-y-6">
-          <TabsList className="grid w-full grid-cols-2 h-11 sm:h-10 sm:max-w-[400px] bg-rose-100">
-            <TabsTrigger value="points" className="text-xs sm:text-sm data-[state=active]:bg-rose-700 data-[state=active]:text-white" data-testid="tab-points">Loyalty Points</TabsTrigger>
-            <TabsTrigger value="vouchers" className="text-xs sm:text-sm data-[state=active]:bg-rose-700 data-[state=active]:text-white" data-testid="tab-vouchers">My Vouchers</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 h-11 sm:h-10 sm:max-w-[400px] bg-white border border-rose-200">
+            <TabsTrigger value="points" className="text-xs sm:text-sm text-rose-700 data-[state=active]:bg-rose-50 data-[state=active]:text-rose-800 data-[state=active]:shadow-none" data-testid="tab-points">Loyalty Points</TabsTrigger>
+            <TabsTrigger value="vouchers" className="text-xs sm:text-sm text-rose-700 data-[state=active]:bg-rose-50 data-[state=active]:text-rose-800 data-[state=active]:shadow-none" data-testid="tab-vouchers">My Vouchers</TabsTrigger>
           </TabsList>
 
           <TabsContent value="points" className="space-y-4 sm:space-y-6">
@@ -357,7 +357,7 @@ export default function DinerDashboard() {
                   {/* Available Vouchers Banner */}
                   {((selectedRestaurant.pointsCredits || 0) + (selectedRestaurant.visitCredits || 0) > 0) && (
                     <div 
-                      className="bg-gradient-to-r from-amber-500 to-orange-500 text-white px-3 py-2 flex items-center justify-between"
+                      className="bg-gradient-to-r from-rose-700 to-rose-600 text-white px-3 py-2 flex items-center justify-between"
                     >
                       <span className="text-sm font-medium flex items-center gap-1">
                         <Sparkles className="h-4 w-4" />
@@ -615,7 +615,7 @@ export default function DinerDashboard() {
           <DialogContent className="w-[calc(100%-24px)] max-w-lg mx-auto rounded-lg">
             <DialogHeader>
               <DialogTitle className="font-serif text-lg sm:text-xl flex items-center gap-2">
-                <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-amber-500 shrink-0" />
+                <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-rose-600 shrink-0" />
                 Choose Your Reward
               </DialogTitle>
               <DialogDescription className="text-xs sm:text-sm">
@@ -678,7 +678,7 @@ export default function DinerDashboard() {
                           <div className="shrink-0">
                             <Badge 
                               variant={canAfford ? "default" : "secondary"}
-                              className={`text-[10px] sm:text-xs ${canAfford ? "bg-amber-500 hover:bg-amber-500" : ""}`}
+                              className={`text-[10px] sm:text-xs ${canAfford ? "bg-rose-600 hover:bg-rose-600" : ""}`}
                             >
                               <Star className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-0.5 sm:mr-1" />
                               {vt.creditsCost} Credit{vt.creditsCost !== 1 ? 's' : ''}

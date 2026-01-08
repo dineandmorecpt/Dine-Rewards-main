@@ -84,6 +84,8 @@ export default function DinerDashboard() {
   const [redeemCreditsOpen, setRedeemCreditsOpen] = useState(false);
   const [redeemingRestaurant, setRedeemingRestaurant] = useState<PointsBalance | null>(null);
   const [showMyQRCode, setShowMyQRCode] = useState(false);
+  const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null);
+  const [showVoucherQR, setShowVoucherQR] = useState(false);
 
   useEffect(() => {
     if (!codeExpiresAt || !presentCodeOpen) return;
@@ -537,8 +539,9 @@ export default function DinerDashboard() {
                         : "opacity-70"
                     }`}
                     onClick={() => {
-                      if (voucher.status === "active" && !selectVoucher.isPending) {
-                        selectVoucher.mutate({ voucherId: voucher.id, title: voucher.title });
+                      if (voucher.status === "active") {
+                        setSelectedVoucher(voucher);
+                        setShowVoucherQR(true);
                       }
                     }}
                     data-testid={`card-voucher-${voucher.code}`}
@@ -750,6 +753,52 @@ export default function DinerDashboard() {
                 Scan at restaurant to earn points
               </p>
             </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Voucher QR Code Dialog */}
+        <Dialog open={showVoucherQR} onOpenChange={(open) => {
+          setShowVoucherQR(open);
+          if (!open) setSelectedVoucher(null);
+        }}>
+          <DialogContent className="w-[calc(100%-24px)] max-w-sm mx-auto rounded-lg">
+            <DialogHeader className="text-center">
+              <DialogTitle className="font-serif text-lg sm:text-xl flex items-center justify-center gap-2">
+                <Gift className="h-5 w-5 text-rose-600" />
+                Redeem Voucher
+              </DialogTitle>
+              <DialogDescription className="text-xs sm:text-sm">
+                Show this QR code to the restaurant staff
+              </DialogDescription>
+            </DialogHeader>
+            {selectedVoucher && (
+              <div className="flex flex-col items-center py-4 sm:py-6 space-y-4">
+                <div className="text-center">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider">{selectedVoucher.restaurantName}</p>
+                  <p className="text-lg sm:text-xl font-serif font-semibold mt-1">{selectedVoucher.title}</p>
+                </div>
+                <div className="bg-white p-4 rounded-xl shadow-sm border">
+                  <QRCodeSVG 
+                    value={selectedVoucher.id} 
+                    size={180}
+                    level="H"
+                    includeMargin={false}
+                  />
+                </div>
+                <div className="text-center space-y-2">
+                  <p className="text-xs font-mono text-muted-foreground bg-muted px-3 py-1.5 rounded">
+                    {selectedVoucher.id}
+                  </p>
+                  <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+                    <Clock className="h-3 w-3" />
+                    Expires {formatDistanceToNow(new Date(selectedVoucher.expiryDate), { addSuffix: true })}
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground text-center px-4">
+                  Staff will scan this code to redeem your voucher
+                </p>
+              </div>
+            )}
           </DialogContent>
         </Dialog>
       </div>

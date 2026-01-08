@@ -357,7 +357,7 @@ export default function DinerDashboard() {
                   {/* Available Vouchers Banner */}
                   {((selectedRestaurant.pointsCredits || 0) + (selectedRestaurant.visitCredits || 0) > 0) && (
                     <div 
-                      className="bg-gradient-to-r from-rose-700 to-rose-600 text-white px-3 py-2 flex items-center justify-between cursor-pointer hover:from-rose-800 hover:to-rose-700 transition-colors"
+                      className="bg-gradient-to-r from-rose-100 to-rose-50 text-rose-800 px-3 py-2 flex items-center justify-between cursor-pointer hover:from-rose-200 hover:to-rose-100 transition-colors border-b border-rose-200"
                       onClick={() => {
                         setRedeemingRestaurant(selectedRestaurant);
                         setRedeemCreditsOpen(true);
@@ -368,7 +368,7 @@ export default function DinerDashboard() {
                         <Sparkles className="h-4 w-4" />
                         {(selectedRestaurant.pointsCredits || 0) + (selectedRestaurant.visitCredits || 0)} reward credit{(selectedRestaurant.pointsCredits || 0) + (selectedRestaurant.visitCredits || 0) !== 1 ? 's' : ''} available
                       </span>
-                      <span className="text-xs bg-white/20 px-2 py-1 rounded">
+                      <span className="text-xs bg-rose-200 text-rose-700 px-2 py-1 rounded">
                         Tap to redeem
                       </span>
                     </div>

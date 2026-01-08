@@ -121,7 +121,7 @@ export function DinerLayout({ children }: DinerLayoutProps) {
         </div>
         
         {/* Main Content for mobile */}
-        <main className="bg-rose-50/30 min-h-[calc(100vh-52px)] pb-20">
+        <main className="bg-white min-h-[calc(100vh-52px)] pb-20">
           <div className="px-3 py-4 sm:px-4 sm:py-6">
             {children}
           </div>
@@ -160,7 +160,7 @@ export function DinerLayout({ children }: DinerLayoutProps) {
         </div>
 
         {/* Main Content */}
-        <main className="flex-1 overflow-y-auto bg-rose-50/30">
+        <main className="flex-1 overflow-y-auto bg-white">
           <div className="container mx-auto max-w-5xl px-6 py-8">
             {children}
           </div>

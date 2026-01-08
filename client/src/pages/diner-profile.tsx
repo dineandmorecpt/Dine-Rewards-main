@@ -374,7 +374,7 @@ export default function DinerProfile() {
                     setPendingNewPhone(phone);
                     setPhoneChangeModalOpen(true);
                   }}
-                  className="h-10 sm:h-9 shrink-0 bg-white hover:bg-rose-50 text-rose-700 border border-rose-200"
+                  className="h-10 sm:h-9 shrink-0 bg-rose-100 hover:bg-rose-200 text-rose-800 border-0"
                   data-testid="button-change-phone"
                 >
                   Change
@@ -393,7 +393,7 @@ export default function DinerProfile() {
               <Button
                 onClick={handleSave}
                 disabled={!hasChanges || updateProfile.isPending}
-                className="w-full sm:w-auto h-10 sm:h-9 bg-white hover:bg-rose-50 text-rose-700 border border-rose-200"
+                className="w-full sm:w-auto h-10 sm:h-9 bg-rose-100 hover:bg-rose-200 text-rose-800 border-0"
                 data-testid="button-save-profile"
               >
                 {updateProfile.isPending ? (
@@ -555,7 +555,7 @@ export default function DinerProfile() {
               <Button
                 onClick={handlePhoneChange}
                 disabled={!pendingNewPhone.trim() || requestPhoneChangeOtp.isPending}
-                className="w-full sm:w-auto h-10 sm:h-9 order-1 sm:order-2 bg-white hover:bg-rose-50 text-rose-700 border border-rose-200"
+                className="w-full sm:w-auto h-10 sm:h-9 order-1 sm:order-2 bg-rose-100 hover:bg-rose-200 text-rose-800 border-0"
                 data-testid="button-send-code"
               >
                 {requestPhoneChangeOtp.isPending ? (
@@ -568,7 +568,7 @@ export default function DinerProfile() {
               <Button
                 onClick={() => verifyPhoneChangeOtp.mutate(otpDigits.join(""))}
                 disabled={otpDigits.join("").length !== 6 || verifyPhoneChangeOtp.isPending}
-                className="w-full sm:w-auto h-10 sm:h-9 order-1 sm:order-2 bg-white hover:bg-rose-50 text-rose-700 border border-rose-200"
+                className="w-full sm:w-auto h-10 sm:h-9 order-1 sm:order-2 bg-rose-100 hover:bg-rose-200 text-rose-800 border-0"
                 data-testid="button-verify-code"
               >
                 {verifyPhoneChangeOtp.isPending ? (

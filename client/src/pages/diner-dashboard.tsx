@@ -319,7 +319,7 @@ export default function DinerDashboard() {
             {user?.phone && (
               <Button
                 size="sm"
-                className="gap-2 min-h-[44px] bg-white hover:bg-rose-50 text-rose-700 border border-rose-200"
+                className="gap-2 min-h-[44px] bg-rose-100 hover:bg-rose-200 text-rose-800 border-0"
                 onClick={() => setShowMyQRCode(true)}
                 data-testid="button-show-my-qr"
               >

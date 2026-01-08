@@ -84,6 +84,7 @@ export default function DinerDashboard() {
   const [showMyQRCode, setShowMyQRCode] = useState(false);
   const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null);
   const [showVoucherQR, setShowVoucherQR] = useState(false);
+  const [voucherFilter, setVoucherFilter] = useState<"active" | "redeemed">("active");
 
   useEffect(() => {
     if (!codeExpiresAt || !presentCodeOpen) return;
@@ -415,24 +416,58 @@ export default function DinerDashboard() {
           </TabsContent>
 
           <TabsContent value="vouchers" className="space-y-4 sm:space-y-6">
+            {/* Filter Toggle */}
+            <div className="flex justify-center">
+              <div className="inline-flex bg-white border border-rose-200 rounded-lg p-1">
+                <button
+                  onClick={() => setVoucherFilter("active")}
+                  className={`px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors ${
+                    voucherFilter === "active"
+                      ? "bg-rose-100 text-rose-800"
+                      : "text-gray-500 hover:text-rose-700"
+                  }`}
+                  data-testid="filter-active"
+                >
+                  Active
+                </button>
+                <button
+                  onClick={() => setVoucherFilter("redeemed")}
+                  className={`px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors ${
+                    voucherFilter === "redeemed"
+                      ? "bg-rose-100 text-rose-800"
+                      : "text-gray-500 hover:text-rose-700"
+                  }`}
+                  data-testid="filter-redeemed"
+                >
+                  Redeemed
+                </button>
+              </div>
+            </div>
+
             {(() => {
-              const filteredVouchers = selectedRestaurantId 
+              // First filter by restaurant
+              const restaurantVouchers = selectedRestaurantId 
                 ? vouchers.filter(v => v.restaurantId === selectedRestaurantId)
                 : vouchers;
               
+              // Then filter by status
+              const filteredVouchers = restaurantVouchers.filter(v => v.status === voucherFilter);
+              
               const hasCredits = selectedRestaurant && ((selectedRestaurant.pointsCredits || 0) > 0 || (selectedRestaurant.visitCredits || 0) > 0);
               
-              if (filteredVouchers.length === 0 && !hasCredits) {
+              if (filteredVouchers.length === 0) {
                 return (
                   <Card className="p-6 sm:p-12 text-center">
                     <Gift className="h-12 w-12 sm:h-16 sm:w-16 mx-auto text-muted-foreground/50 mb-3 sm:mb-4" />
                     <p className="text-base sm:text-lg font-medium text-muted-foreground">
-                      {selectedRestaurant ? `No vouchers for ${selectedRestaurant.restaurantName}` : 'You have no vouchers yet'}
+                      {voucherFilter === "active" 
+                        ? "No active vouchers" 
+                        : "No redeemed vouchers"}
                     </p>
                     <p className="text-xs sm:text-sm text-muted-foreground mt-2">
-                      {selectedRestaurant 
-                        ? `Spend R1000 at ${selectedRestaurant.restaurantName} to earn a voucher`
-                        : 'Spend R1000 at a restaurant to earn your first voucher'}
+                      {voucherFilter === "active" 
+                        ? "Earn more points to get vouchers" 
+                        : "Redeemed vouchers will appear here"}
                     </p>
                   </Card>
                 );
@@ -447,7 +482,7 @@ export default function DinerDashboard() {
                     className={`relative overflow-hidden border-dashed border-2 transition-all ${
                       voucher.status === "active" 
                         ? "cursor-pointer hover:shadow-lg hover:border-primary/50 active:scale-[0.98]" 
-                        : "opacity-70"
+                        : "opacity-50 bg-gray-50 grayscale"
                     }`}
                     onClick={() => {
                       if (voucher.status === "active") {

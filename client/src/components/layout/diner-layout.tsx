@@ -39,9 +39,9 @@ export function DinerLayout({ children }: DinerLayoutProps) {
       <div className="p-4 sm:p-6">
         <Link href="/" onClick={() => setSidebarOpen(false)} className="block hover:opacity-80 transition-opacity">
           <h1 className="text-xl sm:text-2xl font-serif font-bold tracking-tight text-white">
-            Dine<span className="text-blue-200">&</span>More
+            Dine<span className="text-amber-200">&</span>More
           </h1>
-          <p className="text-[10px] sm:text-xs text-blue-200 mt-1 uppercase tracking-wider font-medium">Diner Rewards</p>
+          <p className="text-[10px] sm:text-xs text-amber-200 mt-1 uppercase tracking-wider font-medium">Diner Rewards</p>
         </Link>
       </div>
 
@@ -57,10 +57,10 @@ export function DinerLayout({ children }: DinerLayoutProps) {
                 "flex items-center gap-3 px-3 sm:px-4 py-3 text-sm font-medium rounded-md transition-all duration-200 group min-h-[44px]",
                 isActive
                   ? "bg-white/20 text-white"
-                  : "text-blue-100 hover:bg-white/10 hover:text-white"
+                  : "text-amber-100 hover:bg-white/10 hover:text-white"
               )}
             >
-              <item.icon className={cn("h-5 w-5 shrink-0", isActive ? "text-white" : "text-blue-200 group-hover:text-white")} />
+              <item.icon className={cn("h-5 w-5 shrink-0", isActive ? "text-white" : "text-amber-200 group-hover:text-white")} />
               {item.name}
             </Link>
           );
@@ -82,11 +82,11 @@ export function DinerLayout({ children }: DinerLayoutProps) {
               <div className="h-[72px] w-[72px] mx-auto bg-white/20 rounded mb-2" />
             )}
             <p className="text-xs font-medium text-white">Member ID: {memberId || '---'}</p>
-            <p className="text-[10px] text-blue-200">Scan at till to earn points</p>
+            <p className="text-[10px] text-amber-200">Scan at till to earn points</p>
         </div>
         <Button 
           variant="ghost" 
-          className="w-full justify-start text-blue-100 hover:text-red-300 hover:bg-white/10 pl-3 sm:pl-4 min-h-[44px]"
+          className="w-full justify-start text-amber-100 hover:text-red-300 hover:bg-white/10 pl-3 sm:pl-4 min-h-[44px]"
           onClick={logout}
           data-testid="button-signout"
         >
@@ -121,14 +121,14 @@ export function DinerLayout({ children }: DinerLayoutProps) {
         </div>
         
         {/* Main Content for mobile */}
-        <main className="bg-blue-50/50 min-h-[calc(100vh-52px)] pb-20">
+        <main className="bg-amber-50/50 min-h-[calc(100vh-52px)] pb-20">
           <div className="px-3 py-4 sm:px-4 sm:py-6">
             {children}
           </div>
         </main>
 
-        {/* Bottom navigation for mobile - blue theme */}
-        <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-blue-100 z-50 safe-area-pb">
+        {/* Bottom navigation for mobile - amber theme */}
+        <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-amber-100 z-50 safe-area-pb">
           <div className="flex justify-around items-center h-16">
             {navigation.map((item) => {
               const isActive = location === item.href;
@@ -139,11 +139,11 @@ export function DinerLayout({ children }: DinerLayoutProps) {
                   className={cn(
                     "flex flex-col items-center justify-center flex-1 h-full py-2 transition-colors min-w-[64px]",
                     isActive
-                      ? "text-blue-600"
+                      ? "text-amber-600"
                       : "text-gray-400"
                   )}
                 >
-                  <item.icon className={cn("h-5 w-5 mb-1", isActive ? "text-blue-600" : "text-gray-400")} />
+                  <item.icon className={cn("h-5 w-5 mb-1", isActive ? "text-amber-600" : "text-gray-400")} />
                   <span className="text-[10px] sm:text-xs font-medium">{item.name}</span>
                 </Link>
               );
@@ -160,7 +160,7 @@ export function DinerLayout({ children }: DinerLayoutProps) {
         </div>
 
         {/* Main Content */}
-        <main className="flex-1 overflow-y-auto bg-blue-50/50">
+        <main className="flex-1 overflow-y-auto bg-amber-50/50">
           <div className="container mx-auto max-w-5xl px-6 py-8">
             {children}
           </div>

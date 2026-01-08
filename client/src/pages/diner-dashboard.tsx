@@ -319,7 +319,7 @@ export default function DinerDashboard() {
             {user?.phone && (
               <Button
                 size="sm"
-                className="gap-2 min-h-[44px] bg-blue-600 hover:bg-blue-700 text-white"
+                className="gap-2 min-h-[44px] bg-amber-600 hover:bg-amber-700 text-white"
                 onClick={() => setShowMyQRCode(true)}
                 data-testid="button-show-my-qr"
               >
@@ -331,9 +331,9 @@ export default function DinerDashboard() {
         </div>
 
         <Tabs defaultValue="points" className="w-full space-y-4 sm:space-y-6">
-          <TabsList className="grid w-full grid-cols-2 h-11 sm:h-10 sm:max-w-[400px] bg-blue-100">
-            <TabsTrigger value="points" className="text-xs sm:text-sm data-[state=active]:bg-blue-600 data-[state=active]:text-white" data-testid="tab-points">Loyalty Points</TabsTrigger>
-            <TabsTrigger value="vouchers" className="text-xs sm:text-sm data-[state=active]:bg-blue-600 data-[state=active]:text-white" data-testid="tab-vouchers">My Vouchers</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 h-11 sm:h-10 sm:max-w-[400px] bg-amber-100">
+            <TabsTrigger value="points" className="text-xs sm:text-sm data-[state=active]:bg-amber-600 data-[state=active]:text-white" data-testid="tab-points">Loyalty Points</TabsTrigger>
+            <TabsTrigger value="vouchers" className="text-xs sm:text-sm data-[state=active]:bg-amber-600 data-[state=active]:text-white" data-testid="tab-vouchers">My Vouchers</TabsTrigger>
           </TabsList>
 
           <TabsContent value="points" className="space-y-4 sm:space-y-6">
@@ -397,7 +397,7 @@ export default function DinerDashboard() {
                           </div>
                           <span className="text-xs font-medium text-muted-foreground">Target: {selectedRestaurant.pointsThreshold}</span>
                         </div>
-                        <Progress value={(selectedRestaurant.currentPoints / selectedRestaurant.pointsThreshold) * 100} className="h-2 [&>div]:bg-blue-600" />
+                        <Progress value={(selectedRestaurant.currentPoints / selectedRestaurant.pointsThreshold) * 100} className="h-2 [&>div]:bg-amber-600" />
                         <p className="text-xs text-muted-foreground">
                           Spend R{Math.max(0, selectedRestaurant.pointsThreshold - selectedRestaurant.currentPoints)} more for a points voucher
                         </p>
@@ -419,7 +419,7 @@ export default function DinerDashboard() {
                           </div>
                           <span className="text-xs font-medium text-muted-foreground">Target: {selectedRestaurant.visitThreshold}</span>
                         </div>
-                        <Progress value={(selectedRestaurant.currentVisits / selectedRestaurant.visitThreshold) * 100} className="h-2 [&>div]:bg-blue-600" />
+                        <Progress value={(selectedRestaurant.currentVisits / selectedRestaurant.visitThreshold) * 100} className="h-2 [&>div]:bg-amber-600" />
                         <p className="text-xs text-muted-foreground">
                           {Math.max(0, selectedRestaurant.visitThreshold - selectedRestaurant.currentVisits)} more visit{selectedRestaurant.visitThreshold - selectedRestaurant.currentVisits !== 1 ? 's' : ''} for a visits voucher
                         </p>

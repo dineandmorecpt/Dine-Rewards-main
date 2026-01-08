@@ -161,57 +161,57 @@
   }
 }
 
-/* Diner Portal Blue Theme */
+/* Diner Portal Warm Gold/Amber Theme */
 .diner-theme {
-  --background: 210 50% 96%;
-  --foreground: 210 40% 15%;
+  --background: 40 40% 97%;
+  --foreground: 30 30% 15%;
   
   --card: 0 0% 100%;
-  --card-foreground: 210 40% 15%;
+  --card-foreground: 30 30% 15%;
   
   --popover: 0 0% 100%;
-  --popover-foreground: 210 40% 15%;
+  --popover-foreground: 30 30% 15%;
   
-  --primary: 210 100% 45%;
+  --primary: 35 85% 45%;
   --primary-foreground: 0 0% 100%;
   
-  --secondary: 210 30% 92%;
-  --secondary-foreground: 210 40% 25%;
+  --secondary: 40 30% 92%;
+  --secondary-foreground: 30 30% 25%;
   
-  --muted: 210 20% 94%;
-  --muted-foreground: 210 15% 45%;
+  --muted: 40 20% 94%;
+  --muted-foreground: 30 15% 45%;
   
-  --accent: 210 40% 94%;
-  --accent-foreground: 210 40% 25%;
+  --accent: 40 40% 94%;
+  --accent-foreground: 30 30% 25%;
   
-  --border: 210 20% 88%;
-  --input: 210 20% 88%;
-  --ring: 210 100% 45%;
+  --border: 40 20% 88%;
+  --input: 40 20% 88%;
+  --ring: 35 85% 45%;
   
-  --chart-1: 210 100% 45%;
-  --chart-2: 210 80% 55%;
-  --chart-3: 210 60% 65%;
-  --chart-4: 200 70% 50%;
-  --chart-5: 220 70% 55%;
+  --chart-1: 35 85% 45%;
+  --chart-2: 40 75% 55%;
+  --chart-3: 45 65% 60%;
+  --chart-4: 30 70% 50%;
+  --chart-5: 25 70% 55%;
 }
 
-/* Diner theme sidebar - blue gradient (standalone for portals) */
+/* Diner theme sidebar - warm gold/amber gradient */
 .diner-sidebar {
-  background: linear-gradient(180deg, hsl(210 100% 35%) 0%, hsl(210 100% 28%) 100%) !important;
+  background: linear-gradient(180deg, hsl(30 70% 35%) 0%, hsl(25 65% 28%) 100%) !important;
 }
 
-/* Diner blue button utility */
+/* Diner gold button utility */
 .btn-diner-primary {
-  background-color: hsl(210 100% 45%) !important;
+  background-color: hsl(35 85% 45%) !important;
   color: white !important;
   border: none !important;
 }
 
 .btn-diner-primary:hover {
-  background-color: hsl(210 100% 40%) !important;
+  background-color: hsl(35 85% 40%) !important;
 }
 
 /* Diner gradient header */
 .diner-header-gradient {
-  background: linear-gradient(135deg, hsl(210 100% 45%) 0%, hsl(210 100% 35%) 100%);
+  background: linear-gradient(135deg, hsl(35 80% 45%) 0%, hsl(30 70% 38%) 100%);
 }

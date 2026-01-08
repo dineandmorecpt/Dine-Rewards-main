@@ -200,18 +200,18 @@
   background: linear-gradient(180deg, hsl(30 70% 35%) 0%, hsl(25 65% 28%) 100%) !important;
 }
 
-/* Diner gold button utility */
+/* Diner gold button utility - matches lightest voucher banner color */
 .btn-diner-primary {
-  background-color: hsl(35 85% 45%) !important;
+  background-color: hsl(38 92% 50%) !important;
   color: white !important;
   border: none !important;
 }
 
 .btn-diner-primary:hover {
-  background-color: hsl(35 85% 40%) !important;
+  background-color: hsl(38 92% 45%) !important;
 }
 
-/* Diner gradient header */
+/* Diner gradient header - matches lightest voucher banner color */
 .diner-header-gradient {
-  background: linear-gradient(135deg, hsl(35 80% 45%) 0%, hsl(30 70% 38%) 100%);
+  background: hsl(38 92% 50%);
 }

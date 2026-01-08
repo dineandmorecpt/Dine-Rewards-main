@@ -139,11 +139,11 @@ export function DinerLayout({ children }: DinerLayoutProps) {
                   className={cn(
                     "flex flex-col items-center justify-center flex-1 h-full py-2 transition-colors min-w-[64px]",
                     isActive
-                      ? "text-amber-600"
+                      ? "text-amber-500"
                       : "text-gray-400"
                   )}
                 >
-                  <item.icon className={cn("h-5 w-5 mb-1", isActive ? "text-amber-600" : "text-gray-400")} />
+                  <item.icon className={cn("h-5 w-5 mb-1", isActive ? "text-amber-500" : "text-gray-400")} />
                   <span className="text-[10px] sm:text-xs font-medium">{item.name}</span>
                 </Link>
               );

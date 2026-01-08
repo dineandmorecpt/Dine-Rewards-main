@@ -18,7 +18,8 @@ export const users = pgTable("users", {
   province: text("province"), // South African province
   accessToken: text("access_token").unique(), // Persistent token for auto-login (valid for 90 days)
   accessTokenExpiresAt: timestamp("access_token_expires_at"), // When the access token expires
-  activeVoucherCode: text("active_voucher_code"), // Currently selected voucher code for redemption
+  activeVoucherCode: text("active_voucher_code"), // Temporary presentation code for redemption (generated on tap)
+  activeVoucherId: text("active_voucher_id"), // ID of voucher being presented for redemption
   activeVoucherCodeSetAt: timestamp("active_voucher_code_set_at"), // When the code was presented (valid for 15 mins)
   termsAcceptedAt: timestamp("terms_accepted_at"), // When T&Cs were accepted
   privacyAcceptedAt: timestamp("privacy_accepted_at"), // When privacy policy was accepted
@@ -191,7 +192,7 @@ export const vouchers = pgTable("vouchers", {
   branchId: varchar("branch_id").references(() => branches.id), // Branch where voucher was redeemed
   voucherTypeId: varchar("voucher_type_id").references(() => voucherTypes.id), // Which type was selected
   title: text("title").notNull(),
-  code: text("code").notNull().unique(),
+  code: text("code"), // Deprecated - no longer used, codes are generated on-the-fly
   expiryDate: timestamp("expiry_date").notNull(),
   isRedeemed: boolean("is_redeemed").notNull().default(false),
   redeemedAt: timestamp("redeemed_at"),

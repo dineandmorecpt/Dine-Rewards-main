@@ -99,14 +99,6 @@ export class LoyaltyService implements ILoyaltyService {
     return Math.max(0, threshold - (currentPoints % threshold));
   }
 
-  private generateVoucherCode(restaurantName: string): string {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let code = '';
-    for (let i = 0; i < 12; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return code;
-  }
 
   private calculateExpiryDate(validityDays: number): Date {
     const expiry = new Date();
@@ -221,7 +213,7 @@ export class LoyaltyService implements ILoyaltyService {
             branchId: isBranchSpecific ? branchId : null,
             voucherTypeId: pointsVoucherType.id,
             title: pointsVoucherType.name,
-            code: this.generateVoucherCode(restaurant.name),
+            code: null,
             expiryDate: this.calculateExpiryDate(pointsVoucherType.validityDays),
             isRedeemed: false,
             redeemedAt: null
@@ -246,7 +238,7 @@ export class LoyaltyService implements ILoyaltyService {
             branchId: isBranchSpecific ? branchId : null,
             voucherTypeId: visitsVoucherType.id,
             title: visitsVoucherType.name,
-            code: this.generateVoucherCode(restaurant.name),
+            code: null,
             expiryDate: this.calculateExpiryDate(visitsVoucherType.validityDays),
             isRedeemed: false,
             redeemedAt: null
@@ -327,7 +319,7 @@ export class LoyaltyService implements ILoyaltyService {
       branchId: voucherBranchId,
       voucherTypeId,
       title: voucherType.name,
-      code: this.generateVoucherCode(restaurant.name),
+      code: null,
       expiryDate: this.calculateExpiryDate(voucherType.validityDays),
       isRedeemed: false,
       redeemedAt: null

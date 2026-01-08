@@ -213,7 +213,7 @@ export default function DinerDashboard() {
       setActiveCode(data.code);
       setActiveVoucherTitle(variables.title);
       setCodeExpiresAt(new Date(data.codeExpiresAt));
-      setPresentCodeOpen(true);
+      setShowVoucherQR(true);
     },
     onError: (error: Error) => {
       toast({
@@ -487,7 +487,7 @@ export default function DinerDashboard() {
                     onClick={() => {
                       if (voucher.status === "active") {
                         setSelectedVoucher(voucher);
-                        setShowVoucherQR(true);
+                        selectVoucher.mutate({ voucherId: voucher.id, title: voucher.title });
                       }
                     }}
                     data-testid={`card-voucher-${voucher.code}`}
@@ -619,7 +619,10 @@ export default function DinerDashboard() {
         {/* Voucher QR Code Dialog */}
         <Dialog open={showVoucherQR} onOpenChange={(open) => {
           setShowVoucherQR(open);
-          if (!open) setSelectedVoucher(null);
+          if (!open) {
+            setSelectedVoucher(null);
+            setActiveCode(null);
+          }
         }}>
           <DialogContent className="w-[calc(100%-24px)] max-w-sm mx-auto rounded-lg">
             <DialogHeader className="text-center">
@@ -639,7 +642,7 @@ export default function DinerDashboard() {
                 </div>
                 <div className="bg-white p-4 rounded-xl shadow-sm border">
                   <QRCodeSVG 
-                    value={selectedVoucher.code} 
+                    value={activeCode || selectedVoucher.code} 
                     size={180}
                     level="H"
                     includeMargin={false}
@@ -647,7 +650,7 @@ export default function DinerDashboard() {
                 </div>
                 <div className="text-center space-y-2">
                   <p className="text-xs font-mono text-muted-foreground bg-muted px-3 py-1.5 rounded">
-                    {selectedVoucher.code}
+                    {activeCode || selectedVoucher.code}
                   </p>
                   <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
                     <Clock className="h-3 w-3" />

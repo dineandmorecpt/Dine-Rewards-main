@@ -24,6 +24,8 @@ declare module "express-session" {
     userId: string;
     userType: string;
     verifiedPhone?: string; // Phone number verified via OTP during registration
+    verifiedInvitationPhone?: string; // Phone verified via OTP during invitation registration
+    verifiedInvitationToken?: string; // Token of the verified invitation
   }
 }
 

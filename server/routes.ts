@@ -1015,6 +1015,141 @@ export async function registerRoutes(
     }
   });
 
+  // AUTH - Request OTP for invitation-based registration (validates invitation token)
+  const invitationOtpSchema = z.object({
+    phone: z.string()
+      .transform(val => val.trim().replace(/[\s\-()]/g, ''))
+      .refine(val => val.length >= 7, { message: "Phone number must be at least 7 digits" }),
+    token: z.string().min(1, "Invitation token is required"),
+  });
+
+  app.post("/api/auth/invitation-otp", smsRateLimiter, async (req, res) => {
+    try {
+      const parseResult = invitationOtpSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(422).json({ 
+          error: parseResult.error.errors[0]?.message || "Invalid input" 
+        });
+      }
+
+      const { phone, token } = parseResult.data;
+
+      // Validate the invitation token
+      const invitation = await storage.getDinerInvitationByToken(token);
+      if (!invitation) {
+        return res.status(404).json({ error: "Invalid invitation link" });
+      }
+      
+      // Check if expired
+      if (new Date() > invitation.expiresAt) {
+        return res.status(400).json({ error: "This invitation link has expired" });
+      }
+      
+      // Check if already used
+      if (invitation.status === 'registered') {
+        return res.status(400).json({ error: "This invitation has already been used" });
+      }
+
+      // Verify phone matches invitation
+      if (invitation.phone !== phone) {
+        return res.status(400).json({ error: "Phone number does not match invitation" });
+      }
+
+      // Generate 6-digit OTP
+      const otp = crypto.randomInt(100000, 1000000).toString();
+      
+      // Store OTP with 5-minute expiry (using invitation prefix)
+      const expiresAt = new Date();
+      expiresAt.setMinutes(expiresAt.getMinutes() + 5);
+      otpStore.set(`inv_${phone}`, { otp, expiresAt });
+
+      // Send OTP via SMS
+      const { sendSMS } = await import("./services/sms");
+      const smsResult = await sendSMS(phone, `Your Dine&More verification code is: ${otp}. Valid for 5 minutes.`);
+
+      res.json({
+        success: true,
+        smsSent: smsResult.success,
+        message: smsResult.success 
+          ? "Verification code sent to your phone" 
+          : "Could not send SMS. Please try again.",
+      });
+    } catch (error: any) {
+      console.error("Request invitation OTP error:", error);
+      res.status(500).json({ error: "Failed to send verification code" });
+    }
+  });
+
+  // AUTH - Verify OTP for invitation-based registration
+  const verifyInvitationOtpSchema = z.object({
+    phone: z.string()
+      .transform(val => val.trim().replace(/[\s\-()]/g, ''))
+      .refine(val => val.length >= 7, { message: "Phone number must be at least 7 digits" }),
+    otp: z.string().length(6, "Verification code must be 6 digits"),
+    token: z.string().min(1, "Invitation token is required"),
+  });
+
+  app.post("/api/auth/verify-invitation-otp", async (req, res) => {
+    try {
+      const parseResult = verifyInvitationOtpSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(422).json({ 
+          error: parseResult.error.errors[0]?.message || "Invalid input" 
+        });
+      }
+
+      const { phone, otp, token } = parseResult.data;
+
+      // Validate the invitation token
+      const invitation = await storage.getDinerInvitationByToken(token);
+      if (!invitation) {
+        return res.status(404).json({ error: "Invalid invitation link" });
+      }
+
+      // Verify phone matches invitation
+      if (invitation.phone !== phone) {
+        return res.status(400).json({ error: "Phone number does not match invitation" });
+      }
+
+      // Check stored OTP (with invitation prefix)
+      const storedOtp = otpStore.get(`inv_${phone}`);
+      if (!storedOtp) {
+        return res.status(400).json({ error: "No verification code found. Please request a new one." });
+      }
+
+      if (new Date() > storedOtp.expiresAt) {
+        otpStore.delete(`inv_${phone}`);
+        return res.status(400).json({ error: "Verification code has expired. Please request a new one." });
+      }
+
+      if (storedOtp.otp !== otp) {
+        return res.status(401).json({ error: "Invalid verification code" });
+      }
+
+      // OTP is valid - clear it
+      otpStore.delete(`inv_${phone}`);
+      
+      // Mark invitation as phone-verified (using session)
+      req.session.verifiedInvitationPhone = phone;
+      req.session.verifiedInvitationToken = token;
+      
+      req.session.save((err) => {
+        if (err) {
+          console.error("Session save error:", err);
+          return res.status(500).json({ error: "Verification failed" });
+        }
+        res.json({
+          success: true,
+          message: "Phone number verified successfully",
+          verifiedPhone: phone,
+        });
+      });
+    } catch (error: any) {
+      console.error("Verify invitation OTP error:", error);
+      res.status(500).json({ error: "Verification failed" });
+    }
+  });
+
   // TRANSACTIONS - Record a transaction and calculate points
   app.post("/api/transactions", async (req, res) => {
     try {
@@ -2381,6 +2516,16 @@ export async function registerRoutes(
         return res.status(400).json({ error: "This invitation has already been used" });
       }
       
+      // Verify phone was verified via OTP
+      if (!req.session.verifiedInvitationPhone || !req.session.verifiedInvitationToken) {
+        return res.status(400).json({ error: "Phone number must be verified before registration" });
+      }
+      
+      // Verify session matches this invitation
+      if (req.session.verifiedInvitationPhone !== invitation.phone || req.session.verifiedInvitationToken !== token) {
+        return res.status(400).json({ error: "Phone verification does not match this invitation" });
+      }
+      
       // Check if restaurant is active (completed onboarding)
       const restaurant = await storage.getRestaurant(invitation.restaurantId);
       if (!restaurant || restaurant.onboardingStatus !== 'active') {
@@ -2431,6 +2576,10 @@ export async function registerRoutes(
         totalPointsEarned: 0,
         totalVouchersGenerated: 0,
       });
+      
+      // Clear the verified invitation session data
+      delete req.session.verifiedInvitationPhone;
+      delete req.session.verifiedInvitationToken;
       
       res.json({
         success: true,

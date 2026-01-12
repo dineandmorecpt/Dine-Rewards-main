@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSearch, useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Gift, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { Gift, Loader2, CheckCircle2, AlertCircle, Phone, ShieldCheck } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 
 const GENDER_OPTIONS = [
@@ -52,6 +53,11 @@ export default function Register() {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [registrationComplete, setRegistrationComplete] = useState(false);
+  
+  // Phone verification state for token-based registration
+  const [verificationStep, setVerificationStep] = useState<"phone" | "otp" | "details">("phone");
+  const [otp, setOtp] = useState("");
+  const [otpError, setOtpError] = useState("");
 
   const invitation = useQuery({
     queryKey: ['invitation', token],
@@ -66,6 +72,49 @@ export default function Register() {
     },
     enabled: !!token,
     retry: false,
+  });
+
+  // Request OTP for registration phone verification
+  const requestOtp = useMutation({
+    mutationFn: async (phoneNumber: string) => {
+      const res = await fetch('/api/auth/invitation-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: phoneNumber, token }),
+      });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to send verification code");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      setVerificationStep("otp");
+      setOtpError("");
+    },
+  });
+
+  // Verify OTP
+  const verifyOtp = useMutation({
+    mutationFn: async ({ phoneNumber, otpCode }: { phoneNumber: string; otpCode: string }) => {
+      const res = await fetch('/api/auth/verify-invitation-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: phoneNumber, otp: otpCode, token }),
+      });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Invalid verification code");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      setVerificationStep("details");
+      setOtpError("");
+    },
+    onError: (error: Error) => {
+      setOtpError(error.message);
+    },
   });
 
   const registerWithToken = useMutation({
@@ -368,22 +417,169 @@ export default function Register() {
     );
   }
 
+  // Step 1: Phone verification
+  if (verificationStep === "phone") {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-emerald-50 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-4 p-3 rounded-full bg-primary/10">
+              <Phone className="h-8 w-8 text-primary" />
+            </div>
+            <CardTitle className="text-2xl font-serif">Verify Your Number</CardTitle>
+            <CardDescription>
+              To join {invitation.data?.restaurantName}'s rewards program, please verify your mobile number.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="phone">Mobile Number</Label>
+              <Input
+                id="phone"
+                value={invitation.data?.phone || ''}
+                disabled
+                className="bg-muted text-center text-lg font-mono"
+                data-testid="input-verify-phone"
+              />
+              <p className="text-xs text-muted-foreground text-center">
+                We'll send a verification code to this number
+              </p>
+            </div>
+
+            {requestOtp.isError && (
+              <div className="p-3 bg-destructive/10 text-destructive text-sm rounded-md text-center">
+                {(requestOtp.error as Error).message}
+              </div>
+            )}
+          </CardContent>
+          <CardFooter>
+            <Button
+              type="button"
+              className="w-full"
+              disabled={requestOtp.isPending}
+              onClick={() => requestOtp.mutate(invitation.data?.phone || '')}
+              data-testid="button-send-otp"
+            >
+              {requestOtp.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                "Send Verification Code"
+              )}
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    );
+  }
+
+  // Step 2: OTP verification
+  if (verificationStep === "otp") {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-emerald-50 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-4 p-3 rounded-full bg-primary/10">
+              <ShieldCheck className="h-8 w-8 text-primary" />
+            </div>
+            <CardTitle className="text-2xl font-serif">Enter Code</CardTitle>
+            <CardDescription>
+              We sent a 6-digit code to {invitation.data?.phone}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex justify-center">
+              <InputOTP
+                maxLength={6}
+                value={otp}
+                onChange={setOtp}
+                data-testid="input-otp"
+              >
+                <InputOTPGroup>
+                  <InputOTPSlot index={0} />
+                  <InputOTPSlot index={1} />
+                  <InputOTPSlot index={2} />
+                  <InputOTPSlot index={3} />
+                  <InputOTPSlot index={4} />
+                  <InputOTPSlot index={5} />
+                </InputOTPGroup>
+              </InputOTP>
+            </div>
+
+            {otpError && (
+              <div className="p-3 bg-destructive/10 text-destructive text-sm rounded-md text-center">
+                {otpError}
+              </div>
+            )}
+
+            <div className="text-center">
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                disabled={requestOtp.isPending}
+                onClick={() => requestOtp.mutate(invitation.data?.phone || '')}
+                data-testid="button-resend-otp"
+              >
+                {requestOtp.isPending ? "Sending..." : "Resend code"}
+              </Button>
+            </div>
+          </CardContent>
+          <CardFooter className="flex-col gap-2">
+            <Button
+              type="button"
+              className="w-full"
+              disabled={otp.length !== 6 || verifyOtp.isPending}
+              onClick={() => verifyOtp.mutate({ phoneNumber: invitation.data?.phone || '', otpCode: otp })}
+              data-testid="button-verify-otp"
+            >
+              {verifyOtp.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Verifying...
+                </>
+              ) : (
+                "Verify"
+              )}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full"
+              onClick={() => {
+                setVerificationStep("phone");
+                setOtp("");
+                setOtpError("");
+              }}
+              data-testid="button-back-to-phone"
+            >
+              Back
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    );
+  }
+
+  // Step 3: Details form (after phone verified)
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-emerald-50 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800 flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 p-3 rounded-full bg-primary/10">
-            <Gift className="h-8 w-8 text-primary" />
+          <div className="mx-auto mb-4 p-3 rounded-full bg-green-100">
+            <CheckCircle2 className="h-8 w-8 text-green-600" />
           </div>
-          <CardTitle className="text-2xl font-serif">Join {invitation.data?.restaurantName}</CardTitle>
+          <CardTitle className="text-2xl font-serif">Complete Your Profile</CardTitle>
           <CardDescription>
-            Complete your registration to start earning rewards with every visit!
+            Phone verified! Now complete your profile to join {invitation.data?.restaurantName}.
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleTokenSubmit}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
+              <Label htmlFor="name">First Name</Label>
               <Input
                 id="name"
                 placeholder="Enter your first name"
@@ -428,7 +624,9 @@ export default function Register() {
                 className="bg-muted"
                 data-testid="input-register-phone"
               />
-              <p className="text-xs text-muted-foreground">This is the number associated with your invitation.</p>
+              <p className="text-xs text-green-600 flex items-center gap-1">
+                <CheckCircle2 className="h-3 w-3" /> Verified
+              </p>
             </div>
 
             <div className="space-y-2">

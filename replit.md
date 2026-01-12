@@ -144,6 +144,27 @@ Restaurants can choose between two voucher earning modes:
 - Profile update endpoint (`/api/users/:userId/profile`) does NOT allow phone changes
 - Data model: `phone_change_requests` table tracks userId, newPhone, otpHash, attempts, status, expiresAt
 
+### Diner Registration Flow (Invitation-based)
+When a restaurant admin invites a diner via SMS, the registration follows a 3-step OTP-verified flow:
+
+1. **Phone Verification Step**: Diner sees their phone number (from invitation) and clicks "Send Verification Code"
+   - API: `/api/auth/invitation-otp` validates invitation token, checks phone matches, sends 6-digit OTP via SMS
+   - OTP stored in memory with 5-minute expiry using `inv_${phone}` key
+
+2. **OTP Entry Step**: Diner enters the 6-digit code with resend option
+   - API: `/api/auth/verify-invitation-otp` validates OTP and stores `verifiedInvitationPhone`/`verifiedInvitationToken` in session
+
+3. **Profile Completion Step**: Shows form for name, surname, email, gender, age range, province
+   - Phone field shows as "Verified" (disabled)
+   - API: `/api/diners/register` requires valid session verification before creating user
+   - Session flags are cleared after successful registration
+
+Security features:
+- OTP rate-limited via `smsRateLimiter` (5 requests/minute)
+- Session-based verification prevents direct form submission bypass
+- Phone must match invitation to prevent phone hijacking
+- Session data cleared after registration
+
 ### Account Deletion
 - Two-step confirmation flow: modal requiring "DELETE" text + email confirmation
 - 24-hour token expiry for email confirmation links

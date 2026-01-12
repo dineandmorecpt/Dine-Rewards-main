@@ -578,8 +578,10 @@ export default function Register() {
         </CardHeader>
         <form onSubmit={handleTokenSubmit}>
           <CardContent className="space-y-4">
+            <p className="text-xs text-muted-foreground">All fields marked with <span className="text-destructive">*</span> are required</p>
+            
             <div className="space-y-2">
-              <Label htmlFor="name">First Name</Label>
+              <Label htmlFor="name">First Name <span className="text-destructive">*</span></Label>
               <Input
                 id="name"
                 placeholder="Enter your first name"
@@ -591,7 +593,7 @@ export default function Register() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="lastName">Surname</Label>
+              <Label htmlFor="lastName">Surname <span className="text-destructive">*</span></Label>
               <Input
                 id="lastName"
                 placeholder="Enter your surname"
@@ -603,7 +605,7 @@ export default function Register() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">Email <span className="text-destructive">*</span></Label>
               <Input
                 id="email"
                 type="email"
@@ -630,7 +632,7 @@ export default function Register() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="gender">Gender</Label>
+              <Label htmlFor="gender">Gender <span className="text-destructive">*</span></Label>
               <Select value={gender} onValueChange={setGender}>
                 <SelectTrigger id="gender" data-testid="select-register-gender">
                   <SelectValue placeholder="Select gender" />
@@ -644,7 +646,7 @@ export default function Register() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="ageRange">Age Range</Label>
+              <Label htmlFor="ageRange">Age Range <span className="text-destructive">*</span></Label>
               <Select value={ageRange} onValueChange={setAgeRange}>
                 <SelectTrigger id="ageRange" data-testid="select-register-age-range">
                   <SelectValue placeholder="Select age range" />
@@ -658,7 +660,7 @@ export default function Register() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="province">Province</Label>
+              <Label htmlFor="province">Province <span className="text-destructive">*</span></Label>
               <Select value={province} onValueChange={setProvince}>
                 <SelectTrigger id="province" data-testid="select-register-province">
                   <SelectValue placeholder="Select province" />
@@ -680,7 +682,7 @@ export default function Register() {
                   data-testid="checkbox-terms"
                 />
                 <Label htmlFor="terms" className="text-sm leading-tight cursor-pointer">
-                  I accept the <a href="#" className="text-primary underline">Terms & Conditions</a>
+                  I accept the <a href="#" className="text-primary underline">Terms & Conditions</a> <span className="text-destructive">*</span>
                 </Label>
               </div>
 
@@ -692,7 +694,7 @@ export default function Register() {
                   data-testid="checkbox-privacy"
                 />
                 <Label htmlFor="privacy" className="text-sm leading-tight cursor-pointer">
-                  I accept the <a href="#" className="text-primary underline">Privacy Policy</a>
+                  I accept the <a href="#" className="text-primary underline">Privacy Policy</a> <span className="text-destructive">*</span>
                 </Label>
               </div>
             </div>

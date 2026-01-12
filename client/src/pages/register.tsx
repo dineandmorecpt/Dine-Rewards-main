@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { Captcha } from "@/components/ui/captcha";
 import { Gift, Loader2, CheckCircle2, AlertCircle, Phone, ShieldCheck } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 
@@ -58,6 +59,9 @@ export default function Register() {
   const [verificationStep, setVerificationStep] = useState<"phone" | "otp" | "details">("phone");
   const [otp, setOtp] = useState("");
   const [otpError, setOtpError] = useState("");
+  
+  // Captcha token for bot protection
+  const [captchaToken, setCaptchaToken] = useState("");
 
   const invitation = useQuery({
     queryKey: ['invitation', token],
@@ -118,7 +122,7 @@ export default function Register() {
   });
 
   const registerWithToken = useMutation({
-    mutationFn: async (data: { token: string; email: string; name: string; lastName: string; gender: string; ageRange: string; province: string; termsAccepted: boolean; privacyAccepted: boolean }) => {
+    mutationFn: async (data: { token: string; email: string; name: string; lastName: string; gender: string; ageRange: string; province: string; termsAccepted: boolean; privacyAccepted: boolean; captchaToken: string }) => {
       const res = await fetch('/api/diners/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -165,6 +169,7 @@ export default function Register() {
       province,
       termsAccepted,
       privacyAccepted,
+      captchaToken,
     });
   };
 
@@ -182,7 +187,7 @@ export default function Register() {
     });
   };
 
-  const isTokenFormValid = name.trim() && lastName.trim() && email.trim() && gender && ageRange && province && termsAccepted && privacyAccepted;
+  const isTokenFormValid = name.trim() && lastName.trim() && email.trim() && gender && ageRange && province && termsAccepted && privacyAccepted && captchaToken;
   const isPasswordValid = password.length >= 8 && 
     /[A-Z]/.test(password) && 
     /[a-z]/.test(password) && 
@@ -698,6 +703,12 @@ export default function Register() {
                 </Label>
               </div>
             </div>
+
+            <Captcha 
+              onSuccess={setCaptchaToken}
+              onExpire={() => setCaptchaToken("")}
+              className="flex justify-center"
+            />
 
             {registerWithToken.isError && (
               <div className="p-3 bg-destructive/10 text-destructive text-sm rounded-md">

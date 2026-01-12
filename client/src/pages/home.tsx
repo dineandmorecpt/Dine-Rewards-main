@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Captcha } from "@/components/ui/captcha";
 import { Utensils, ChefHat, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -31,6 +32,10 @@ export default function Home() {
   
   const [adminEmail, setAdminEmail] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
+  
+  // Captcha tokens for bot protection
+  const [dinerCaptchaToken, setDinerCaptchaToken] = useState("");
+  const [adminCaptchaToken, setAdminCaptchaToken] = useState("");
 
   const handleDinerLogin = async () => {
     if (!dinerEmail || !dinerPassword) {
@@ -42,13 +47,22 @@ export default function Home() {
       return;
     }
 
+    if (!dinerCaptchaToken) {
+      toast({
+        title: "Verification required",
+        description: "Please complete the security check.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
     try {
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ email: dinerEmail, password: dinerPassword }),
+        body: JSON.stringify({ email: dinerEmail, password: dinerPassword, captchaToken: dinerCaptchaToken }),
       });
 
       const data = await response.json();
@@ -250,13 +264,22 @@ export default function Home() {
       return;
     }
 
+    if (!adminCaptchaToken) {
+      toast({
+        title: "Verification required",
+        description: "Please complete the security check.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
     try {
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ email: adminEmail, password: adminPassword }),
+        body: JSON.stringify({ email: adminEmail, password: adminPassword, captchaToken: adminCaptchaToken }),
       });
 
       const data = await response.json();
@@ -354,10 +377,15 @@ export default function Home() {
                         data-testid="input-diner-password"
                       />
                     </div>
+                    <Captcha 
+                      onSuccess={setDinerCaptchaToken}
+                      onExpire={() => setDinerCaptchaToken("")}
+                      className="flex justify-center"
+                    />
                     <Button 
                       className="w-full" 
                       onClick={handleDinerLogin}
-                      disabled={isLoading}
+                      disabled={isLoading || !dinerCaptchaToken}
                       data-testid="button-diner-login"
                     >
                       {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
@@ -571,10 +599,15 @@ export default function Home() {
                     data-testid="input-admin-password"
                   />
                 </div>
+                <Captcha 
+                  onSuccess={setAdminCaptchaToken}
+                  onExpire={() => setAdminCaptchaToken("")}
+                  className="flex justify-center"
+                />
                 <Button 
                   className="w-full" 
                   onClick={handleAdminLogin}
-                  disabled={isLoading}
+                  disabled={isLoading || !adminCaptchaToken}
                   data-testid="button-admin-login"
                 >
                   {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}

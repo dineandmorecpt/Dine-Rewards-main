@@ -5,6 +5,7 @@ import { createLoyaltyServices } from "./services/loyalty";
 import { sendRegistrationInvite, sendPhoneChangeOTP, sendSMS } from "./services/sms";
 import { sendPasswordResetEmail, sendAccountDeletionConfirmationEmail } from "./services/email";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
+import { verifyCaptcha } from "./services/captcha";
 import { insertTransactionSchema } from "@shared/schema";
 import { z } from "zod";
 import crypto from "crypto";
@@ -62,6 +63,7 @@ export async function registerRoutes(
   const loginSchema = z.object({
     email: z.string().email("Invalid email address"),
     password: z.string().min(1, "Password is required"),
+    captchaToken: z.string().min(1, "Security verification required"),
   });
 
   app.post("/api/auth/login", authRateLimiter, async (req, res) => {
@@ -71,6 +73,12 @@ export async function registerRoutes(
         return res.status(422).json({ 
           error: parseResult.error.errors[0]?.message || "Invalid input" 
         });
+      }
+
+      // Verify captcha token
+      const captchaResult = await verifyCaptcha(parseResult.data.captchaToken, req.ip || req.socket.remoteAddress);
+      if (!captchaResult.success) {
+        return res.status(403).json({ error: captchaResult.error || "Security verification failed" });
       }
 
       const { email, password } = parseResult.data;
@@ -2488,6 +2496,7 @@ export async function registerRoutes(
     province: z.string().min(1, "Province is required"),
     termsAccepted: z.boolean().refine(val => val === true, { message: "You must accept the Terms & Conditions" }),
     privacyAccepted: z.boolean().refine(val => val === true, { message: "You must accept the Privacy Policy" }),
+    captchaToken: z.string().min(1, "Security verification required"),
   });
 
   app.post("/api/diners/register", async (req, res) => {
@@ -2499,7 +2508,13 @@ export async function registerRoutes(
           error: parseResult.error.errors[0]?.message || "Invalid input data" 
         });
       }
-      
+
+      // Verify captcha token
+      const captchaResult = await verifyCaptcha(parseResult.data.captchaToken, req.ip || req.socket.remoteAddress);
+      if (!captchaResult.success) {
+        return res.status(403).json({ error: captchaResult.error || "Security verification failed" });
+      }
+
       const { token, email, name, lastName, gender, ageRange, province, termsAccepted, privacyAccepted } = parseResult.data;
       
       // Get and validate invitation

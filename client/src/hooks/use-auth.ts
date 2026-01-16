@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { clearStoredAuth, getStoredAuth } from "@/lib/queryClient";
 
 interface User {
   id: string;
@@ -30,8 +31,16 @@ interface AuthResponse {
 }
 
 async function fetchAuthStatus(): Promise<AuthResponse> {
+  const storedAuth = getStoredAuth();
+  const headers: Record<string, string> = {};
+  if (storedAuth) {
+    headers["X-User-Id"] = storedAuth.userId;
+    headers["X-User-Type"] = storedAuth.userType;
+  }
+  
   const response = await fetch("/api/auth/me", {
     credentials: "include",
+    headers,
   });
   if (!response.ok) {
     return { user: null, restaurant: null, portalRole: null, branchAccess: null };
@@ -45,8 +54,9 @@ export function useAuth() {
   const { data, isLoading, refetch } = useQuery<AuthResponse>({
     queryKey: ["auth"],
     queryFn: fetchAuthStatus,
-    staleTime: 5 * 60 * 1000,
     retry: false,
+    staleTime: 60000, // Keep auth data fresh for 1 minute to avoid race conditions after login
+    refetchOnMount: false, // Don't refetch on mount - use cached data from login
   });
 
   const logout = useCallback(async () => {
@@ -58,7 +68,9 @@ export function useAuth() {
     } catch (error) {
       console.error("Logout error:", error);
     }
-    queryClient.setQueryData(["auth"], { user: null, restaurant: null, portalRole: null, branchAccess: null });
+    // Clear localStorage auth and all cached data
+    clearStoredAuth();
+    queryClient.clear();
     window.location.href = "/";
   }, [queryClient]);
 

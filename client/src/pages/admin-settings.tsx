@@ -16,7 +16,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useBranch } from "@/hooks/use-branch";
 import { QRCodeCanvas } from "qrcode.react";
 
-export default function AdminSettings() {
+function AdminSettingsContent() {
   const [voucherValue, setVoucherValue] = useState("R100 Loyalty Voucher");
   const [voucherValidityDays, setVoucherValidityDays] = useState<number | string>(30);
   const [pointsPerCurrency, setPointsPerCurrency] = useState<number | string>(1);
@@ -218,14 +218,13 @@ export default function AdminSettings() {
   };
 
   return (
-    <AdminLayout>
-      <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-        <div>
-          <h1 className="text-3xl font-serif font-bold text-foreground">Settings</h1>
-          <p className="text-muted-foreground mt-1">Configure your restaurant's loyalty program and manage team access.</p>
-        </div>
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <div>
+        <h1 className="text-3xl font-serif font-bold text-foreground">Settings</h1>
+        <p className="text-muted-foreground mt-1">Configure your restaurant's loyalty program and manage team access.</p>
+      </div>
 
-        <Tabs defaultValue="voucher" className="w-full space-y-6">
+      <Tabs defaultValue="voucher" className="w-full space-y-6">
           <TabsList className="grid w-full grid-cols-3 max-w-[500px]">
             <TabsTrigger value="voucher">Voucher Config</TabsTrigger>
             <TabsTrigger value="users">User Management</TabsTrigger>
@@ -745,6 +744,13 @@ export default function AdminSettings() {
           </TabsContent>
         </Tabs>
       </div>
+  );
+}
+
+export default function AdminSettings() {
+  return (
+    <AdminLayout>
+      <AdminSettingsContent />
     </AdminLayout>
   );
 }

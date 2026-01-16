@@ -5,6 +5,7 @@ import { createLoyaltyServices } from "./services/loyalty";
 import { sendRegistrationInvite, sendPhoneChangeOTP, sendSMS } from "./services/sms";
 import { sendPasswordResetEmail, sendAccountDeletionConfirmationEmail } from "./services/email";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
+import { verifyCaptcha } from "./services/captcha";
 import { insertTransactionSchema } from "@shared/schema";
 import { z } from "zod";
 import crypto from "crypto";
@@ -62,6 +63,7 @@ export async function registerRoutes(
   const loginSchema = z.object({
     email: z.string().email("Invalid email address"),
     password: z.string().min(1, "Password is required"),
+    captchaToken: z.string().min(1, "Security verification required"),
   });
 
   app.post("/api/auth/login", authRateLimiter, async (req, res) => {
@@ -71,6 +73,12 @@ export async function registerRoutes(
         return res.status(422).json({ 
           error: parseResult.error.errors[0]?.message || "Invalid input" 
         });
+      }
+
+      // Verify captcha token
+      const captchaResult = await verifyCaptcha(parseResult.data.captchaToken, req.ip || req.socket.remoteAddress);
+      if (!captchaResult.success) {
+        return res.status(403).json({ error: captchaResult.error || "Security verification failed" });
       }
 
       const { email, password } = parseResult.data;
@@ -121,6 +129,8 @@ export async function registerRoutes(
       // Set session
       req.session.userId = user.id;
       req.session.userType = user.userType;
+      
+      console.log("[DEBUG] Login - Session ID:", req.sessionID, "userId:", user.id);
 
       // Explicitly save session before responding
       req.session.save((err) => {
@@ -128,6 +138,8 @@ export async function registerRoutes(
           console.error("Session save error:", err);
           return res.status(500).json({ error: "Login failed" });
         }
+        
+        console.log("[DEBUG] Login - Session saved successfully");
         
         res.json({
           success: true,
@@ -152,6 +164,25 @@ export async function registerRoutes(
     }
   });
 
+  // Helper to get user ID from headers or session
+  function getAuthUserId(req: any): string | null {
+    // Check header-based auth first (for Replit environment where cookies don't work)
+    const headerUserId = req.headers['x-user-id'] as string | undefined;
+    if (headerUserId) {
+      return headerUserId;
+    }
+    // Fall back to session
+    return req.session?.userId || null;
+  }
+  
+  function getAuthUserType(req: any): string | null {
+    const headerUserType = req.headers['x-user-type'] as string | undefined;
+    if (headerUserType) {
+      return headerUserType;
+    }
+    return req.session?.userType || null;
+  }
+
   // AUTH - Get current user (for session check)
   app.get("/api/auth/me", async (req, res) => {
     // Disable caching to ensure fresh session state
@@ -160,11 +191,14 @@ export async function registerRoutes(
     res.set('Expires', '0');
     
     try {
-      if (!req.session.userId) {
-        return res.json({ user: null, restaurant: null, portalRole: null });
+      const userId = getAuthUserId(req);
+      console.log("[DEBUG] /api/auth/me - userId:", userId, "from header:", req.headers['x-user-id']);
+      
+      if (!userId) {
+        return res.json({ user: null, restaurant: null, portalRole: null, branchAccess: null });
       }
 
-      const user = await storage.getUser(req.session.userId);
+      const user = await storage.getUser(userId);
       if (!user) {
         req.session.destroy(() => {});
         return res.json({ user: null, restaurant: null, portalRole: null });
@@ -989,6 +1023,141 @@ export async function registerRoutes(
     }
   });
 
+  // AUTH - Request OTP for invitation-based registration (validates invitation token)
+  const invitationOtpSchema = z.object({
+    phone: z.string()
+      .transform(val => val.trim().replace(/[\s\-()]/g, ''))
+      .refine(val => val.length >= 7, { message: "Phone number must be at least 7 digits" }),
+    token: z.string().min(1, "Invitation token is required"),
+  });
+
+  app.post("/api/auth/invitation-otp", smsRateLimiter, async (req, res) => {
+    try {
+      const parseResult = invitationOtpSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(422).json({ 
+          error: parseResult.error.errors[0]?.message || "Invalid input" 
+        });
+      }
+
+      const { phone, token } = parseResult.data;
+
+      // Validate the invitation token
+      const invitation = await storage.getDinerInvitationByToken(token);
+      if (!invitation) {
+        return res.status(404).json({ error: "Invalid invitation link" });
+      }
+      
+      // Check if expired
+      if (new Date() > invitation.expiresAt) {
+        return res.status(400).json({ error: "This invitation link has expired" });
+      }
+      
+      // Check if already used
+      if (invitation.status === 'registered') {
+        return res.status(400).json({ error: "This invitation has already been used" });
+      }
+
+      // Verify phone matches invitation
+      if (invitation.phone !== phone) {
+        return res.status(400).json({ error: "Phone number does not match invitation" });
+      }
+
+      // Generate 6-digit OTP
+      const otp = crypto.randomInt(100000, 1000000).toString();
+      
+      // Store OTP with 5-minute expiry (using invitation prefix)
+      const expiresAt = new Date();
+      expiresAt.setMinutes(expiresAt.getMinutes() + 5);
+      otpStore.set(`inv_${phone}`, { otp, expiresAt });
+
+      // Send OTP via SMS
+      const { sendSMS } = await import("./services/sms");
+      const smsResult = await sendSMS(phone, `Your Dine&More verification code is: ${otp}. Valid for 5 minutes.`);
+
+      res.json({
+        success: true,
+        smsSent: smsResult.success,
+        message: smsResult.success 
+          ? "Verification code sent to your phone" 
+          : "Could not send SMS. Please try again.",
+      });
+    } catch (error: any) {
+      console.error("Request invitation OTP error:", error);
+      res.status(500).json({ error: "Failed to send verification code" });
+    }
+  });
+
+  // AUTH - Verify OTP for invitation-based registration
+  const verifyInvitationOtpSchema = z.object({
+    phone: z.string()
+      .transform(val => val.trim().replace(/[\s\-()]/g, ''))
+      .refine(val => val.length >= 7, { message: "Phone number must be at least 7 digits" }),
+    otp: z.string().length(6, "Verification code must be 6 digits"),
+    token: z.string().min(1, "Invitation token is required"),
+  });
+
+  app.post("/api/auth/verify-invitation-otp", async (req, res) => {
+    try {
+      const parseResult = verifyInvitationOtpSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(422).json({ 
+          error: parseResult.error.errors[0]?.message || "Invalid input" 
+        });
+      }
+
+      const { phone, otp, token } = parseResult.data;
+
+      // Validate the invitation token
+      const invitation = await storage.getDinerInvitationByToken(token);
+      if (!invitation) {
+        return res.status(404).json({ error: "Invalid invitation link" });
+      }
+
+      // Verify phone matches invitation
+      if (invitation.phone !== phone) {
+        return res.status(400).json({ error: "Phone number does not match invitation" });
+      }
+
+      // Check stored OTP (with invitation prefix)
+      const storedOtp = otpStore.get(`inv_${phone}`);
+      if (!storedOtp) {
+        return res.status(400).json({ error: "No verification code found. Please request a new one." });
+      }
+
+      if (new Date() > storedOtp.expiresAt) {
+        otpStore.delete(`inv_${phone}`);
+        return res.status(400).json({ error: "Verification code has expired. Please request a new one." });
+      }
+
+      if (storedOtp.otp !== otp) {
+        return res.status(401).json({ error: "Invalid verification code" });
+      }
+
+      // OTP is valid - clear it
+      otpStore.delete(`inv_${phone}`);
+      
+      // Mark invitation as phone-verified (using session)
+      req.session.verifiedInvitationPhone = phone;
+      req.session.verifiedInvitationToken = token;
+      
+      req.session.save((err) => {
+        if (err) {
+          console.error("Session save error:", err);
+          return res.status(500).json({ error: "Verification failed" });
+        }
+        res.json({
+          success: true,
+          message: "Phone number verified successfully",
+          verifiedPhone: phone,
+        });
+      });
+    } catch (error: any) {
+      console.error("Verify invitation OTP error:", error);
+      res.status(500).json({ error: "Verification failed" });
+    }
+  });
+
   // TRANSACTIONS - Record a transaction and calculate points
   app.post("/api/transactions", async (req, res) => {
     try {
@@ -1732,8 +1901,17 @@ export async function registerRoutes(
     name: z.string().min(1, "Name is required"),
     description: z.string().optional(),
     rewardDetails: z.string().optional(),
+    category: z.string().optional(),
+    earningMode: z.string().optional(),
+    pointsPerCurrencyOverride: z.number().optional(),
+    value: z.number().optional(),
+    freeItemType: z.string().optional(),
+    freeItemDescription: z.string().optional(),
+    redemptionScope: z.string().optional(),
+    redeemableBranchIds: z.array(z.string()).optional(),
     creditsCost: z.number().int().min(1).default(1),
     validityDays: z.number().int().min(1).default(30),
+    expiresAt: z.string().optional(),
     isActive: z.boolean().default(true),
   });
 
@@ -1763,10 +1941,25 @@ export async function registerRoutes(
           error: parseResult.error.errors[0]?.message || "Invalid input" 
         });
       }
+      
+      // Validate expiry date - must be at least 6 months from now
+      if (parseResult.data.expiresAt) {
+        const expiryDate = new Date(parseResult.data.expiresAt);
+        const minExpiry = new Date();
+        minExpiry.setMonth(minExpiry.getMonth() + 6);
+        minExpiry.setHours(0, 0, 0, 0); // Start of day
+        
+        if (expiryDate < minExpiry) {
+          return res.status(422).json({ 
+            error: "Voucher type expiry date must be at least 6 months from today" 
+          });
+        }
+      }
 
       const voucherType = await storage.createVoucherType({
         restaurantId,
         ...parseResult.data,
+        expiresAt: parseResult.data.expiresAt ? new Date(parseResult.data.expiresAt) : undefined,
       });
 
       // Log activity
@@ -1911,7 +2104,10 @@ export async function registerRoutes(
   // RESTAURANT STATS - Get restaurant dashboard statistics
   app.get("/api/restaurants/:restaurantId/stats", async (req, res) => {
     try {
-      if (!req.session.userId || req.session.userType !== 'restaurant_admin') {
+      const userId = getAuthUserId(req);
+      const userType = getAuthUserType(req);
+      
+      if (!userId || userType !== 'restaurant_admin') {
         return res.status(401).json({ error: "Unauthorized" });
       }
 
@@ -1923,8 +2119,8 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Restaurant not found" });
       }
       
-      const isOwner = restaurant.adminUserId === req.session.userId;
-      const portalAccess = await storage.getPortalUserByUserAndRestaurant(req.session.userId, restaurantId);
+      const isOwner = restaurant.adminUserId === userId;
+      const portalAccess = await storage.getPortalUserByUserAndRestaurant(userId, restaurantId);
       
       if (!isOwner && !portalAccess) {
         return res.status(403).json({ error: "You don't have access to this restaurant's stats" });
@@ -1933,7 +2129,7 @@ export async function registerRoutes(
       let branchId = req.query.branchId as string | undefined;
       
       // Validate branch access and enforce restrictions for staff without full access
-      const branchAccess = await storage.getAccessibleBranchIds(req.session.userId, restaurantId);
+      const branchAccess = await storage.getAccessibleBranchIds(userId, restaurantId);
       if (branchId) {
         if (!branchAccess.hasAllAccess && !branchAccess.branchIds.includes(branchId)) {
           return res.status(403).json({ error: "You don't have access to this branch" });
@@ -2300,6 +2496,7 @@ export async function registerRoutes(
     province: z.string().min(1, "Province is required"),
     termsAccepted: z.boolean().refine(val => val === true, { message: "You must accept the Terms & Conditions" }),
     privacyAccepted: z.boolean().refine(val => val === true, { message: "You must accept the Privacy Policy" }),
+    captchaToken: z.string().min(1, "Security verification required"),
   });
 
   app.post("/api/diners/register", async (req, res) => {
@@ -2311,7 +2508,13 @@ export async function registerRoutes(
           error: parseResult.error.errors[0]?.message || "Invalid input data" 
         });
       }
-      
+
+      // Verify captcha token
+      const captchaResult = await verifyCaptcha(parseResult.data.captchaToken, req.ip || req.socket.remoteAddress);
+      if (!captchaResult.success) {
+        return res.status(403).json({ error: captchaResult.error || "Security verification failed" });
+      }
+
       const { token, email, name, lastName, gender, ageRange, province, termsAccepted, privacyAccepted } = parseResult.data;
       
       // Get and validate invitation
@@ -2326,6 +2529,16 @@ export async function registerRoutes(
       
       if (invitation.status === 'registered') {
         return res.status(400).json({ error: "This invitation has already been used" });
+      }
+      
+      // Verify phone was verified via OTP
+      if (!req.session.verifiedInvitationPhone || !req.session.verifiedInvitationToken) {
+        return res.status(400).json({ error: "Phone number must be verified before registration" });
+      }
+      
+      // Verify session matches this invitation
+      if (req.session.verifiedInvitationPhone !== invitation.phone || req.session.verifiedInvitationToken !== token) {
+        return res.status(400).json({ error: "Phone verification does not match this invitation" });
       }
       
       // Check if restaurant is active (completed onboarding)
@@ -2379,6 +2592,10 @@ export async function registerRoutes(
         totalVouchersGenerated: 0,
       });
       
+      // Clear the verified invitation session data
+      delete req.session.verifiedInvitationPhone;
+      delete req.session.verifiedInvitationToken;
+      
       res.json({
         success: true,
         user: {
@@ -2412,8 +2629,10 @@ export async function registerRoutes(
   // DINER REGISTRATIONS STATS - Get diner registrations by date range for charts
   app.get("/api/restaurants/:restaurantId/diner-registrations", async (req, res) => {
     try {
-      // Require authenticated admin
-      if (!req.session.userId || req.session.userType !== 'restaurant_admin') {
+      const userId = getAuthUserId(req);
+      const userType = getAuthUserType(req);
+      
+      if (!userId || userType !== 'restaurant_admin') {
         return res.status(401).json({ error: "Unauthorized" });
       }
 
@@ -2425,8 +2644,8 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Restaurant not found" });
       }
       
-      const isOwner = restaurant.adminUserId === req.session.userId;
-      const portalAccess = await storage.getPortalUserByUserAndRestaurant(req.session.userId, restaurantId);
+      const isOwner = restaurant.adminUserId === userId;
+      const portalAccess = await storage.getPortalUserByUserAndRestaurant(userId, restaurantId);
       
       if (!isOwner && !portalAccess) {
         return res.status(403).json({ error: "You don't have access to this restaurant's stats" });
@@ -2452,7 +2671,7 @@ export async function registerRoutes(
       let branchId = req.query.branchId as string | undefined;
       
       // Validate branch access
-      const branchAccess = await storage.getAccessibleBranchIds(req.session.userId, restaurantId);
+      const branchAccess = await storage.getAccessibleBranchIds(userId, restaurantId);
       if (branchId) {
         if (!branchAccess.hasAllAccess && !branchAccess.branchIds.includes(branchId)) {
           return res.status(403).json({ error: "You don't have access to this branch" });
@@ -2476,7 +2695,10 @@ export async function registerRoutes(
   // REVENUE BY DATE - Get daily revenue over time with date range filtering
   app.get("/api/restaurants/:restaurantId/revenue", async (req, res) => {
     try {
-      if (!req.session.userId || req.session.userType !== 'restaurant_admin') {
+      const userId = getAuthUserId(req);
+      const userType = getAuthUserType(req);
+      
+      if (!userId || userType !== 'restaurant_admin') {
         return res.status(401).json({ error: "Unauthorized" });
       }
 
@@ -2487,8 +2709,8 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Restaurant not found" });
       }
       
-      const isOwner = restaurant.adminUserId === req.session.userId;
-      const portalAccess = await storage.getPortalUserByUserAndRestaurant(req.session.userId, restaurantId);
+      const isOwner = restaurant.adminUserId === userId;
+      const portalAccess = await storage.getPortalUserByUserAndRestaurant(userId, restaurantId);
       
       if (!isOwner && !portalAccess) {
         return res.status(403).json({ error: "You don't have access to this restaurant's stats" });
@@ -2513,7 +2735,7 @@ export async function registerRoutes(
       let branchId = req.query.branchId as string | undefined;
       
       // Validate branch access
-      const branchAccess = await storage.getAccessibleBranchIds(req.session.userId, restaurantId);
+      const branchAccess = await storage.getAccessibleBranchIds(userId, restaurantId);
       if (branchId) {
         if (!branchAccess.hasAllAccess && !branchAccess.branchIds.includes(branchId)) {
           return res.status(403).json({ error: "You don't have access to this branch" });
@@ -2537,7 +2759,10 @@ export async function registerRoutes(
   // VOUCHER REDEMPTIONS BY TYPE - Get voucher redemptions grouped by voucher type
   app.get("/api/restaurants/:restaurantId/voucher-redemptions-by-type", async (req, res) => {
     try {
-      if (!req.session.userId || req.session.userType !== 'restaurant_admin') {
+      const userId = getAuthUserId(req);
+      const userType = getAuthUserType(req);
+      
+      if (!userId || userType !== 'restaurant_admin') {
         return res.status(401).json({ error: "Unauthorized" });
       }
 
@@ -2548,8 +2773,8 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Restaurant not found" });
       }
       
-      const isOwner = restaurant.adminUserId === req.session.userId;
-      const portalAccess = await storage.getPortalUserByUserAndRestaurant(req.session.userId, restaurantId);
+      const isOwner = restaurant.adminUserId === userId;
+      const portalAccess = await storage.getPortalUserByUserAndRestaurant(userId, restaurantId);
       
       if (!isOwner && !portalAccess) {
         return res.status(403).json({ error: "You don't have access to this restaurant's stats" });
@@ -2569,7 +2794,7 @@ export async function registerRoutes(
       let branchId = req.query.branchId as string | undefined;
       
       // Validate branch access
-      const branchAccess = await storage.getAccessibleBranchIds(req.session.userId, restaurantId);
+      const branchAccess = await storage.getAccessibleBranchIds(userId, restaurantId);
       if (branchId) {
         if (!branchAccess.hasAllAccess && !branchAccess.branchIds.includes(branchId)) {
           return res.status(403).json({ error: "You don't have access to this branch" });

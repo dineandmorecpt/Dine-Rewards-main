@@ -81,9 +81,10 @@ export default function DinerDashboard() {
   const [codeExpiresAt, setCodeExpiresAt] = useState<Date | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<string>("");
   const [selectedRestaurantId, setSelectedRestaurantId] = useState<string | null>(null);
-  const [redeemCreditsOpen, setRedeemCreditsOpen] = useState(false);
-  const [redeemingRestaurant, setRedeemingRestaurant] = useState<PointsBalance | null>(null);
   const [showMyQRCode, setShowMyQRCode] = useState(false);
+  const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null);
+  const [showVoucherQR, setShowVoucherQR] = useState(false);
+  const [voucherFilter, setVoucherFilter] = useState<"active" | "redeemed">("active");
 
   useEffect(() => {
     if (!codeExpiresAt || !presentCodeOpen) return;
@@ -156,49 +157,6 @@ export default function DinerDashboard() {
     enabled: !!dinerId && !!selectedRestaurant,
   });
 
-  // Fetch active voucher types for redeeming restaurant
-  const { data: voucherTypes = [], isLoading: loadingVoucherTypes } = useQuery<VoucherType[]>({
-    queryKey: ["/api/restaurants", redeemingRestaurant?.restaurantId, "voucher-types", "active"],
-    queryFn: async () => {
-      const res = await fetch(`/api/restaurants/${redeemingRestaurant!.restaurantId}/voucher-types/active`);
-      if (!res.ok) throw new Error("Failed to fetch voucher types");
-      return res.json();
-    },
-    enabled: !!redeemingRestaurant,
-  });
-
-  // Redeem credit for voucher
-  const redeemCredit = useMutation({
-    mutationFn: async ({ restaurantId, voucherTypeId, branchId }: { restaurantId: string; voucherTypeId: string; branchId?: string | null }) => {
-      const res = await fetch(`/api/diners/${dinerId}/restaurants/${restaurantId}/redeem-credit`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ voucherTypeId, branchId: branchId || undefined }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to redeem credit");
-      }
-      return res.json();
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/diners", dinerId, "points"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/diners", dinerId, "vouchers"] });
-      setRedeemCreditsOpen(false);
-      setRedeemingRestaurant(null);
-      toast({
-        title: "Voucher Created!",
-        description: `You now have a new voucher: ${data.voucher.title}`,
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Redemption Failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
 
   // Create transaction mutation (simulates spending)
   const createTransaction = useMutation({
@@ -255,12 +213,13 @@ export default function DinerDashboard() {
       setActiveCode(data.code);
       setActiveVoucherTitle(variables.title);
       setCodeExpiresAt(new Date(data.codeExpiresAt));
-      setPresentCodeOpen(true);
+      setShowVoucherQR(true);
     },
     onError: (error: Error) => {
+      setSelectedVoucher(null);
       toast({
-        title: "Error",
-        description: error.message,
+        title: "Voucher could not load",
+        description: "Please retry by tapping the voucher again.",
         variant: "destructive",
       });
     },
@@ -318,9 +277,8 @@ export default function DinerDashboard() {
             
             {user?.phone && (
               <Button
-                variant="outline"
                 size="sm"
-                className="gap-2 min-h-[44px]"
+                className="gap-2 min-h-[44px] bg-rose-100 hover:bg-rose-200 text-rose-800 border-0"
                 onClick={() => setShowMyQRCode(true)}
                 data-testid="button-show-my-qr"
               >
@@ -332,9 +290,9 @@ export default function DinerDashboard() {
         </div>
 
         <Tabs defaultValue="points" className="w-full space-y-4 sm:space-y-6">
-          <TabsList className="grid w-full grid-cols-2 h-11 sm:h-10 sm:max-w-[400px]">
-            <TabsTrigger value="points" className="text-xs sm:text-sm" data-testid="tab-points">Loyalty Points</TabsTrigger>
-            <TabsTrigger value="vouchers" className="text-xs sm:text-sm" data-testid="tab-vouchers">My Vouchers</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 h-11 sm:h-10 sm:max-w-[400px] bg-white border border-rose-200">
+            <TabsTrigger value="points" className="text-xs sm:text-sm text-rose-700 data-[state=active]:bg-rose-50 data-[state=active]:text-rose-800 data-[state=active]:shadow-none" data-testid="tab-points">Loyalty Points</TabsTrigger>
+            <TabsTrigger value="vouchers" className="text-xs sm:text-sm text-rose-700 data-[state=active]:bg-rose-50 data-[state=active]:text-rose-800 data-[state=active]:shadow-none" data-testid="tab-vouchers">My Vouchers</TabsTrigger>
           </TabsList>
 
           <TabsContent value="points" className="space-y-4 sm:space-y-6">
@@ -355,20 +313,6 @@ export default function DinerDashboard() {
                   className="overflow-hidden border-none shadow-md relative" 
                   data-testid={`card-restaurant-${selectedRestaurant.restaurantName.toLowerCase().replace(/\s+/g, '-')}`}
                 >
-                  {/* Available Vouchers Banner */}
-                  {((selectedRestaurant.pointsCredits || 0) > 0 || (selectedRestaurant.visitCredits || 0) > 0) && (
-                    <div 
-                      className="bg-gradient-to-r from-amber-500 to-orange-500 text-white px-3 py-2 flex items-center justify-between"
-                    >
-                      <span className="text-sm font-medium flex items-center gap-1">
-                        <Sparkles className="h-4 w-4" />
-                        Vouchers Ready: {selectedRestaurant.pointsCredits || 0} points, {selectedRestaurant.visitCredits || 0} visits
-                      </span>
-                      <span className="text-xs opacity-90">
-                        View in My Vouchers tab
-                      </span>
-                    </div>
-                  )}
                   
                   <div className={`h-2 w-full ${selectedRestaurant.restaurantColor}`} />
                   <CardHeader className="flex flex-row items-center justify-between p-4 pb-2">
@@ -398,7 +342,7 @@ export default function DinerDashboard() {
                           </div>
                           <span className="text-xs font-medium text-muted-foreground">Target: {selectedRestaurant.pointsThreshold}</span>
                         </div>
-                        <Progress value={(selectedRestaurant.currentPoints / selectedRestaurant.pointsThreshold) * 100} className="h-2" />
+                        <Progress value={(selectedRestaurant.currentPoints / selectedRestaurant.pointsThreshold) * 100} className="h-2 [&>div]:bg-rose-700" />
                         <p className="text-xs text-muted-foreground">
                           Spend R{Math.max(0, selectedRestaurant.pointsThreshold - selectedRestaurant.currentPoints)} more for a points voucher
                         </p>
@@ -420,7 +364,7 @@ export default function DinerDashboard() {
                           </div>
                           <span className="text-xs font-medium text-muted-foreground">Target: {selectedRestaurant.visitThreshold}</span>
                         </div>
-                        <Progress value={(selectedRestaurant.currentVisits / selectedRestaurant.visitThreshold) * 100} className="h-2" />
+                        <Progress value={(selectedRestaurant.currentVisits / selectedRestaurant.visitThreshold) * 100} className="h-2 [&>div]:bg-rose-700" />
                         <p className="text-xs text-muted-foreground">
                           {Math.max(0, selectedRestaurant.visitThreshold - selectedRestaurant.currentVisits)} more visit{selectedRestaurant.visitThreshold - selectedRestaurant.currentVisits !== 1 ? 's' : ''} for a visits voucher
                         </p>
@@ -473,121 +417,77 @@ export default function DinerDashboard() {
           </TabsContent>
 
           <TabsContent value="vouchers" className="space-y-4 sm:space-y-6">
-            {/* Available Voucher Credits - Choose Your Reward */}
-            {selectedRestaurant && ((selectedRestaurant.pointsCredits || 0) > 0 || (selectedRestaurant.visitCredits || 0) > 0) && (
-              <Card className="border-amber-300 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30">
-                <CardHeader className="p-4 pb-2">
-                  <CardTitle className="text-base sm:text-lg flex items-center gap-2">
-                    <Sparkles className="h-5 w-5 text-amber-500" />
-                    Choose Your Reward
-                  </CardTitle>
-                  <CardDescription className="text-xs sm:text-sm">
-                    You have {selectedRestaurant.pointsCredits || 0} points credit{(selectedRestaurant.pointsCredits || 0) !== 1 ? 's' : ''} and {selectedRestaurant.visitCredits || 0} visit credit{(selectedRestaurant.visitCredits || 0) !== 1 ? 's' : ''} at {selectedRestaurant.restaurantName}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="p-4 pt-2">
-                  {loadingVoucherTypes ? (
-                    <div className="flex items-center justify-center py-4">
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-                    </div>
-                  ) : voucherTypes.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No reward options available yet.</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {voucherTypes.map((vt) => {
-                        const vtEarningMode = vt.earningMode || 'points';
-                        const availableCredits = vtEarningMode === 'visits' 
-                          ? (selectedRestaurant.visitCredits || 0) 
-                          : (selectedRestaurant.pointsCredits || 0);
-                        const canAfford = availableCredits >= vt.creditsCost;
-                        return (
-                          <div 
-                            key={vt.id}
-                            className={`p-3 rounded-lg border transition-all ${
-                              canAfford 
-                                ? 'bg-white dark:bg-background cursor-pointer hover:border-primary hover:shadow-sm active:scale-[0.99]' 
-                                : 'bg-muted/50 opacity-60 cursor-not-allowed'
-                            }`}
-                            onClick={() => {
-                              if (canAfford && !redeemCredit.isPending) {
-                                redeemCredit.mutate({ 
-                                  restaurantId: selectedRestaurant.restaurantId, 
-                                  voucherTypeId: vt.id,
-                                  branchId: selectedRestaurant.branchId
-                                });
-                              }
-                            }}
-                            data-testid={`card-claim-voucher-${vt.id}`}
-                          >
-                            <div className="flex justify-between items-center gap-2">
-                              <div className="min-w-0 flex-1">
-                                <p className="font-medium text-sm">{vt.name}</p>
-                                <div className="flex items-center gap-2 mt-0.5">
-                                  <Badge variant="outline" className="text-xs font-normal">
-                                    {vtEarningMode === 'visits' ? 'Visits' : 'Points'}
-                                  </Badge>
-                                  {vt.description && (
-                                    <p className="text-xs text-muted-foreground">{vt.description}</p>
-                                  )}
-                                </div>
-                              </div>
-                              <Button 
-                                size="sm" 
-                                variant={canAfford ? "default" : "secondary"}
-                                disabled={!canAfford || redeemCredit.isPending}
-                                className="shrink-0 h-8"
-                              >
-                                {redeemCredit.isPending ? "..." : "Claim"}
-                              </Button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
+            {/* Filter Toggle */}
+            <div className="flex justify-center">
+              <div className="inline-flex bg-white border border-rose-200 rounded-lg p-1">
+                <button
+                  onClick={() => setVoucherFilter("active")}
+                  className={`px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors ${
+                    voucherFilter === "active"
+                      ? "bg-rose-100 text-rose-800"
+                      : "text-gray-500 hover:text-rose-700"
+                  }`}
+                  data-testid="filter-active"
+                >
+                  Active
+                </button>
+                <button
+                  onClick={() => setVoucherFilter("redeemed")}
+                  className={`px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors ${
+                    voucherFilter === "redeemed"
+                      ? "bg-rose-100 text-rose-800"
+                      : "text-gray-500 hover:text-rose-700"
+                  }`}
+                  data-testid="filter-redeemed"
+                >
+                  Redeemed
+                </button>
+              </div>
+            </div>
 
             {(() => {
-              const filteredVouchers = selectedRestaurantId 
+              // First filter by restaurant
+              const restaurantVouchers = selectedRestaurantId 
                 ? vouchers.filter(v => v.restaurantId === selectedRestaurantId)
                 : vouchers;
               
+              // Then filter by status
+              const filteredVouchers = restaurantVouchers.filter(v => v.status === voucherFilter);
+              
               const hasCredits = selectedRestaurant && ((selectedRestaurant.pointsCredits || 0) > 0 || (selectedRestaurant.visitCredits || 0) > 0);
               
-              if (filteredVouchers.length === 0 && !hasCredits) {
+              if (filteredVouchers.length === 0) {
                 return (
                   <Card className="p-6 sm:p-12 text-center">
                     <Gift className="h-12 w-12 sm:h-16 sm:w-16 mx-auto text-muted-foreground/50 mb-3 sm:mb-4" />
                     <p className="text-base sm:text-lg font-medium text-muted-foreground">
-                      {selectedRestaurant ? `No vouchers for ${selectedRestaurant.restaurantName}` : 'You have no vouchers yet'}
+                      {voucherFilter === "active" 
+                        ? "No active vouchers" 
+                        : "No redeemed vouchers"}
                     </p>
                     <p className="text-xs sm:text-sm text-muted-foreground mt-2">
-                      {selectedRestaurant 
-                        ? `Spend R1000 at ${selectedRestaurant.restaurantName} to earn a voucher`
-                        : 'Spend R1000 at a restaurant to earn your first voucher'}
+                      {voucherFilter === "active" 
+                        ? "Earn more points to get vouchers" 
+                        : "Redeemed vouchers will appear here"}
                     </p>
                   </Card>
                 );
               }
               
-              if (filteredVouchers.length === 0) {
-                return null;
-              }
               
               return (
-                <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-3">
                   {filteredVouchers.map((voucher) => (
                   <Card 
                     key={voucher.id} 
                     className={`relative overflow-hidden border-dashed border-2 transition-all ${
                       voucher.status === "active" 
                         ? "cursor-pointer hover:shadow-lg hover:border-primary/50 active:scale-[0.98]" 
-                        : "opacity-70"
+                        : "opacity-50 bg-gray-50 grayscale"
                     }`}
                     onClick={() => {
-                      if (voucher.status === "active" && !selectVoucher.isPending) {
+                      if (voucher.status === "active") {
+                        setSelectedVoucher(voucher);
                         selectVoucher.mutate({ voucherId: voucher.id, title: voucher.title });
                       }
                     }}
@@ -684,92 +584,6 @@ export default function DinerDashboard() {
           </DialogContent>
         </Dialog>
 
-        {/* Credit Redemption Dialog */}
-        <Dialog open={redeemCreditsOpen} onOpenChange={(open) => {
-          setRedeemCreditsOpen(open);
-          if (!open) setRedeemingRestaurant(null);
-        }}>
-          <DialogContent className="w-[calc(100%-24px)] max-w-lg mx-auto rounded-lg">
-            <DialogHeader>
-              <DialogTitle className="font-serif text-lg sm:text-xl flex items-center gap-2">
-                <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-amber-500 shrink-0" />
-                Choose Your Reward
-              </DialogTitle>
-              <DialogDescription className="text-xs sm:text-sm">
-                {redeemingRestaurant?.restaurantName} - {redeemingRestaurant?.pointsCredits || 0} points credit{(redeemingRestaurant?.pointsCredits || 0) !== 1 ? 's' : ''}, {redeemingRestaurant?.visitCredits || 0} visit credit{(redeemingRestaurant?.visitCredits || 0) !== 1 ? 's' : ''}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="py-2 sm:py-4">
-              {loadingVoucherTypes ? (
-                <div className="flex items-center justify-center py-6 sm:py-8">
-                  <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-primary"></div>
-                </div>
-              ) : voucherTypes.length === 0 ? (
-                <div className="text-center py-6 sm:py-8">
-                  <Gift className="h-10 w-10 sm:h-12 sm:w-12 mx-auto text-muted-foreground/50 mb-2 sm:mb-3" />
-                  <p className="text-sm sm:text-base text-muted-foreground">No rewards available</p>
-                  <p className="text-xs sm:text-sm text-muted-foreground mt-1">The restaurant hasn't set up any reward options yet.</p>
-                </div>
-              ) : (
-                <div className="space-y-2 sm:space-y-3 max-h-[300px] sm:max-h-[400px] overflow-y-auto">
-                  {voucherTypes.map((vt) => {
-                    const vtEarningMode = vt.earningMode || 'points';
-                    const availableCredits = vtEarningMode === 'visits' 
-                      ? (redeemingRestaurant?.visitCredits || 0) 
-                      : (redeemingRestaurant?.pointsCredits || 0);
-                    const canAfford = availableCredits >= vt.creditsCost;
-                    return (
-                      <Card 
-                        key={vt.id} 
-                        className={`p-3 sm:p-4 cursor-pointer transition-all ${canAfford ? 'hover:border-primary hover:shadow-md active:scale-[0.98]' : 'opacity-50 cursor-not-allowed'}`}
-                        onClick={() => {
-                          if (canAfford && redeemingRestaurant) {
-                            redeemCredit.mutate({ 
-                              restaurantId: redeemingRestaurant.restaurantId, 
-                              voucherTypeId: vt.id,
-                              branchId: redeemingRestaurant.branchId
-                            });
-                          }
-                        }}
-                        data-testid={`card-select-voucher-type-${vt.id}`}
-                      >
-                        <div className="flex justify-between items-start gap-2">
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-medium font-serif text-sm sm:text-base">{vt.name}</h3>
-                            <Badge variant="outline" className="text-[10px] font-normal mt-1">
-                              {vtEarningMode === 'visits' ? 'Visits' : 'Points'}
-                            </Badge>
-                            {vt.description && (
-                              <p className="text-xs sm:text-sm text-muted-foreground mt-1">{vt.description}</p>
-                            )}
-                            <div className="flex gap-4 mt-1.5 sm:mt-2 text-[10px] sm:text-xs text-muted-foreground">
-                              <span className="flex items-center gap-1">
-                                <Clock className="h-3 w-3" />
-                                Valid {vt.validityDays} days
-                              </span>
-                            </div>
-                            {vt.rewardDetails && (
-                              <p className="text-[10px] sm:text-xs text-muted-foreground mt-1.5 sm:mt-2 pt-1.5 sm:pt-2 border-t">{vt.rewardDetails}</p>
-                            )}
-                          </div>
-                          <div className="shrink-0">
-                            <Badge 
-                              variant={canAfford ? "default" : "secondary"}
-                              className={`text-[10px] sm:text-xs ${canAfford ? "bg-amber-500 hover:bg-amber-500" : ""}`}
-                            >
-                              <Star className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-0.5 sm:mr-1" />
-                              {vt.creditsCost} Credit{vt.creditsCost !== 1 ? 's' : ''}
-                            </Badge>
-                          </div>
-                        </div>
-                      </Card>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
 
         {/* My QR Code Dialog */}
         <Dialog open={showMyQRCode} onOpenChange={setShowMyQRCode}>
@@ -800,6 +614,55 @@ export default function DinerDashboard() {
                 Scan at restaurant to earn points
               </p>
             </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Voucher QR Code Dialog */}
+        <Dialog open={showVoucherQR} onOpenChange={(open) => {
+          setShowVoucherQR(open);
+          if (!open) {
+            setSelectedVoucher(null);
+            setActiveCode(null);
+          }
+        }}>
+          <DialogContent className="w-[calc(100%-24px)] max-w-sm mx-auto rounded-lg">
+            <DialogHeader className="text-center">
+              <DialogTitle className="font-serif text-lg sm:text-xl flex items-center justify-center gap-2">
+                <Gift className="h-5 w-5 text-rose-600" />
+                Redeem Voucher
+              </DialogTitle>
+              <DialogDescription className="text-xs sm:text-sm">
+                Show this QR code to the restaurant staff
+              </DialogDescription>
+            </DialogHeader>
+            {selectedVoucher && (
+              <div className="flex flex-col items-center py-4 sm:py-6 space-y-4">
+                <div className="text-center">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider">{selectedVoucher.restaurantName}</p>
+                  <p className="text-lg sm:text-xl font-serif font-semibold mt-1">{selectedVoucher.title}</p>
+                </div>
+                <div className="bg-white p-4 rounded-xl shadow-sm border">
+                  <QRCodeSVG 
+                    value={activeCode || selectedVoucher.code} 
+                    size={180}
+                    level="H"
+                    includeMargin={false}
+                  />
+                </div>
+                <div className="text-center space-y-2">
+                  <p className="text-xs font-mono text-muted-foreground bg-muted px-3 py-1.5 rounded">
+                    {activeCode || selectedVoucher.code}
+                  </p>
+                  <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+                    <Clock className="h-3 w-3" />
+                    Expires {formatDistanceToNow(new Date(selectedVoucher.expiryDate), { addSuffix: true })}
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground text-center px-4">
+                  Staff will scan this code to redeem your voucher
+                </p>
+              </div>
+            )}
           </DialogContent>
         </Dialog>
       </div>

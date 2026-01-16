@@ -82,6 +82,15 @@ export class VoucherService implements IVoucherService {
     return { valid: true };
   }
 
+  private generatePresentationCode(): string {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = '';
+    for (let i = 0; i < 12; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+  }
+
   async selectVoucherForPresentation(
     dinerId: string, 
     voucherId: string
@@ -98,7 +107,11 @@ export class VoucherService implements IVoucherService {
       throw new Error(validation.reason);
     }
 
-    await this.storage.updateUserActiveVoucherCode(dinerId, voucher.code);
+    // Generate a fresh temporary presentation code
+    const presentationCode = this.generatePresentationCode();
+    
+    // Store both the code and voucher ID with the user
+    await this.storage.updateUserActiveVoucherPresentation(dinerId, voucherId, presentationCode);
 
     const restaurant = await this.storage.getRestaurant(voucher.restaurantId);
     const enrichedVoucher: EnrichedVoucher = {
@@ -109,7 +122,7 @@ export class VoucherService implements IVoucherService {
 
     const codeExpiresAt = new Date(Date.now() + VoucherService.CODE_VALIDITY_MINUTES * 60 * 1000);
 
-    return { code: voucher.code, voucher: enrichedVoucher, codeExpiresAt: codeExpiresAt.toISOString() };
+    return { code: presentationCode, voucher: enrichedVoucher, codeExpiresAt: codeExpiresAt.toISOString() };
   }
 
   async redeemVoucherByCode(
@@ -122,10 +135,19 @@ export class VoucherService implements IVoucherService {
       throw new Error("Voucher code is required");
     }
 
-    const voucher = await this.storage.getVoucherByCode(code);
+    // Look up the user and their active voucher by the presentation code
+    const result = await this.storage.getUserWithActiveVoucher(code);
 
-    if (!voucher) {
-      throw new Error("Invalid voucher code");
+    if (!result) {
+      throw new Error("Invalid voucher code. Ask the customer to tap on the voucher first.");
+    }
+
+    const { user, voucher } = result;
+
+    // Check if the presentation code has expired
+    if (this.isCodeExpired(user.activeVoucherCodeSetAt)) {
+      await this.storage.updateUserActiveVoucherPresentation(voucher.dinerId, null, null);
+      throw new Error("This voucher code has expired. Please ask the customer to present the code again.");
     }
 
     const voucherRestaurant = await this.storage.getRestaurant(voucher.restaurantId);
@@ -168,18 +190,10 @@ export class VoucherService implements IVoucherService {
       throw new Error(validation.reason);
     }
 
-    const user = await this.storage.getUserByActiveVoucherCode(code);
-    if (!user) {
-      throw new Error("This voucher code has not been presented by the customer. Ask them to tap on the voucher first.");
-    }
-
-    if (this.isCodeExpired(user.activeVoucherCodeSetAt)) {
-      await this.storage.updateUserActiveVoucherCode(voucher.dinerId, null);
-      throw new Error("This voucher code has expired. Please ask the customer to present the code again.");
-    }
-
     const redeemedVoucher = await this.storage.redeemVoucher(voucher.id, billId, branchId);
-    await this.storage.updateUserActiveVoucherCode(voucher.dinerId, null);
+    
+    // Clear both the active code and voucher ID
+    await this.storage.updateUserActiveVoucherPresentation(voucher.dinerId, null, null);
 
     const enrichedVoucher: EnrichedVoucher = {
       ...redeemedVoucher,

@@ -213,7 +213,9 @@ export interface IStorage {
   getVoucherByCode(code: string): Promise<Voucher | undefined>;
   getVoucherById(id: string): Promise<Voucher | undefined>;
   updateUserActiveVoucherCode(userId: string, code: string | null): Promise<User>;
+  updateUserActiveVoucherPresentation(userId: string, voucherId: string | null, code: string | null): Promise<User>;
   getUserByActiveVoucherCode(code: string): Promise<User | undefined>;
+  getUserWithActiveVoucher(code: string): Promise<{ user: User; voucher: Voucher } | undefined>;
   updateUserProfile(userId: string, profile: { name?: string; lastName?: string; email?: string; phone?: string }): Promise<User>;
   
   // Reconciliation Management
@@ -745,6 +747,28 @@ export class DbStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     return result[0];
+  }
+
+  async updateUserActiveVoucherPresentation(userId: string, voucherId: string | null, code: string | null): Promise<User> {
+    const result = await db.update(users)
+      .set({ 
+        activeVoucherCode: code,
+        activeVoucherId: voucherId,
+        activeVoucherCodeSetAt: code ? new Date() : null
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    return result[0];
+  }
+
+  async getUserWithActiveVoucher(code: string): Promise<{ user: User; voucher: Voucher } | undefined> {
+    const user = await this.getUserByActiveVoucherCode(code);
+    if (!user || !user.activeVoucherId) return undefined;
+    
+    const voucher = await this.getVoucherById(user.activeVoucherId);
+    if (!voucher) return undefined;
+    
+    return { user, voucher };
   }
 
   async getUserByActiveVoucherCode(code: string): Promise<User | undefined> {

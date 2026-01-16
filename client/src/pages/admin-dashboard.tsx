@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { StatsCard } from "@/components/dashboard/stats-card";
 import { Users, DollarSign, TicketPercent, UserPlus, Phone, Check, Copy, ExternalLink, Loader2, CalendarIcon, Download, Building2 } from "lucide-react";
+import { getStoredAuth } from "@/lib/queryClient";
 import { 
   Bar, 
   BarChart, 
@@ -59,6 +60,15 @@ function AdminDashboardContent() {
   const [invitePhone, setInvitePhone] = useState("");
   const [inviteSuccess, setInviteSuccess] = useState<{phone: string; registrationLink: string; smsSent: boolean} | null>(null);
   
+  // Helper to get auth headers for API calls
+  const getAuthHeaders = (): Record<string, string> => {
+    const auth = getStoredAuth();
+    if (auth) {
+      return { "X-User-Id": auth.userId, "X-User-Type": auth.userType };
+    }
+    return {};
+  };
+  
   const [dateRange, setDateRange] = useState<DateRange>({
     from: subDays(new Date(), 30),
     to: new Date(),
@@ -79,7 +89,10 @@ function AdminDashboardContent() {
     queryFn: async () => {
       const params = new URLSearchParams();
       if (selectedBranchId) params.set('branchId', selectedBranchId);
-      const res = await fetch(`/api/restaurants/${restaurantId}/stats?${params}`, { credentials: 'include' });
+      const res = await fetch(`/api/restaurants/${restaurantId}/stats?${params}`, { 
+        credentials: 'include',
+        headers: getAuthHeaders()
+      });
       if (!res.ok) throw new Error("Failed to fetch stats");
       return res.json();
     },
@@ -93,7 +106,10 @@ function AdminDashboardContent() {
       if (dateRange.from) params.set('start', format(dateRange.from, 'yyyy-MM-dd'));
       if (dateRange.to) params.set('end', format(dateRange.to, 'yyyy-MM-dd'));
       if (selectedBranchId) params.set('branchId', selectedBranchId);
-      const res = await fetch(`/api/restaurants/${restaurantId}/diner-registrations?${params}`, { credentials: 'include' });
+      const res = await fetch(`/api/restaurants/${restaurantId}/diner-registrations?${params}`, { 
+        credentials: 'include',
+        headers: getAuthHeaders()
+      });
       if (!res.ok) throw new Error("Failed to fetch registrations");
       return res.json();
     },
@@ -119,7 +135,10 @@ function AdminDashboardContent() {
       if (redemptionsDateRange.from) params.set('start', format(redemptionsDateRange.from, 'yyyy-MM-dd'));
       if (redemptionsDateRange.to) params.set('end', format(redemptionsDateRange.to, 'yyyy-MM-dd'));
       if (selectedBranchId) params.set('branchId', selectedBranchId);
-      const res = await fetch(`/api/restaurants/${restaurantId}/voucher-redemptions-by-type?${params}`, { credentials: 'include' });
+      const res = await fetch(`/api/restaurants/${restaurantId}/voucher-redemptions-by-type?${params}`, { 
+        credentials: 'include',
+        headers: getAuthHeaders()
+      });
       if (!res.ok) throw new Error("Failed to fetch redemptions by type");
       return res.json();
     },
@@ -141,7 +160,10 @@ function AdminDashboardContent() {
       if (revenueDateRange.from) params.set('start', format(revenueDateRange.from, 'yyyy-MM-dd'));
       if (revenueDateRange.to) params.set('end', format(revenueDateRange.to, 'yyyy-MM-dd'));
       if (selectedBranchId) params.set('branchId', selectedBranchId);
-      const res = await fetch(`/api/restaurants/${restaurantId}/revenue?${params}`, { credentials: 'include' });
+      const res = await fetch(`/api/restaurants/${restaurantId}/revenue?${params}`, { 
+        credentials: 'include',
+        headers: getAuthHeaders()
+      });
       if (!res.ok) throw new Error("Failed to fetch revenue");
       return res.json();
     },

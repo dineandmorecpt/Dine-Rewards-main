@@ -13,6 +13,33 @@ The app uses a custom SMS Portal API for sending registration invitations to din
 - **Authentication**: Basic Auth using SMS_CLIENT_ID and SMS_API_SECRET secrets
 - **Service file**: server/services/sms.ts
 
+### SMS Rate Limiting (Cost Protection)
+Multi-layered rate limiting prevents SMS abuse and runaway costs:
+- **Per-IP rate limiting**: 5 requests/minute via `smsRateLimiter` middleware
+- **Per-phone daily limit**: 3 SMS per phone number per 24 hours
+- **Per-restaurant daily limit**: 100 SMS per restaurant per 24 hours
+- **Global daily limit**: 1000 SMS system-wide per 24 hours
+- **Rate limiter service**: `server/services/smsRateLimiter.ts`
+
+Protected endpoints:
+- `/api/restaurants/:restaurantId/diners/invite` - Diner invitation SMS
+- `/api/auth/request-otp` - Diner login OTP
+- `/api/auth/request-registration-otp` - Registration OTP
+- `/api/auth/invitation-otp` - Invitation verification OTP
+- `/api/auth/forgot-password-sms` - Password reset SMS
+- `/api/phone-change/request` - Phone change verification OTP
+
+## Security - Captcha Protection
+
+Cloudflare Turnstile captcha (invisible mode) protects authentication flows:
+- **Frontend component**: `client/src/components/ui/captcha.tsx`
+- **Backend service**: `server/services/captcha.ts`
+- **Required secrets**: `VITE_TURNSTILE_SITE_KEY` (frontend), `TURNSTILE_SECRET_KEY` (backend)
+
+Protected endpoints:
+- `/api/auth/login` - Restaurant admin login
+- `/api/diners/register` - Diner registration from invitation
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.

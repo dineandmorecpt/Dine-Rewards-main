@@ -6,6 +6,7 @@ import { sendRegistrationInvite, sendPhoneChangeOTP, sendSMS } from "./services/
 import { sendPasswordResetEmail, sendAccountDeletionConfirmationEmail } from "./services/email";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { verifyCaptcha } from "./services/captcha";
+import { checkSMSRateLimit, recordSMSSent } from "./services/smsRateLimiter";
 import { insertTransactionSchema } from "@shared/schema";
 import { z } from "zod";
 import crypto from "crypto";
@@ -345,6 +346,15 @@ export async function registerRoutes(
         return res.json({ success: true, message: "If an account with that phone number exists, a password reset link has been sent." });
       }
 
+      // Check daily SMS rate limit for this phone
+      const smsLimitCheck = checkSMSRateLimit(phone);
+      if (!smsLimitCheck.allowed) {
+        return res.status(429).json({ 
+          error: smsLimitCheck.error,
+          retryAfterSeconds: smsLimitCheck.retryAfterSeconds
+        });
+      }
+
       // Generate token (32 bytes = 64 hex characters)
       const token = crypto.randomBytes(32).toString('hex');
       const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
@@ -361,7 +371,10 @@ export async function registerRoutes(
       const { sendSMS } = await import("./services/sms");
       const smsResult = await sendSMS(phone, `Reset your Dine&More password: ${resetLink} (expires in 1 hour)`);
       
-      if (!smsResult.success) {
+      // Record successful SMS for rate limiting
+      if (smsResult.success) {
+        recordSMSSent(phone);
+      } else {
         console.error('Failed to send password reset SMS:', smsResult.error);
         // Don't reveal to user that SMS failed - still return success for security
       }
@@ -836,6 +849,15 @@ export async function registerRoutes(
         });
       }
 
+      // Check daily SMS rate limit for this phone
+      const smsLimitCheck = checkSMSRateLimit(phone);
+      if (!smsLimitCheck.allowed) {
+        return res.status(429).json({ 
+          error: smsLimitCheck.error,
+          retryAfterSeconds: smsLimitCheck.retryAfterSeconds
+        });
+      }
+
       // Generate 6-digit OTP
       const otp = crypto.randomInt(100000, 1000000).toString();
       
@@ -847,6 +869,11 @@ export async function registerRoutes(
       // Send OTP via SMS
       const { sendSMS } = await import("./services/sms");
       const smsResult = await sendSMS(phone, `Your Dine&More login code is: ${otp}. Valid for 5 minutes.`);
+      
+      // Record successful SMS for rate limiting
+      if (smsResult.success) {
+        recordSMSSent(phone);
+      }
 
       res.json({
         success: true,
@@ -947,6 +974,15 @@ export async function registerRoutes(
         return res.status(400).json({ error: "This phone number is already registered" });
       }
 
+      // Check daily SMS rate limit for this phone
+      const smsLimitCheck = checkSMSRateLimit(phone);
+      if (!smsLimitCheck.allowed) {
+        return res.status(429).json({ 
+          error: smsLimitCheck.error,
+          retryAfterSeconds: smsLimitCheck.retryAfterSeconds
+        });
+      }
+
       // Generate 6-digit OTP
       const otp = crypto.randomInt(100000, 1000000).toString();
       
@@ -958,6 +994,11 @@ export async function registerRoutes(
       // Send OTP via SMS
       const { sendSMS } = await import("./services/sms");
       const smsResult = await sendSMS(phone, `Your Dine&More verification code is: ${otp}. Valid for 5 minutes.`);
+      
+      // Record successful SMS for rate limiting
+      if (smsResult.success) {
+        recordSMSSent(phone);
+      }
 
       res.json({
         success: true,
@@ -1063,6 +1104,15 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Phone number does not match invitation" });
       }
 
+      // Check daily SMS rate limit for this phone
+      const smsLimitCheck = checkSMSRateLimit(phone, invitation.restaurantId);
+      if (!smsLimitCheck.allowed) {
+        return res.status(429).json({ 
+          error: smsLimitCheck.error,
+          retryAfterSeconds: smsLimitCheck.retryAfterSeconds
+        });
+      }
+
       // Generate 6-digit OTP
       const otp = crypto.randomInt(100000, 1000000).toString();
       
@@ -1074,6 +1124,11 @@ export async function registerRoutes(
       // Send OTP via SMS
       const { sendSMS } = await import("./services/sms");
       const smsResult = await sendSMS(phone, `Your Dine&More verification code is: ${otp}. Valid for 5 minutes.`);
+      
+      // Record successful SMS for rate limiting
+      if (smsResult.success) {
+        recordSMSSent(phone, invitation.restaurantId);
+      }
 
       res.json({
         success: true,
@@ -1294,6 +1349,15 @@ export async function registerRoutes(
         return res.status(400).json({ error: "This phone number is already registered to another account" });
       }
 
+      // Check daily SMS rate limit for this phone
+      const smsLimitCheck = checkSMSRateLimit(newPhone);
+      if (!smsLimitCheck.allowed) {
+        return res.status(429).json({ 
+          error: smsLimitCheck.error,
+          retryAfterSeconds: smsLimitCheck.retryAfterSeconds
+        });
+      }
+
       // Generate 6-digit OTP
       const otp = crypto.randomInt(100000, 1000000).toString();
       const otpHash = await bcrypt.hash(otp, 10);
@@ -1313,6 +1377,9 @@ export async function registerRoutes(
         console.error("Failed to send phone change OTP:", smsResult.error);
         return res.status(500).json({ error: "Failed to send verification code. Please try again." });
       }
+      
+      // Record successful SMS for rate limiting
+      recordSMSSent(newPhone);
 
       res.json({ 
         success: true, 
@@ -2362,7 +2429,7 @@ export async function registerRoutes(
       .refine(val => /^[0-9+]+$/.test(val), { message: "Phone number contains invalid characters" }),
   });
 
-  app.post("/api/restaurants/:restaurantId/diners/invite", async (req, res) => {
+  app.post("/api/restaurants/:restaurantId/diners/invite", smsRateLimiter, async (req, res) => {
     try {
       const { restaurantId } = req.params;
       
@@ -2380,6 +2447,15 @@ export async function registerRoutes(
       const restaurant = await storage.getRestaurant(restaurantId);
       if (!restaurant) {
         return res.status(404).json({ error: "Restaurant not found" });
+      }
+      
+      // Check daily SMS rate limits (restaurant and phone-based)
+      const smsLimitCheck = checkSMSRateLimit(phone, restaurantId);
+      if (!smsLimitCheck.allowed) {
+        return res.status(429).json({ 
+          error: smsLimitCheck.error,
+          retryAfterSeconds: smsLimitCheck.retryAfterSeconds
+        });
       }
       
       // Check if user already exists with this phone
@@ -2418,6 +2494,11 @@ export async function registerRoutes(
         const smsResult = await sendRegistrationInvite(phone, restaurant.name, fullRegistrationLink);
         smsSent = smsResult.success;
         smsError = smsResult.error;
+        
+        // Record successful SMS for rate limiting tracking
+        if (smsResult.success) {
+          recordSMSSent(phone, restaurantId);
+        }
       } catch (err: any) {
         console.error('SMS sending failed:', err);
         smsError = err.message;

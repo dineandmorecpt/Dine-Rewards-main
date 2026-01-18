@@ -381,11 +381,6 @@ export default function Home() {
                         data-testid="input-diner-password"
                       />
                     </div>
-                    <Captcha 
-                      onSuccess={setDinerCaptchaToken}
-                      onExpire={() => setDinerCaptchaToken("")}
-                      className="flex justify-center"
-                    />
                     <Button 
                       className="w-full bg-[#8B1538] hover:bg-[#6d1029] text-white" 
                       onClick={handleDinerLogin}
@@ -417,6 +412,11 @@ export default function Home() {
                         Register
                       </button>
                     </div>
+                    <Captcha 
+                      onSuccess={setDinerCaptchaToken}
+                      onExpire={() => setDinerCaptchaToken("")}
+                      className="flex justify-center"
+                    />
                   </>
                 ) : (
                   <>

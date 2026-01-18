@@ -100,7 +100,7 @@ export function DinerLayout({ children }: DinerLayoutProps) {
   return (
     <div className="min-h-screen bg-background font-sans diner-theme">
       {/* Mobile Header with bottom navigation */}
-      <div className="lg:hidden">
+      <div className="md:hidden">
         {/* Top header bar - blue gradient */}
         <div className="px-4 py-4 sm:px-6 sm:py-5 flex items-center justify-between bg-background border-b border-gray-100 sticky top-0 z-40">
           <Link href="/" className="hover:opacity-80 transition-opacity">
@@ -155,7 +155,7 @@ export function DinerLayout({ children }: DinerLayoutProps) {
       </div>
 
       {/* Desktop Layout */}
-      <div className="hidden lg:flex h-screen overflow-hidden">
+      <div className="hidden md:flex h-screen overflow-hidden">
         {/* Desktop Sidebar */}
         <div className="w-72 shrink-0 diner-sidebar">
           <SidebarContent />

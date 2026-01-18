@@ -103,10 +103,9 @@ export function DinerLayout({ children }: DinerLayoutProps) {
       {/* Mobile Header with bottom navigation */}
       <div className="lg:hidden">
         {/* Top header bar - blue gradient */}
-        <div className="px-4 py-4 sm:px-6 sm:py-5 flex items-center justify-between bg-white border-b border-gray-100 sticky top-0 z-40">
-          <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+        <div className="px-4 py-4 sm:px-6 sm:py-5 flex items-center justify-between bg-background border-b border-gray-100 sticky top-0 z-40">
+          <Link href="/" className="hover:opacity-80 transition-opacity">
             <img src={dinerLogo} alt="Dine&More" className="h-14 sm:h-16 w-auto" />
-            <img src={dinerText} alt="Dine&More" className="h-6 sm:h-7 w-auto" />
           </Link>
           <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
             <SheetTrigger asChild>

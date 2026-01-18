@@ -39,9 +39,8 @@ export function DinerLayout({ children }: DinerLayoutProps) {
   const SidebarContent = () => (
     <div className="flex flex-col h-full text-white border-r-0">
       <div className="p-4 sm:p-6">
-        <Link href="/" onClick={() => setSidebarOpen(false)} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+        <Link href="/" onClick={() => setSidebarOpen(false)} className="block hover:opacity-80 transition-opacity">
           <img src={dinerLogo} alt="Dine&More" className="h-16 sm:h-20 w-auto" />
-          <img src={dinerText} alt="Dine&More" className="h-6 sm:h-8 w-auto" />
         </Link>
         <p className="text-[10px] sm:text-xs text-rose-200 mt-1 uppercase tracking-wider font-medium">Diner Rewards</p>
       </div>

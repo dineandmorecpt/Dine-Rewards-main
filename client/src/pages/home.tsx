@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Captcha } from "@/components/ui/captcha";
 import { Utensils, ChefHat, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import logoImage from "@/assets/logo.png";
 
 export default function Home() {
   const [, navigate] = useLocation();
@@ -328,10 +329,13 @@ export default function Home() {
       </div>
 
       <div className="relative z-10 max-w-md w-full text-center space-y-8">
-        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-8 duration-1000">
-          <h1 className="text-5xl md:text-6xl font-serif font-bold tracking-tight text-primary">
-            Dine<span className="text-chart-1">&</span>More
-          </h1>
+        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-8 duration-1000 flex flex-col items-center">
+          <img 
+            src={logoImage} 
+            alt="Dine&More" 
+            className="h-40 md:h-48 w-auto"
+            data-testid="logo-image"
+          />
           <p className="text-lg text-muted-foreground font-light">
             The premium rewards experience for exceptional dining.
           </p>
@@ -339,12 +343,12 @@ export default function Home() {
 
         <div className="animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-200">
           <Tabs defaultValue="diner" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="diner" className="flex items-center gap-2" data-testid="tab-diner">
+            <TabsList className="grid w-full grid-cols-2 bg-[#F5EBD7]">
+              <TabsTrigger value="diner" className="flex items-center gap-2 bg-white data-[state=active]:bg-[#8B1538] data-[state=active]:text-white" data-testid="tab-diner">
                 <Utensils className="w-4 h-4" />
                 Diner
               </TabsTrigger>
-              <TabsTrigger value="admin" className="flex items-center gap-2" data-testid="tab-admin">
+              <TabsTrigger value="admin" className="flex items-center gap-2 bg-white data-[state=active]:bg-[#8B1538] data-[state=active]:text-white" data-testid="tab-admin">
                 <ChefHat className="w-4 h-4" />
                 Restaurant
               </TabsTrigger>
@@ -377,13 +381,8 @@ export default function Home() {
                         data-testid="input-diner-password"
                       />
                     </div>
-                    <Captcha 
-                      onSuccess={setDinerCaptchaToken}
-                      onExpire={() => setDinerCaptchaToken("")}
-                      className="flex justify-center"
-                    />
                     <Button 
-                      className="w-full" 
+                      className="w-full bg-[#8B1538] hover:bg-[#6d1029] text-white" 
                       onClick={handleDinerLogin}
                       disabled={isLoading || !dinerCaptchaToken}
                       data-testid="button-diner-login"
@@ -400,7 +399,7 @@ export default function Home() {
                       Don't have an account?{" "}
                       <button
                         type="button"
-                        className="text-primary hover:underline font-medium"
+                        className="text-[#8B1538] hover:underline font-medium"
                         onClick={() => {
                           setShowRegister(true);
                           setRegisterStep(1);
@@ -413,6 +412,11 @@ export default function Home() {
                         Register
                       </button>
                     </div>
+                    <Captcha 
+                      onSuccess={setDinerCaptchaToken}
+                      onExpire={() => setDinerCaptchaToken("")}
+                      className="flex justify-center"
+                    />
                   </>
                 ) : (
                   <>
@@ -434,7 +438,7 @@ export default function Home() {
                           />
                         </div>
                         <Button 
-                          className="w-full" 
+                          className="w-full bg-[#8B1538] hover:bg-[#6d1029] text-white" 
                           onClick={handleRequestRegistrationOtp}
                           disabled={isLoading}
                           data-testid="button-request-otp"
@@ -466,7 +470,7 @@ export default function Home() {
                           />
                         </div>
                         <Button 
-                          className="w-full" 
+                          className="w-full bg-[#8B1538] hover:bg-[#6d1029] text-white" 
                           onClick={handleVerifyRegistrationOtp}
                           disabled={isLoading}
                           data-testid="button-verify-otp"
@@ -538,7 +542,7 @@ export default function Home() {
                           />
                         </div>
                         <Button 
-                          className="w-full" 
+                          className="w-full bg-[#8B1538] hover:bg-[#6d1029] text-white" 
                           onClick={handleDinerRegister}
                           disabled={isLoading}
                           data-testid="button-diner-register"
@@ -552,7 +556,7 @@ export default function Home() {
                       Already have an account?{" "}
                       <button
                         type="button"
-                        className="text-primary hover:underline font-medium"
+                        className="text-[#8B1538] hover:underline font-medium"
                         onClick={() => {
                           setShowRegister(false);
                           setRegisterStep(1);
@@ -599,13 +603,8 @@ export default function Home() {
                     data-testid="input-admin-password"
                   />
                 </div>
-                <Captcha 
-                  onSuccess={setAdminCaptchaToken}
-                  onExpire={() => setAdminCaptchaToken("")}
-                  className="flex justify-center"
-                />
                 <Button 
-                  className="w-full" 
+                  className="w-full bg-[#8B1538] hover:bg-[#6d1029] text-white" 
                   onClick={handleAdminLogin}
                   disabled={isLoading || !adminCaptchaToken}
                   data-testid="button-admin-login"
@@ -618,6 +617,11 @@ export default function Home() {
                     Forgot Password?
                   </Link>
                 </div>
+                <Captcha 
+                  onSuccess={setAdminCaptchaToken}
+                  onExpire={() => setAdminCaptchaToken("")}
+                  className="flex justify-center"
+                />
               </div>
             </TabsContent>
           </Tabs>

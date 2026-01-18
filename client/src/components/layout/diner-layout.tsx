@@ -15,6 +15,7 @@ import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { QRCodeSVG } from "qrcode.react";
 import dinerLogo from "@/assets/diner-logo.png";
+import dinerText from "@/assets/diner-text.png";
 
 interface DinerLayoutProps {
   children: React.ReactNode;
@@ -38,10 +39,11 @@ export function DinerLayout({ children }: DinerLayoutProps) {
   const SidebarContent = () => (
     <div className="flex flex-col h-full text-white border-r-0">
       <div className="p-4 sm:p-6">
-        <Link href="/" onClick={() => setSidebarOpen(false)} className="block hover:opacity-80 transition-opacity">
+        <Link href="/" onClick={() => setSidebarOpen(false)} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
           <img src={dinerLogo} alt="Dine&More" className="h-16 sm:h-20 w-auto" />
-          <p className="text-[10px] sm:text-xs text-rose-200 mt-1 uppercase tracking-wider font-medium">Diner Rewards</p>
+          <img src={dinerText} alt="Dine&More" className="h-6 sm:h-8 w-auto" />
         </Link>
+        <p className="text-[10px] sm:text-xs text-rose-200 mt-1 uppercase tracking-wider font-medium">Diner Rewards</p>
       </div>
 
       <nav className="flex-1 px-3 sm:px-4 space-y-1">
@@ -102,8 +104,9 @@ export function DinerLayout({ children }: DinerLayoutProps) {
       <div className="lg:hidden">
         {/* Top header bar - blue gradient */}
         <div className="px-3 py-2.5 sm:px-4 sm:py-3 flex items-center justify-between diner-header-gradient sticky top-0 z-40">
-          <Link href="/" className="hover:opacity-80 transition-opacity">
+          <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
             <img src={dinerLogo} alt="Dine&More" className="h-10 sm:h-12 w-auto" />
+            <img src={dinerText} alt="Dine&More" className="h-4 sm:h-5 w-auto" />
           </Link>
           <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
             <SheetTrigger asChild>

@@ -387,7 +387,7 @@ export default function Home() {
                       className="flex justify-center"
                     />
                     <Button 
-                      className="w-full" 
+                      className="w-full bg-[#8B1538] hover:bg-[#6d1029] text-white" 
                       onClick={handleDinerLogin}
                       disabled={isLoading || !dinerCaptchaToken}
                       data-testid="button-diner-login"
@@ -404,7 +404,7 @@ export default function Home() {
                       Don't have an account?{" "}
                       <button
                         type="button"
-                        className="text-primary hover:underline font-medium"
+                        className="text-[#8B1538] hover:underline font-medium"
                         onClick={() => {
                           setShowRegister(true);
                           setRegisterStep(1);
@@ -438,7 +438,7 @@ export default function Home() {
                           />
                         </div>
                         <Button 
-                          className="w-full" 
+                          className="w-full bg-[#8B1538] hover:bg-[#6d1029] text-white" 
                           onClick={handleRequestRegistrationOtp}
                           disabled={isLoading}
                           data-testid="button-request-otp"
@@ -470,7 +470,7 @@ export default function Home() {
                           />
                         </div>
                         <Button 
-                          className="w-full" 
+                          className="w-full bg-[#8B1538] hover:bg-[#6d1029] text-white" 
                           onClick={handleVerifyRegistrationOtp}
                           disabled={isLoading}
                           data-testid="button-verify-otp"
@@ -542,7 +542,7 @@ export default function Home() {
                           />
                         </div>
                         <Button 
-                          className="w-full" 
+                          className="w-full bg-[#8B1538] hover:bg-[#6d1029] text-white" 
                           onClick={handleDinerRegister}
                           disabled={isLoading}
                           data-testid="button-diner-register"
@@ -556,7 +556,7 @@ export default function Home() {
                       Already have an account?{" "}
                       <button
                         type="button"
-                        className="text-primary hover:underline font-medium"
+                        className="text-[#8B1538] hover:underline font-medium"
                         onClick={() => {
                           setShowRegister(false);
                           setRegisterStep(1);

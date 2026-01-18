@@ -344,11 +344,11 @@ export default function Home() {
         <div className="animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-200">
           <Tabs defaultValue="diner" className="w-full">
             <TabsList className="grid w-full grid-cols-2 bg-[#F5EBD7]">
-              <TabsTrigger value="diner" className="flex items-center gap-2 data-[state=active]:bg-[#8B1538] data-[state=active]:text-white" data-testid="tab-diner">
+              <TabsTrigger value="diner" className="flex items-center gap-2 bg-white data-[state=active]:bg-[#8B1538] data-[state=active]:text-white" data-testid="tab-diner">
                 <Utensils className="w-4 h-4" />
                 Diner
               </TabsTrigger>
-              <TabsTrigger value="admin" className="flex items-center gap-2 data-[state=active]:bg-[#8B1538] data-[state=active]:text-white" data-testid="tab-admin">
+              <TabsTrigger value="admin" className="flex items-center gap-2 bg-white data-[state=active]:bg-[#8B1538] data-[state=active]:text-white" data-testid="tab-admin">
                 <ChefHat className="w-4 h-4" />
                 Restaurant
               </TabsTrigger>

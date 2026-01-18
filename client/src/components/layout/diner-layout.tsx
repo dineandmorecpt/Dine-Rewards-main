@@ -99,75 +99,57 @@ export function DinerLayout({ children }: DinerLayoutProps) {
 
   return (
     <div className="min-h-screen bg-background font-sans diner-theme">
-      {/* Mobile Header with bottom navigation */}
-      <div className="md:hidden">
-        {/* Top header bar - blue gradient */}
-        <div className="px-4 py-4 sm:px-6 sm:py-5 flex items-center justify-between bg-background border-b border-gray-100 sticky top-0 z-40">
-          <Link href="/" className="hover:opacity-80 transition-opacity">
-            <img src={dinerLogo} alt="Dine&More" className="h-14 sm:h-16 w-auto" />
-          </Link>
-          <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-10 w-10 text-gray-700 hover:bg-gray-100">
-                <Menu className="h-5 w-5 sm:h-6 sm:w-6" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="p-0 w-[280px] sm:w-72 border-r-0 diner-sidebar">
-              <VisuallyHidden>
-                <SheetTitle>Navigation Menu</SheetTitle>
-                <SheetDescription>Main navigation menu for Dine&More</SheetDescription>
-              </VisuallyHidden>
-              <SidebarContent />
-            </SheetContent>
-          </Sheet>
-        </div>
-        
-        {/* Main Content for mobile */}
-        <main className="bg-white min-h-[calc(100vh-52px)] pb-20">
-          <div className="px-3 py-4 sm:px-4 sm:py-6">
-            {children}
-          </div>
-        </main>
-
-        {/* Bottom navigation for mobile - burgundy theme */}
-        <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-rose-100 z-50 safe-area-pb">
-          <div className="flex justify-around items-center h-16">
-            {navigation.map((item) => {
-              const isActive = location === item.href;
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={cn(
-                    "flex flex-col items-center justify-center flex-1 h-full py-2 transition-colors min-w-[64px]",
-                    isActive
-                      ? "text-rose-700"
-                      : "text-gray-400"
-                  )}
-                >
-                  <item.icon className={cn("h-5 w-5 mb-1", isActive ? "text-rose-700" : "text-gray-400")} />
-                  <span className="text-[10px] sm:text-xs font-medium">{item.name}</span>
-                </Link>
-              );
-            })}
-          </div>
-        </nav>
+      {/* Header with hamburger menu - shown on all screen sizes */}
+      <div className="px-4 py-4 sm:px-6 sm:py-5 flex items-center justify-between bg-background border-b border-gray-100 sticky top-0 z-40">
+        <Link href="/" className="hover:opacity-80 transition-opacity">
+          <img src={dinerLogo} alt="Dine&More" className="h-14 sm:h-16 w-auto" />
+        </Link>
+        <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-10 w-10 text-gray-700 hover:bg-gray-100">
+              <Menu className="h-5 w-5 sm:h-6 sm:w-6" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="p-0 w-[280px] sm:w-72 border-r-0 diner-sidebar">
+            <VisuallyHidden>
+              <SheetTitle>Navigation Menu</SheetTitle>
+              <SheetDescription>Main navigation menu for Dine&More</SheetDescription>
+            </VisuallyHidden>
+            <SidebarContent />
+          </SheetContent>
+        </Sheet>
       </div>
-
-      {/* Desktop Layout */}
-      <div className="hidden md:flex h-screen overflow-hidden">
-        {/* Desktop Sidebar */}
-        <div className="w-72 shrink-0 diner-sidebar">
-          <SidebarContent />
+      
+      {/* Main Content */}
+      <main className="bg-white min-h-[calc(100vh-80px)] pb-20 md:pb-0">
+        <div className="container mx-auto max-w-5xl px-3 py-4 sm:px-6 sm:py-6">
+          {children}
         </div>
+      </main>
 
-        {/* Main Content */}
-        <main className="flex-1 overflow-y-auto bg-white">
-          <div className="container mx-auto max-w-5xl px-6 py-8">
-            {children}
-          </div>
-        </main>
-      </div>
+      {/* Bottom navigation - mobile only */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-rose-100 z-50 safe-area-pb">
+        <div className="flex justify-around items-center h-16">
+          {navigation.map((item) => {
+            const isActive = location === item.href;
+            return (
+              <Link
+                key={item.name}
+                href={item.href}
+                className={cn(
+                  "flex flex-col items-center justify-center flex-1 h-full py-2 transition-colors min-w-[64px]",
+                  isActive
+                    ? "text-rose-700"
+                    : "text-gray-400"
+                )}
+              >
+                <item.icon className={cn("h-5 w-5 mb-1", isActive ? "text-rose-700" : "text-gray-400")} />
+                <span className="text-[10px] sm:text-xs font-medium">{item.name}</span>
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
     </div>
   );
 }

@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Captcha } from "@/components/ui/captcha";
 import { Utensils, ChefHat, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import logoImage from "@/assets/logo.png";
 
 export default function Home() {
   const [, navigate] = useLocation();
@@ -328,10 +329,13 @@ export default function Home() {
       </div>
 
       <div className="relative z-10 max-w-md w-full text-center space-y-8">
-        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-8 duration-1000">
-          <h1 className="text-5xl md:text-6xl font-serif font-bold tracking-tight text-primary">
-            Dine<span className="text-chart-1">&</span>More
-          </h1>
+        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-8 duration-1000 flex flex-col items-center">
+          <img 
+            src={logoImage} 
+            alt="Dine&More" 
+            className="h-40 md:h-48 w-auto"
+            data-testid="logo-image"
+          />
           <p className="text-lg text-muted-foreground font-light">
             The premium rewards experience for exceptional dining.
           </p>

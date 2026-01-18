@@ -603,11 +603,6 @@ export default function Home() {
                     data-testid="input-admin-password"
                   />
                 </div>
-                <Captcha 
-                  onSuccess={setAdminCaptchaToken}
-                  onExpire={() => setAdminCaptchaToken("")}
-                  className="flex justify-center"
-                />
                 <Button 
                   className="w-full bg-[#8B1538] hover:bg-[#6d1029] text-white" 
                   onClick={handleAdminLogin}
@@ -622,6 +617,11 @@ export default function Home() {
                     Forgot Password?
                   </Link>
                 </div>
+                <Captcha 
+                  onSuccess={setAdminCaptchaToken}
+                  onExpire={() => setAdminCaptchaToken("")}
+                  className="flex justify-center"
+                />
               </div>
             </TabsContent>
           </Tabs>

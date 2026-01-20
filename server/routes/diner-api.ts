@@ -41,6 +41,14 @@ const redeemVoucherCreditSchema = z.object({
   branchId: z.string().optional(),
 });
 
+const createTransactionSchema = z.object({
+  restaurantId: z.string().min(1, "Restaurant is required"),
+  amountSpent: z.coerce.number()
+    .refine(val => !isNaN(val), { message: "Amount must be a valid number" })
+    .refine(val => val > 0, { message: "Amount must be greater than zero" }),
+  branchId: z.string().optional(),
+});
+
 function requireDinerAuth(req: any, res: any): string | null {
   const userId = getAuthUserId(req);
   if (!userId) {
@@ -104,6 +112,33 @@ export function registerDinerApiRoutes(router: Router): void {
     } catch (error) {
       console.error("Get transaction history error:", error);
       res.status(500).json({ error: "Failed to fetch transaction history" });
+    }
+  });
+
+  router.post("/api/diner/transactions", async (req, res) => {
+    try {
+      const dinerId = requireDinerAuth(req, res);
+      if (!dinerId) return;
+
+      const parseResult = createTransactionSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(422).json({ 
+          error: parseResult.error.errors[0]?.message || "Invalid input" 
+        });
+      }
+
+      const { restaurantId, amountSpent, branchId } = parseResult.data;
+      const result = await services.loyalty.recordTransaction(
+        dinerId, 
+        restaurantId, 
+        Number(amountSpent),
+        undefined,
+        branchId
+      );
+      res.json(result);
+    } catch (error: any) {
+      console.error("Create transaction error:", error);
+      res.status(400).json({ error: error.message || "Failed to create transaction" });
     }
   });
 

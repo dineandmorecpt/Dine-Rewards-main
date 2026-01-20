@@ -161,14 +161,12 @@ export default function DinerDashboard() {
   // Create transaction mutation (simulates spending)
   const createTransaction = useMutation({
     mutationFn: async ({ restaurantId, amountSpent, branchId }: { restaurantId: string; amountSpent: string; branchId?: string | null }) => {
-      const res = await fetch("/api/transactions", {
+      const res = await fetch("/api/diner/transactions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          dinerId: dinerId,
           restaurantId,
           amountSpent,
-          pointsEarned: Math.floor(Number(amountSpent)),
           branchId: branchId || undefined,
         }),
       });

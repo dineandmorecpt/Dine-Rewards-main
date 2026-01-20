@@ -14,6 +14,18 @@ The frontend is built with React 18 and TypeScript, utilizing Wouter for routing
 ### Backend Architecture
 The backend uses Express.js with TypeScript, providing RESTful API endpoints. It incorporates a service layer for domain-driven logic, including `LoyaltyService`, `VoucherService`, `StatsService`, and `ConfigService`. A storage abstraction pattern ensures decoupling of business logic from the database.
 
+#### Route Organization
+Routes are organized into feature-based modules in `server/routes/`:
+- **auth.ts**: Authentication (login, logout, OTP, password reset, account deletion)
+- **diners.ts**: Diner-specific endpoints (points, vouchers, profile, phone changes)
+- **restaurants.ts**: Restaurant management (settings, branches, staff, stats)
+- **vouchers.ts**: Voucher type CRUD and redemptions
+- **transactions.ts**: Transaction recording and history
+- **reconciliation.ts**: Bulk transaction upload and batch management
+- **invitations.ts**: Diner invitation and registration flows
+
+The main `server/routes.ts` acts as a composer, importing and registering all feature routes.
+
 ### Data Storage
 PostgreSQL is the primary database, accessed via Drizzle ORM. The schema is defined in `/shared/schema.ts` and includes core models for `users` (diners and admins), `restaurants`, `branches`, `pointsBalances`, `transactions`, and `vouchers`. The system supports multi-branch architecture, tracking data per-branch with organization-wide roll-ups.
 

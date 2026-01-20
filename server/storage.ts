@@ -252,6 +252,7 @@ export interface IStorage {
   
   // Portal User Management
   getPortalUsersByRestaurant(restaurantId: string): Promise<(PortalUser & { user: User; branchIds: string[]; branchNames: string[] })[]>;
+  getPortalUsersByUserId(userId: string): Promise<PortalUser[]>;
   addPortalUser(portalUser: InsertPortalUser): Promise<PortalUser>;
   removePortalUser(id: string): Promise<void>;
   getPortalUserByUserAndRestaurant(userId: string, restaurantId: string): Promise<PortalUser | undefined>;
@@ -934,6 +935,11 @@ export class DbStorage implements IStorage {
     }));
     
     return enrichedResults;
+  }
+
+  async getPortalUsersByUserId(userId: string): Promise<PortalUser[]> {
+    const results = await db.select().from(portalUsers).where(eq(portalUsers.userId, userId));
+    return results;
   }
 
   async addPortalUser(portalUser: InsertPortalUser): Promise<PortalUser> {

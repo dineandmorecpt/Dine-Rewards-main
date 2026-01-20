@@ -1,5 +1,5 @@
 import { Turnstile, TurnstileInstance } from '@marsidev/react-turnstile';
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useEffect } from 'react';
 
 interface CaptchaProps {
   onSuccess: (token: string) => void;
@@ -8,7 +8,11 @@ interface CaptchaProps {
   className?: string;
 }
 
-const SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA';
+// Use Cloudflare's always-pass test key in development, real key in production
+const isDevelopment = import.meta.env.DEV || window.location.hostname.includes('replit');
+const SITE_KEY = isDevelopment 
+  ? '1x00000000000000000000AA'  // Cloudflare test key - always passes
+  : (import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA');
 
 export function Captcha({ onSuccess, onError, onExpire, className }: CaptchaProps) {
   const turnstileRef = useRef<TurnstileInstance>(null);

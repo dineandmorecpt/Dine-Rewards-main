@@ -1,6 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
 
-const TURNSTILE_SECRET_KEY = process.env.TURNSTILE_SECRET_KEY || '1x0000000000000000000000000000000AA';
+// Use Cloudflare's always-pass test secret in development, real key in production
+const isDevelopment = process.env.NODE_ENV === 'development' || !process.env.REPL_SLUG?.includes('prod');
+const TURNSTILE_SECRET_KEY = isDevelopment 
+  ? '1x0000000000000000000000000000000AA'  // Cloudflare test secret - always passes
+  : (process.env.TURNSTILE_SECRET_KEY || '1x0000000000000000000000000000000AA');
 const TURNSTILE_VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
 
 interface TurnstileResponse {

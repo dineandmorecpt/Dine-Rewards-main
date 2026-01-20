@@ -85,11 +85,11 @@ function AdminDashboardContent() {
   });
 
   const { data: stats, isLoading } = useQuery<RestaurantStats>({
-    queryKey: ["/api/restaurants", restaurantId, "stats", selectedBranchId],
+    queryKey: ["/api/admin/stats", selectedBranchId],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (selectedBranchId) params.set('branchId', selectedBranchId);
-      const res = await fetch(`/api/restaurants/${restaurantId}/stats?${params}`, { 
+      const res = await fetch(`/api/admin/stats?${params}`, { 
         credentials: 'include',
         headers: getAuthHeaders()
       });
@@ -100,13 +100,13 @@ function AdminDashboardContent() {
   });
 
   const { data: registrationData, isLoading: isLoadingRegistrations } = useQuery<{ date: string; count: number }[]>({
-    queryKey: ["/api/restaurants", restaurantId, "diner-registrations", dateRange.from?.toDateString(), dateRange.to?.toDateString(), selectedBranchId],
+    queryKey: ["/api/admin/diner-registrations", dateRange.from?.toDateString(), dateRange.to?.toDateString(), selectedBranchId],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (dateRange.from) params.set('start', format(dateRange.from, 'yyyy-MM-dd'));
       if (dateRange.to) params.set('end', format(dateRange.to, 'yyyy-MM-dd'));
       if (selectedBranchId) params.set('branchId', selectedBranchId);
-      const res = await fetch(`/api/restaurants/${restaurantId}/diner-registrations?${params}`, { 
+      const res = await fetch(`/api/admin/diner-registrations?${params}`, { 
         credentials: 'include',
         headers: getAuthHeaders()
       });
@@ -129,13 +129,13 @@ function AdminDashboardContent() {
   }, [registrationData]);
 
   const { data: redemptionsByType, isLoading: isLoadingRedemptions } = useQuery<{ voucherTypeName: string; count: number }[]>({
-    queryKey: ["/api/restaurants", restaurantId, "voucher-redemptions-by-type", redemptionsDateRange.from?.toDateString(), redemptionsDateRange.to?.toDateString(), selectedBranchId],
+    queryKey: ["/api/admin/voucher-redemptions", redemptionsDateRange.from?.toDateString(), redemptionsDateRange.to?.toDateString(), selectedBranchId],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (redemptionsDateRange.from) params.set('start', format(redemptionsDateRange.from, 'yyyy-MM-dd'));
       if (redemptionsDateRange.to) params.set('end', format(redemptionsDateRange.to, 'yyyy-MM-dd'));
       if (selectedBranchId) params.set('branchId', selectedBranchId);
-      const res = await fetch(`/api/restaurants/${restaurantId}/voucher-redemptions-by-type?${params}`, { 
+      const res = await fetch(`/api/admin/voucher-redemptions?${params}`, { 
         credentials: 'include',
         headers: getAuthHeaders()
       });
@@ -154,13 +154,13 @@ function AdminDashboardContent() {
   }, [redemptionsByType]);
 
   const { data: revenueData, isLoading: isLoadingRevenue } = useQuery<{ date: string; amount: number }[]>({
-    queryKey: ["/api/restaurants", restaurantId, "revenue", revenueDateRange.from?.toDateString(), revenueDateRange.to?.toDateString(), selectedBranchId],
+    queryKey: ["/api/admin/revenue", revenueDateRange.from?.toDateString(), revenueDateRange.to?.toDateString(), selectedBranchId],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (revenueDateRange.from) params.set('start', format(revenueDateRange.from, 'yyyy-MM-dd'));
       if (revenueDateRange.to) params.set('end', format(revenueDateRange.to, 'yyyy-MM-dd'));
       if (selectedBranchId) params.set('branchId', selectedBranchId);
-      const res = await fetch(`/api/restaurants/${restaurantId}/revenue?${params}`, { 
+      const res = await fetch(`/api/admin/revenue?${params}`, { 
         credentials: 'include',
         headers: getAuthHeaders()
       });
@@ -184,7 +184,7 @@ function AdminDashboardContent() {
 
   const inviteDiner = useMutation({
     mutationFn: async ({ phone }: { phone: string }) => {
-      const res = await fetch(`/api/restaurants/${restaurantId}/diners/invite`, {
+      const res = await fetch(`/api/admin/diners/invite`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone })

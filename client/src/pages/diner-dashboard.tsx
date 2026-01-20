@@ -116,9 +116,9 @@ export default function DinerDashboard() {
 
   // Fetch points balances
   const { data: balances = [], isLoading: loadingBalances } = useQuery<PointsBalance[]>({
-    queryKey: ["/api/diners", dinerId, "points"],
+    queryKey: ["/api/diner/points"],
     queryFn: async () => {
-      const res = await fetch(`/api/diners/${dinerId}/points`);
+      const res = await fetch(`/api/diner/points`);
       if (!res.ok) throw new Error("Failed to fetch points");
       return res.json();
     },
@@ -137,9 +137,9 @@ export default function DinerDashboard() {
 
   // Fetch vouchers
   const { data: vouchers = [], isLoading: loadingVouchers } = useQuery<Voucher[]>({
-    queryKey: ["/api/diners", dinerId, "vouchers"],
+    queryKey: ["/api/diner/vouchers"],
     queryFn: async () => {
-      const res = await fetch(`/api/diners/${dinerId}/vouchers`);
+      const res = await fetch(`/api/diner/vouchers`);
       if (!res.ok) throw new Error("Failed to fetch vouchers");
       return res.json();
     },
@@ -148,9 +148,9 @@ export default function DinerDashboard() {
 
   // Fetch transactions for selected restaurant
   const { data: transactions = [], isLoading: loadingTransactions } = useQuery<Transaction[]>({
-    queryKey: ["/api/diners", dinerId, "restaurants", selectedRestaurant?.restaurantId, "transactions"],
+    queryKey: ["/api/diner/restaurants", selectedRestaurant?.restaurantId, "transactions"],
     queryFn: async () => {
-      const res = await fetch(`/api/diners/${dinerId}/restaurants/${selectedRestaurant!.restaurantId}/transactions`);
+      const res = await fetch(`/api/diner/restaurants/${selectedRestaurant!.restaurantId}/transactions`);
       if (!res.ok) throw new Error("Failed to fetch transactions");
       return res.json();
     },
@@ -179,9 +179,9 @@ export default function DinerDashboard() {
       return res.json();
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/diners", dinerId, "points"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/diners", dinerId, "vouchers"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/diners", dinerId, "restaurants"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/diner/points"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/diner/vouchers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/diner/restaurants"] });
       
       if (data.vouchersGenerated && data.vouchersGenerated.length > 0) {
         toast({
@@ -200,7 +200,7 @@ export default function DinerDashboard() {
   // Select voucher to present mutation
   const selectVoucher = useMutation({
     mutationFn: async ({ voucherId, title }: { voucherId: string; title: string }) => {
-      const res = await fetch(`/api/diners/${dinerId}/vouchers/${voucherId}/select`, {
+      const res = await fetch(`/api/diner/vouchers/${voucherId}/select`, {
         method: "POST",
       });
       if (!res.ok) {

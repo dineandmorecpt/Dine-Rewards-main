@@ -149,7 +149,7 @@ export default function AdminProfile() {
     if (!restaurantId) return;
     setIsLoadingBranches(true);
     try {
-      const res = await fetch(`/api/restaurants/${restaurantId}/branches`);
+      const res = await fetch(`/api/admin/branches`);
       const data = await res.json();
       setBranches(data);
     } catch (err) {
@@ -182,8 +182,8 @@ export default function AdminProfile() {
     setIsSavingBranch(true);
     try {
       const url = editingBranch
-        ? `/api/restaurants/${restaurantId}/branches/${editingBranch.id}`
-        : `/api/restaurants/${restaurantId}/branches`;
+        ? `/api/admin/branches/${editingBranch.id}`
+        : `/api/admin/branches`;
       
       const res = await fetch(url, {
         method: editingBranch ? "PATCH" : "POST",
@@ -219,7 +219,7 @@ export default function AdminProfile() {
     
     setIsDeletingBranch(true);
     try {
-      const res = await fetch(`/api/restaurants/${restaurantId}/branches/${deleteBranchId}`, {
+      const res = await fetch(`/api/admin/branches/${deleteBranchId}`, {
         method: "DELETE",
       });
 
@@ -250,7 +250,7 @@ export default function AdminProfile() {
     if (!restaurantId) return;
     
     try {
-      const res = await fetch(`/api/restaurants/${restaurantId}/branches/${branchId}`, {
+      const res = await fetch(`/api/admin/branches/${branchId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isDefault: true }),
@@ -282,7 +282,7 @@ export default function AdminProfile() {
       return;
     }
     
-    fetch(`/api/restaurants/${restaurantId}`)
+    fetch(`/api/admin/restaurant`)
       .then(res => res.json())
       .then(data => {
         if (data) {
@@ -333,7 +333,7 @@ export default function AdminProfile() {
     
     setIsSaving(true);
     try {
-      const res = await fetch(`/api/restaurants/${restaurantId}/profile`, {
+      const res = await fetch(`/api/admin/restaurant/profile`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...formData, logoUrl }),

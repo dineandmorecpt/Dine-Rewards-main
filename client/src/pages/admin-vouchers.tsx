@@ -125,7 +125,7 @@ function AdminVouchersContent() {
   const transactionsQuery = useQuery({
     queryKey: ['restaurant-transactions', restaurantId],
     queryFn: async () => {
-      const res = await fetch(`/api/restaurants/${restaurantId}/transactions`, {
+      const res = await fetch(`/api/admin/transactions`, {
         credentials: 'include'
       });
       if (!res.ok) throw new Error('Failed to fetch transactions');
@@ -138,7 +138,7 @@ function AdminVouchersContent() {
   const portalUsersQuery = useQuery({
     queryKey: ['portal-users', restaurantId],
     queryFn: async () => {
-      const res = await fetch(`/api/restaurants/${restaurantId}/portal-users`);
+      const res = await fetch(`/api/admin/staff`);
       if (!res.ok) throw new Error('Failed to fetch portal users');
       return res.json();
     },
@@ -147,7 +147,7 @@ function AdminVouchersContent() {
   
   const addPortalUser = useMutation({
     mutationFn: async ({ email, name, role }: { email: string; name: string; role: string }) => {
-      const res = await fetch(`/api/restaurants/${restaurantId}/portal-users`, {
+      const res = await fetch(`/api/admin/staff`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, name, role })
@@ -180,7 +180,7 @@ function AdminVouchersContent() {
   
   const removePortalUser = useMutation({
     mutationFn: async (portalUserId: string) => {
-      const res = await fetch(`/api/restaurants/${restaurantId}/portal-users/${portalUserId}`, {
+      const res = await fetch(`/api/admin/staff/${portalUserId}`, {
         method: "DELETE"
       });
       if (!res.ok) throw new Error("Failed to remove user");
@@ -206,7 +206,7 @@ function AdminVouchersContent() {
   const voucherTypesQuery = useQuery({
     queryKey: ['voucher-types', restaurantId],
     queryFn: async () => {
-      const res = await fetch(`/api/restaurants/${restaurantId}/voucher-types`);
+      const res = await fetch(`/api/admin/voucher-types`);
       if (!res.ok) throw new Error('Failed to fetch voucher types');
       return res.json();
     },
@@ -217,7 +217,7 @@ function AdminVouchersContent() {
   const branchesQuery = useQuery({
     queryKey: ['branches', restaurantId],
     queryFn: async () => {
-      const res = await fetch(`/api/restaurants/${restaurantId}/branches`);
+      const res = await fetch(`/api/admin/branches`);
       if (!res.ok) throw new Error('Failed to fetch branches');
       return res.json();
     },
@@ -304,7 +304,7 @@ function AdminVouchersContent() {
   
   const createVoucherType = useMutation({
     mutationFn: async (data: { category: string; name: string; description?: string; rewardDetails?: string; value?: number; freeItemType?: string; freeItemDescription?: string; creditsCost: number; validityDays: number; expiresAt?: string; isActive: boolean }) => {
-      const res = await fetch(`/api/restaurants/${restaurantId}/voucher-types`, {
+      const res = await fetch(`/api/admin/voucher-types`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data)
@@ -335,7 +335,7 @@ function AdminVouchersContent() {
   
   const updateVoucherType = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: { category?: string; name?: string; description?: string; rewardDetails?: string; value?: number; freeItemType?: string; freeItemDescription?: string; creditsCost?: number; validityDays?: number; isActive?: boolean } }) => {
-      const res = await fetch(`/api/restaurants/${restaurantId}/voucher-types/${id}`, {
+      const res = await fetch(`/api/admin/voucher-types/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data)
@@ -366,7 +366,7 @@ function AdminVouchersContent() {
   
   const deleteVoucherType = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`/api/restaurants/${restaurantId}/voucher-types/${id}`, {
+      const res = await fetch(`/api/admin/voucher-types/${id}`, {
         method: "DELETE"
       });
       if (!res.ok) {
@@ -607,7 +607,7 @@ function AdminVouchersContent() {
 
   const recordTransaction = useMutation({
     mutationFn: async ({ phone, billId, amountSpent }: { phone: string; billId?: string; amountSpent: number }) => {
-      const res = await fetch(`/api/restaurants/${restaurantId}/transactions/record`, {
+      const res = await fetch(`/api/admin/transactions/record`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone, billId: billId || undefined, amountSpent })
@@ -646,7 +646,7 @@ function AdminVouchersContent() {
   const reconciliationBatches = useQuery({
     queryKey: ['reconciliation-batches', restaurantId],
     queryFn: async () => {
-      const res = await fetch(`/api/restaurants/${restaurantId}/reconciliation/batches`);
+      const res = await fetch(`/api/admin/reconciliation/batches`);
       if (!res.ok) throw new Error('Failed to fetch batches');
       return res.json();
     },
@@ -657,7 +657,7 @@ function AdminVouchersContent() {
     queryKey: ['batch-details', selectedBatchId],
     queryFn: async () => {
       if (!selectedBatchId) return null;
-      const res = await fetch(`/api/restaurants/${restaurantId}/reconciliation/batches/${selectedBatchId}`);
+      const res = await fetch(`/api/admin/reconciliation/batches/${selectedBatchId}`);
       if (!res.ok) throw new Error('Failed to fetch batch details');
       return res.json();
     },
@@ -667,7 +667,7 @@ function AdminVouchersContent() {
   const uploadCSV = useMutation({
     mutationFn: async (file: File) => {
       const content = await file.text();
-      const res = await fetch(`/api/restaurants/${restaurantId}/reconciliation/upload`, {
+      const res = await fetch(`/api/admin/reconciliation/upload`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fileName: file.name, csvContent: content })
@@ -697,7 +697,7 @@ function AdminVouchersContent() {
 
   const redeemVoucher = useMutation({
     mutationFn: async ({ code, billId }: { code: string; billId?: string }) => {
-      const res = await fetch(`/api/restaurants/${restaurantId}/vouchers/redeem`, {
+      const res = await fetch(`/api/admin/vouchers/redeem`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code, billId: billId || undefined, branchId: selectedBranchId || undefined })
@@ -727,7 +727,7 @@ function AdminVouchersContent() {
   });
 
   useEffect(() => {
-    fetch(`/api/restaurants/${restaurantId}`)
+    fetch(`/api/admin/restaurant`)
       .then(res => res.json())
       .then(data => {
         if (data) {
@@ -743,7 +743,7 @@ function AdminVouchersContent() {
   const handleSaveSettings = async () => {
     setIsSaving(true);
     try {
-      const response = await fetch(`/api/restaurants/${restaurantId}/settings`, {
+      const response = await fetch(`/api/admin/restaurant/settings`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -38,7 +38,7 @@ export function BranchProvider({ children }: { children: ReactNode }) {
     queryKey: ["branches", restaurant?.id],
     queryFn: async () => {
       if (!restaurant?.id) return [];
-      const res = await fetch(`/api/restaurants/${restaurant.id}/branches`);
+      const res = await fetch(`/api/admin/branches`);
       if (!res.ok) throw new Error("Failed to fetch branches");
       return res.json();
     },

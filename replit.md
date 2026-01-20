@@ -26,6 +26,25 @@ Routes are organized into feature-based modules in `server/routes/`:
 
 The main `server/routes.ts` acts as a composer, importing and registering all feature routes.
 
+#### Consumer-Specific API Endpoints
+The API provides consumer-specific endpoints optimized for each portal:
+
+**Diner Portal API (`/api/diner/*`)**:
+- Session-based authentication - no dinerId required in URLs
+- Endpoints: `/api/diner/points`, `/api/diner/vouchers`, `/api/diner/transactions`, `/api/diner/profile`
+- Defined in `server/routes/diner-api.ts`
+
+**Admin Portal API (`/api/admin/*`)**:
+- Session-based authentication - restaurantId derived from authenticated admin's associated restaurant
+- Endpoints: `/api/admin/restaurant`, `/api/admin/branches`, `/api/admin/staff`, `/api/admin/voucher-types`, `/api/admin/stats`, etc.
+- Defined in `server/routes/admin-api.ts`
+
+This separation provides:
+- Tailored responses for each consumer
+- Cleaner URLs without ID parameters
+- Independent API evolution for each portal
+- Clear security boundaries
+
 ### Data Storage
 PostgreSQL is the primary database, accessed via Drizzle ORM. The schema is defined in `/shared/schema.ts` and includes core models for `users` (diners and admins), `restaurants`, `branches`, `pointsBalances`, `transactions`, and `vouchers`. The system supports multi-branch architecture, tracking data per-branch with organization-wide roll-ups.
 

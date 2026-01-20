@@ -21,9 +21,9 @@ export default function DinerHistory() {
   const dinerId = user?.id;
 
   const { data: transactions = [], isLoading } = useQuery<TransactionWithRestaurant[]>({
-    queryKey: ["/api/diners", dinerId, "transactions"],
+    queryKey: ["/api/diner/transactions"],
     queryFn: async () => {
-      const res = await fetch(`/api/diners/${dinerId}/transactions`);
+      const res = await fetch(`/api/diner/transactions`);
       if (!res.ok) throw new Error("Failed to fetch transactions");
       return res.json();
     },

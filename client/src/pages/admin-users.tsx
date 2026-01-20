@@ -36,9 +36,9 @@ export default function AdminUsers() {
   const [newStaffRole, setNewStaffRole] = useState<"manager" | "staff">("staff");
 
   const { data: portalUsers = [], isLoading: loadingPortalUsers } = useQuery<PortalUser[]>({
-    queryKey: ["/api/restaurants", restaurantId, "portal-users"],
+    queryKey: ["/api/admin/staff"],
     queryFn: async () => {
-      const res = await fetch(`/api/restaurants/${restaurantId}/portal-users`);
+      const res = await fetch(`/api/admin/staff`);
       if (!res.ok) throw new Error("Failed to fetch staff");
       return res.json();
     },
@@ -47,7 +47,7 @@ export default function AdminUsers() {
 
   const addStaff = useMutation({
     mutationFn: async (data: { email: string; role: string }) => {
-      const res = await fetch(`/api/restaurants/${restaurantId}/portal-users`, {
+      const res = await fetch(`/api/admin/staff`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -60,7 +60,7 @@ export default function AdminUsers() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/restaurants", restaurantId, "portal-users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/staff"] });
       setAddStaffOpen(false);
       setNewStaffEmail("");
       setNewStaffRole("staff");
@@ -80,7 +80,7 @@ export default function AdminUsers() {
 
   const removeStaff = useMutation({
     mutationFn: async (portalUserId: string) => {
-      const res = await fetch(`/api/restaurants/${restaurantId}/portal-users/${portalUserId}`, {
+      const res = await fetch(`/api/admin/staff/${portalUserId}`, {
         method: "DELETE",
         credentials: "include",
       });
@@ -91,7 +91,7 @@ export default function AdminUsers() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/restaurants", restaurantId, "portal-users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/staff"] });
       toast({
         title: "Staff member removed",
         description: "They no longer have access to the restaurant portal.",

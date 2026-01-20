@@ -58,9 +58,9 @@ export default function AdminOnboarding() {
   const restaurantId = restaurant?.id;
 
   const { data: restaurantData, isLoading } = useQuery({
-    queryKey: ["/api/restaurants", restaurantId],
+    queryKey: ["/api/admin/restaurant"],
     queryFn: async () => {
-      const res = await fetch(`/api/restaurants/${restaurantId}`);
+      const res = await fetch(`/api/admin/restaurant`);
       if (!res.ok) throw new Error("Failed to fetch restaurant");
       return res.json();
     },
@@ -87,7 +87,7 @@ export default function AdminOnboarding() {
 
   const saveOnboarding = useMutation({
     mutationFn: async (data: Partial<OnboardingData>) => {
-      const res = await fetch(`/api/restaurants/${restaurantId}/onboarding`, {
+      const res = await fetch(`/api/admin/restaurant/onboarding`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
@@ -99,13 +99,13 @@ export default function AdminOnboarding() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/restaurants", restaurantId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/restaurant"] });
     },
   });
 
   const submitOnboarding = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`/api/restaurants/${restaurantId}/onboarding/submit`, {
+      const res = await fetch(`/api/admin/restaurant/onboarding/submit`, {
         method: "POST",
       });
       if (!res.ok) {
@@ -115,7 +115,7 @@ export default function AdminOnboarding() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/restaurants", restaurantId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/restaurant"] });
       toast({
         title: "Onboarding Submitted",
         description: "Your restaurant details have been submitted for review.",
@@ -132,7 +132,7 @@ export default function AdminOnboarding() {
 
   const activateRestaurant = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`/api/restaurants/${restaurantId}/onboarding/activate`, {
+      const res = await fetch(`/api/admin/restaurant/onboarding/activate`, {
         method: "POST",
       });
       if (!res.ok) {
@@ -142,7 +142,7 @@ export default function AdminOnboarding() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/restaurants", restaurantId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/restaurant"] });
       toast({
         title: "Restaurant Activated!",
         description: "Your restaurant is now live. Diners can register using your link.",

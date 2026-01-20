@@ -64,9 +64,9 @@ function AdminSettingsContent() {
   };
 
   const portalUsersQuery = useQuery({
-    queryKey: ['portal-users', restaurantId],
+    queryKey: ['/api/admin/staff'],
     queryFn: async () => {
-      const res = await fetch(`/api/restaurants/${restaurantId}/portal-users`);
+      const res = await fetch(`/api/admin/staff`);
       if (!res.ok) throw new Error('Failed to fetch portal users');
       return res.json();
     },
@@ -75,7 +75,7 @@ function AdminSettingsContent() {
   
   const addPortalUser = useMutation({
     mutationFn: async ({ email, name, role, hasAllBranchAccess, branchIds }: { email: string; name: string; role: string; hasAllBranchAccess: boolean; branchIds: string[] }) => {
-      const res = await fetch(`/api/restaurants/${restaurantId}/portal-users`, {
+      const res = await fetch(`/api/admin/staff`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, name, role, hasAllBranchAccess, branchIds })
@@ -110,7 +110,7 @@ function AdminSettingsContent() {
 
   const updateBranchAccess = useMutation({
     mutationFn: async ({ portalUserId, hasAllBranchAccess, branchIds }: { portalUserId: string; hasAllBranchAccess: boolean; branchIds: string[] }) => {
-      const res = await fetch(`/api/restaurants/${restaurantId}/portal-users/${portalUserId}/branch-access`, {
+      const res = await fetch(`/api/admin/staff/${portalUserId}/branch-access`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ hasAllBranchAccess, branchIds })
@@ -141,7 +141,7 @@ function AdminSettingsContent() {
   
   const removePortalUser = useMutation({
     mutationFn: async (portalUserId: string) => {
-      const res = await fetch(`/api/restaurants/${restaurantId}/portal-users/${portalUserId}`, {
+      const res = await fetch(`/api/admin/staff/${portalUserId}`, {
         method: "DELETE"
       });
       if (!res.ok) throw new Error("Failed to remove user");
@@ -164,7 +164,7 @@ function AdminSettingsContent() {
   });
 
   useEffect(() => {
-    fetch(`/api/restaurants/${restaurantId}`)
+    fetch(`/api/admin/restaurant`)
       .then(res => res.json())
       .then(data => {
         if (data) {
@@ -184,7 +184,7 @@ function AdminSettingsContent() {
   const handleSaveSettings = async () => {
     setIsSaving(true);
     try {
-      const response = await fetch(`/api/restaurants/${restaurantId}/settings`, {
+      const response = await fetch(`/api/admin/restaurant/settings`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

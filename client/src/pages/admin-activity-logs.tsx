@@ -21,10 +21,10 @@ export default function AdminActivityLogs() {
   const restaurantId = restaurant?.id;
 
   const activityLogs = useQuery({
-    queryKey: ['activity-logs', restaurantId],
+    queryKey: ['activity-logs'],
     queryFn: async () => {
       if (!restaurantId) return [];
-      const res = await fetch(`/api/restaurants/${restaurantId}/activity-logs?limit=100`, {
+      const res = await fetch(`/api/admin/activity-logs?limit=100`, {
         credentials: 'include'
       });
       if (!res.ok) throw new Error('Failed to fetch activity logs');

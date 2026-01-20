@@ -65,7 +65,7 @@ export default function DinerProfile() {
 
   const updateProfile = useMutation({
     mutationFn: async (data: { name: string; lastName: string; email: string }) => {
-      const res = await fetch(`/api/users/${user?.id}/profile`, {
+      const res = await fetch(`/api/diner/profile`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

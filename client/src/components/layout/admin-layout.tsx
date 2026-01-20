@@ -40,9 +40,9 @@ function AdminLayoutContent({ children }: AdminLayoutProps) {
   const { branches, accessibleBranches, selectedBranch, setSelectedBranchId, isAllBranchesView, hasMultipleBranches, canViewAllBranches } = useBranch();
 
   const { data: restaurantData } = useQuery({
-    queryKey: ["/api/restaurants", restaurant?.id],
+    queryKey: ["/api/admin/restaurant"],
     queryFn: async () => {
-      const res = await fetch(`/api/restaurants/${restaurant?.id}`);
+      const res = await fetch(`/api/admin/restaurant`);
       if (!res.ok) return null;
       return res.json();
     },

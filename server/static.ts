@@ -7,6 +7,30 @@ export function serveStatic(app: Express) {
   const dinerDistPath = path.resolve(__dirname, "public-diner");
   const adminDistPath = path.resolve(__dirname, "public-admin");
   
+  const portalMode = process.env.PORTAL_MODE;
+  
+  if (portalMode === "diner") {
+    if (!fs.existsSync(dinerDistPath)) {
+      throw new Error(`Could not find diner build directory: ${dinerDistPath}`);
+    }
+    app.use(express.static(dinerDistPath));
+    app.use("*", (_req, res) => {
+      res.sendFile(path.resolve(dinerDistPath, "diner.html"));
+    });
+    return;
+  }
+  
+  if (portalMode === "admin") {
+    if (!fs.existsSync(adminDistPath)) {
+      throw new Error(`Could not find admin build directory: ${adminDistPath}`);
+    }
+    app.use(express.static(adminDistPath));
+    app.use("*", (_req, res) => {
+      res.sendFile(path.resolve(adminDistPath, "admin.html"));
+    });
+    return;
+  }
+  
   const hasSeparateBuilds = fs.existsSync(dinerDistPath) && fs.existsSync(adminDistPath);
   const hasUnifiedBuild = fs.existsSync(distPath);
   

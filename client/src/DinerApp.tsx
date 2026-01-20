@@ -1,4 +1,4 @@
-import { Switch, Route, Redirect } from "wouter";
+import { Switch, Route, Redirect, Router } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -15,7 +15,35 @@ import ForgotPassword from "@/pages/forgot-password";
 import ResetPassword from "@/pages/reset-password";
 import ConfirmAccountDeletion from "@/pages/confirm-account-deletion";
 
+const basePath = import.meta.env.VITE_DINER_BASE_PATH ?? "/diner";
+
 function DinerRouter() {
+  return (
+    <Router base={basePath}>
+      <Switch>
+        <Route path="/">
+          <Redirect to="/dashboard" />
+        </Route>
+        <Route path="/dashboard">
+          <DinerGuard><DinerDashboard /></DinerGuard>
+        </Route>
+        <Route path="/history">
+          <DinerGuard><DinerHistory /></DinerGuard>
+        </Route>
+        <Route path="/profile">
+          <DinerGuard><DinerProfile /></DinerGuard>
+        </Route>
+        <Route path="/faq">
+          <DinerGuard><DinerFaq /></DinerGuard>
+        </Route>
+
+        <Route component={NotFound} />
+      </Switch>
+    </Router>
+  );
+}
+
+function RootRouter() {
   return (
     <Switch>
       <Route path="/" component={Home} />
@@ -23,24 +51,9 @@ function DinerRouter() {
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/reset-password" component={ResetPassword} />
       <Route path="/confirm-account-deletion" component={ConfirmAccountDeletion} />
-      
-      <Route path="/diner">
-        <Redirect to="/diner/dashboard" />
+      <Route>
+        <DinerRouter />
       </Route>
-      <Route path="/diner/dashboard">
-        <DinerGuard><DinerDashboard /></DinerGuard>
-      </Route>
-      <Route path="/diner/history">
-        <DinerGuard><DinerHistory /></DinerGuard>
-      </Route>
-      <Route path="/diner/profile">
-        <DinerGuard><DinerProfile /></DinerGuard>
-      </Route>
-      <Route path="/diner/faq">
-        <DinerGuard><DinerFaq /></DinerGuard>
-      </Route>
-
-      <Route component={NotFound} />
     </Switch>
   );
 }
@@ -50,7 +63,7 @@ function DinerApp() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
-        <DinerRouter />
+        <RootRouter />
       </TooltipProvider>
     </QueryClientProvider>
   );

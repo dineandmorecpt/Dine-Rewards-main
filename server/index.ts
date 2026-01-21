@@ -39,6 +39,8 @@ app.use(
 
 app.use(express.urlencoded({ extended: false }));
 
+const isProduction = process.env.NODE_ENV === "production";
+
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "dine-and-more-secret-key-2024",
@@ -48,10 +50,10 @@ app.use(
       checkPeriod: 86400000, // prune expired entries every 24h
     }),
     cookie: {
-      secure: true, // Always true on Replit (HTTPS proxy)
+      secure: isProduction, // Only secure in production (HTTPS)
       httpOnly: true,
       maxAge: 90 * 24 * 60 * 60 * 1000, // 90 days
-      sameSite: "none", // Required for Replit's proxy environment
+      sameSite: isProduction ? "none" : "lax", // "lax" for development, "none" for production
     },
   })
 );

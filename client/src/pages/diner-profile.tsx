@@ -9,6 +9,15 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertTriangle, User, Mail, Phone, Save, Loader2, Trash2, ShieldCheck, Clock } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "@/hooks/use-toast";
+import { getStoredAuth } from "@/lib/queryClient";
+
+function getAuthHeaders(): Record<string, string> {
+  const auth = getStoredAuth();
+  if (auth) {
+    return { "X-User-Id": auth.userId, "X-User-Type": auth.userType };
+  }
+  return {};
+}
 
 export default function DinerProfile() {
   const { user } = useAuth();
@@ -67,7 +76,7 @@ export default function DinerProfile() {
     mutationFn: async (data: { name: string; lastName: string; email: string }) => {
       const res = await fetch(`/api/diner/profile`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         credentials: "include",
         body: JSON.stringify(data),
       });
@@ -98,7 +107,7 @@ export default function DinerProfile() {
     mutationFn: async (newPhone: string) => {
       const res = await fetch("/api/phone-change/request", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         credentials: "include",
         body: JSON.stringify({ newPhone }),
       });
@@ -128,7 +137,7 @@ export default function DinerProfile() {
     mutationFn: async (otp: string) => {
       const res = await fetch("/api/phone-change/verify", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         credentials: "include",
         body: JSON.stringify({ otp }),
       });
@@ -238,7 +247,7 @@ export default function DinerProfile() {
     mutationFn: async () => {
       const res = await fetch("/api/account/request-deletion", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         credentials: "include",
       });
       if (!res.ok) {

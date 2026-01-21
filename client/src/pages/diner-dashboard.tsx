@@ -15,6 +15,15 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { useAuth } from "@/hooks/use-auth";
+import { getStoredAuth } from "@/lib/queryClient";
+
+function getAuthHeaders(): Record<string, string> {
+  const auth = getStoredAuth();
+  if (auth) {
+    return { "X-User-Id": auth.userId, "X-User-Type": auth.userType };
+  }
+  return {};
+}
 
 interface PointsBalance {
   id: string;
@@ -118,7 +127,10 @@ export default function DinerDashboard() {
   const { data: balances = [], isLoading: loadingBalances } = useQuery<PointsBalance[]>({
     queryKey: ["/api/diner/points"],
     queryFn: async () => {
-      const res = await fetch(`/api/diner/points`, { credentials: "include" });
+      const res = await fetch(`/api/diner/points`, { 
+        credentials: "include",
+        headers: getAuthHeaders(),
+      });
       if (!res.ok) throw new Error("Failed to fetch points");
       return res.json();
     },
@@ -139,7 +151,10 @@ export default function DinerDashboard() {
   const { data: vouchers = [], isLoading: loadingVouchers } = useQuery<Voucher[]>({
     queryKey: ["/api/diner/vouchers"],
     queryFn: async () => {
-      const res = await fetch(`/api/diner/vouchers`, { credentials: "include" });
+      const res = await fetch(`/api/diner/vouchers`, { 
+        credentials: "include",
+        headers: getAuthHeaders(),
+      });
       if (!res.ok) throw new Error("Failed to fetch vouchers");
       return res.json();
     },
@@ -150,7 +165,10 @@ export default function DinerDashboard() {
   const { data: transactions = [], isLoading: loadingTransactions } = useQuery<Transaction[]>({
     queryKey: ["/api/diner/restaurants", selectedRestaurant?.restaurantId, "transactions"],
     queryFn: async () => {
-      const res = await fetch(`/api/diner/restaurants/${selectedRestaurant!.restaurantId}/transactions`, { credentials: "include" });
+      const res = await fetch(`/api/diner/restaurants/${selectedRestaurant!.restaurantId}/transactions`, { 
+        credentials: "include",
+        headers: getAuthHeaders(),
+      });
       if (!res.ok) throw new Error("Failed to fetch transactions");
       return res.json();
     },
@@ -163,7 +181,7 @@ export default function DinerDashboard() {
     mutationFn: async ({ restaurantId, amountSpent, branchId }: { restaurantId: string; amountSpent: string; branchId?: string | null }) => {
       const res = await fetch("/api/diner/transactions", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         credentials: "include",
         body: JSON.stringify({
           restaurantId,
@@ -202,6 +220,7 @@ export default function DinerDashboard() {
       const res = await fetch(`/api/diner/vouchers/${voucherId}/select`, {
         method: "POST",
         credentials: "include",
+        headers: getAuthHeaders(),
       });
       if (!res.ok) {
         const data = await res.json();

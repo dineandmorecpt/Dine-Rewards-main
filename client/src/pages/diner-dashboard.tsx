@@ -118,7 +118,7 @@ export default function DinerDashboard() {
   const { data: balances = [], isLoading: loadingBalances } = useQuery<PointsBalance[]>({
     queryKey: ["/api/diner/points"],
     queryFn: async () => {
-      const res = await fetch(`/api/diner/points`);
+      const res = await fetch(`/api/diner/points`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch points");
       return res.json();
     },
@@ -139,7 +139,7 @@ export default function DinerDashboard() {
   const { data: vouchers = [], isLoading: loadingVouchers } = useQuery<Voucher[]>({
     queryKey: ["/api/diner/vouchers"],
     queryFn: async () => {
-      const res = await fetch(`/api/diner/vouchers`);
+      const res = await fetch(`/api/diner/vouchers`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch vouchers");
       return res.json();
     },
@@ -150,7 +150,7 @@ export default function DinerDashboard() {
   const { data: transactions = [], isLoading: loadingTransactions } = useQuery<Transaction[]>({
     queryKey: ["/api/diner/restaurants", selectedRestaurant?.restaurantId, "transactions"],
     queryFn: async () => {
-      const res = await fetch(`/api/diner/restaurants/${selectedRestaurant!.restaurantId}/transactions`);
+      const res = await fetch(`/api/diner/restaurants/${selectedRestaurant!.restaurantId}/transactions`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch transactions");
       return res.json();
     },
@@ -164,6 +164,7 @@ export default function DinerDashboard() {
       const res = await fetch("/api/diner/transactions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           restaurantId,
           amountSpent,
@@ -200,6 +201,7 @@ export default function DinerDashboard() {
     mutationFn: async ({ voucherId, title }: { voucherId: string; title: string }) => {
       const res = await fetch(`/api/diner/vouchers/${voucherId}/select`, {
         method: "POST",
+        credentials: "include",
       });
       if (!res.ok) {
         const data = await res.json();

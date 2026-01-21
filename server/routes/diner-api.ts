@@ -50,18 +50,25 @@ const createTransactionSchema = z.object({
 });
 
 function requireDinerAuth(req: any, res: any): string | null {
+  console.log('[DEBUG] Diner Auth Check - Session:', req.session);
+  console.log('[DEBUG] Diner Auth Check - Session ID:', req.sessionID);
+  console.log('[DEBUG] Diner Auth Check - Cookies:', req.headers.cookie);
+  
   const userId = getAuthUserId(req);
   if (!userId) {
+    console.log('[DEBUG] Diner Auth Check - No userId found');
     res.status(401).json({ error: "Unauthorized" });
     return null;
   }
   
   const userType = getAuthUserType(req);
   if (userType !== 'diner') {
+    console.log('[DEBUG] Diner Auth Check - Wrong userType:', userType);
     res.status(403).json({ error: "Forbidden: Diner access required" });
     return null;
   }
   
+  console.log('[DEBUG] Diner Auth Check - Success, userId:', userId);
   return userId;
 }
 

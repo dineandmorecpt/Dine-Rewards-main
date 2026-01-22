@@ -15,6 +15,15 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useUpload } from "@/hooks/use-upload";
+import { getStoredAuth } from "@/lib/queryClient";
+
+function getAuthHeaders(): Record<string, string> {
+  const auth = getStoredAuth();
+  if (auth) {
+    return { "X-User-Id": auth.userId, "X-User-Type": auth.userType };
+  }
+  return {};
+}
 
 const cuisineTypes = [
   "African",
@@ -149,7 +158,7 @@ export default function AdminProfile() {
     if (!restaurantId) return;
     setIsLoadingBranches(true);
     try {
-      const res = await fetch(`/api/admin/branches`);
+      const res = await fetch(`/api/admin/branches`, { credentials: "include", headers: getAuthHeaders() });
       const data = await res.json();
       setBranches(data);
     } catch (err) {
@@ -187,7 +196,8 @@ export default function AdminProfile() {
       
       const res = await fetch(url, {
         method: editingBranch ? "PATCH" : "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        credentials: "include",
         body: JSON.stringify(branchForm),
       });
 
@@ -221,6 +231,8 @@ export default function AdminProfile() {
     try {
       const res = await fetch(`/api/admin/branches/${deleteBranchId}`, {
         method: "DELETE",
+        credentials: "include",
+        headers: getAuthHeaders(),
       });
 
       if (!res.ok) {
@@ -252,7 +264,8 @@ export default function AdminProfile() {
     try {
       const res = await fetch(`/api/admin/branches/${branchId}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        credentials: "include",
         body: JSON.stringify({ isDefault: true }),
       });
 
@@ -335,7 +348,8 @@ export default function AdminProfile() {
     try {
       const res = await fetch(`/api/admin/restaurant/profile`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        credentials: "include",
         body: JSON.stringify({ ...formData, logoUrl }),
       });
 

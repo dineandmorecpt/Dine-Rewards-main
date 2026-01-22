@@ -12,6 +12,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { UserPlus, Trash2, Loader2, Shield } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "@/hooks/use-toast";
+import { getStoredAuth } from "@/lib/queryClient";
+
+function getAuthHeaders(): Record<string, string> {
+  const auth = getStoredAuth();
+  if (auth) {
+    return { "X-User-Id": auth.userId, "X-User-Type": auth.userType };
+  }
+  return {};
+}
 
 interface PortalUser {
   id: string;
@@ -38,7 +47,7 @@ export default function AdminUsers() {
   const { data: portalUsers = [], isLoading: loadingPortalUsers } = useQuery<PortalUser[]>({
     queryKey: ["/api/admin/staff"],
     queryFn: async () => {
-      const res = await fetch(`/api/admin/staff`);
+      const res = await fetch(`/api/admin/staff`, { credentials: "include", headers: getAuthHeaders() });
       if (!res.ok) throw new Error("Failed to fetch staff");
       return res.json();
     },
@@ -49,7 +58,7 @@ export default function AdminUsers() {
     mutationFn: async (data: { email: string; role: string }) => {
       const res = await fetch(`/api/admin/staff`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         credentials: "include",
         body: JSON.stringify(data),
       });
@@ -83,6 +92,7 @@ export default function AdminUsers() {
       const res = await fetch(`/api/admin/staff/${portalUserId}`, {
         method: "DELETE",
         credentials: "include",
+        headers: getAuthHeaders(),
       });
       if (!res.ok) {
         const error = await res.json();

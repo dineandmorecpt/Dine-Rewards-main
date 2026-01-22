@@ -15,6 +15,15 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useBranch } from "@/hooks/use-branch";
 import { QRCodeCanvas } from "qrcode.react";
+import { getStoredAuth } from "@/lib/queryClient";
+
+function getAuthHeaders(): Record<string, string> {
+  const auth = getStoredAuth();
+  if (auth) {
+    return { "X-User-Id": auth.userId, "X-User-Type": auth.userType };
+  }
+  return {};
+}
 
 function AdminSettingsContent() {
   const [voucherValue, setVoucherValue] = useState("R100 Loyalty Voucher");
@@ -66,7 +75,7 @@ function AdminSettingsContent() {
   const portalUsersQuery = useQuery({
     queryKey: ['/api/admin/staff'],
     queryFn: async () => {
-      const res = await fetch(`/api/admin/staff`);
+      const res = await fetch(`/api/admin/staff`, { credentials: "include", headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Failed to fetch portal users');
       return res.json();
     },
@@ -77,7 +86,8 @@ function AdminSettingsContent() {
     mutationFn: async ({ email, name, role, hasAllBranchAccess, branchIds }: { email: string; name: string; role: string; hasAllBranchAccess: boolean; branchIds: string[] }) => {
       const res = await fetch(`/api/admin/staff`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        credentials: "include",
         body: JSON.stringify({ email, name, role, hasAllBranchAccess, branchIds })
       });
       if (!res.ok) {
@@ -112,7 +122,8 @@ function AdminSettingsContent() {
     mutationFn: async ({ portalUserId, hasAllBranchAccess, branchIds }: { portalUserId: string; hasAllBranchAccess: boolean; branchIds: string[] }) => {
       const res = await fetch(`/api/admin/staff/${portalUserId}/branch-access`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        credentials: "include",
         body: JSON.stringify({ hasAllBranchAccess, branchIds })
       });
       if (!res.ok) {
@@ -142,7 +153,9 @@ function AdminSettingsContent() {
   const removePortalUser = useMutation({
     mutationFn: async (portalUserId: string) => {
       const res = await fetch(`/api/admin/staff/${portalUserId}`, {
-        method: "DELETE"
+        method: "DELETE",
+        credentials: "include",
+        headers: getAuthHeaders()
       });
       if (!res.ok) throw new Error("Failed to remove user");
       return res.json();
@@ -164,7 +177,7 @@ function AdminSettingsContent() {
   });
 
   useEffect(() => {
-    fetch(`/api/admin/restaurant`)
+    fetch(`/api/admin/restaurant`, { credentials: "include", headers: getAuthHeaders() })
       .then(res => res.json())
       .then(data => {
         if (data) {
@@ -186,7 +199,8 @@ function AdminSettingsContent() {
     try {
       const response = await fetch(`/api/admin/restaurant/settings`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        credentials: "include",
         body: JSON.stringify({
           voucherValue,
           voucherValidityDays,

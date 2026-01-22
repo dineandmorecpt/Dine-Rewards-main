@@ -155,6 +155,7 @@ export function registerAdminApiRoutes(router: Router): void {
 
   router.patch("/api/admin/restaurant/settings", async (req, res) => {
     try {
+      const userId = getAuthUserId(req);
       const { restaurantId, error } = await getAdminRestaurantId(req);
       if (error) return res.status(error.status).json({ error: error.message });
       
@@ -194,7 +195,7 @@ export function registerAdminApiRoutes(router: Router): void {
       
       await storage.createActivityLog({
         restaurantId: restaurantId!,
-        userId: req.session.userId || null,
+        userId: userId || null,
         action: 'settings_updated',
         targetType: 'settings',
         targetId: restaurantId!,
@@ -210,6 +211,7 @@ export function registerAdminApiRoutes(router: Router): void {
 
   router.patch("/api/admin/restaurant/profile", async (req, res) => {
     try {
+      const userId = getAuthUserId(req);
       const { restaurantId, error } = await getAdminRestaurantId(req);
       if (error) return res.status(error.status).json({ error: error.message });
 
@@ -222,7 +224,7 @@ export function registerAdminApiRoutes(router: Router): void {
       
       await storage.createActivityLog({
         restaurantId: restaurantId!,
-        userId: req.session.userId!,
+        userId: userId!,
         action: 'profile_updated',
         targetType: 'restaurant',
         targetId: restaurantId!,
@@ -238,6 +240,7 @@ export function registerAdminApiRoutes(router: Router): void {
 
   router.patch("/api/admin/restaurant/onboarding", async (req, res) => {
     try {
+      const userId = getAuthUserId(req);
       const { restaurantId, error } = await getAdminRestaurantId(req);
       if (error) return res.status(error.status).json({ error: error.message });
 
@@ -250,7 +253,7 @@ export function registerAdminApiRoutes(router: Router): void {
       
       await storage.createActivityLog({
         restaurantId: restaurantId!,
-        userId: req.session.userId!,
+        userId: userId!,
         action: 'onboarding_updated',
         targetType: 'restaurant',
         targetId: restaurantId!,
@@ -266,6 +269,7 @@ export function registerAdminApiRoutes(router: Router): void {
 
   router.post("/api/admin/restaurant/onboarding/submit", async (req, res) => {
     try {
+      const userId = getAuthUserId(req);
       const { restaurantId, error } = await getAdminRestaurantId(req);
       if (error) return res.status(error.status).json({ error: error.message });
 
@@ -294,7 +298,7 @@ export function registerAdminApiRoutes(router: Router): void {
 
       await storage.createActivityLog({
         restaurantId: restaurantId!,
-        userId: req.session.userId!,
+        userId: userId!,
         action: 'onboarding_submitted',
         targetType: 'restaurant',
         targetId: restaurantId!,
@@ -310,6 +314,7 @@ export function registerAdminApiRoutes(router: Router): void {
 
   router.post("/api/admin/restaurant/onboarding/activate", async (req, res) => {
     try {
+      const userId = getAuthUserId(req);
       const { restaurantId, error } = await getAdminRestaurantId(req);
       if (error) return res.status(error.status).json({ error: error.message });
 
@@ -329,7 +334,7 @@ export function registerAdminApiRoutes(router: Router): void {
 
       await storage.createActivityLog({
         restaurantId: restaurantId!,
-        userId: req.session.userId!,
+        userId: userId!,
         action: 'restaurant_activated',
         targetType: 'restaurant',
         targetId: restaurantId!,
@@ -358,6 +363,7 @@ export function registerAdminApiRoutes(router: Router): void {
 
   router.post("/api/admin/branches", async (req, res) => {
     try {
+      const userId = getAuthUserId(req);
       const { restaurantId, error } = await getAdminRestaurantId(req);
       if (error) return res.status(error.status).json({ error: error.message });
       
@@ -384,7 +390,7 @@ export function registerAdminApiRoutes(router: Router): void {
 
       await storage.createActivityLog({
         restaurantId: restaurantId!,
-        userId: req.session.userId || null,
+        userId: userId || null,
         action: 'branch_created',
         targetType: 'branch',
         targetId: branch.id,
@@ -400,6 +406,7 @@ export function registerAdminApiRoutes(router: Router): void {
 
   router.patch("/api/admin/branches/:branchId", async (req, res) => {
     try {
+      const userId = getAuthUserId(req);
       const { restaurantId, error } = await getAdminRestaurantId(req);
       if (error) return res.status(error.status).json({ error: error.message });
       
@@ -414,7 +421,7 @@ export function registerAdminApiRoutes(router: Router): void {
 
       await storage.createActivityLog({
         restaurantId: restaurantId!,
-        userId: req.session.userId || null,
+        userId: userId || null,
         action: 'branch_updated',
         targetType: 'branch',
         targetId: branchId,
@@ -430,6 +437,7 @@ export function registerAdminApiRoutes(router: Router): void {
 
   router.delete("/api/admin/branches/:branchId", async (req, res) => {
     try {
+      const userId = getAuthUserId(req);
       const { restaurantId, error } = await getAdminRestaurantId(req);
       if (error) return res.status(error.status).json({ error: error.message });
       
@@ -444,7 +452,7 @@ export function registerAdminApiRoutes(router: Router): void {
       
       await storage.createActivityLog({
         restaurantId: restaurantId!,
-        userId: req.session.userId || null,
+        userId: userId || null,
         action: 'branch_deleted',
         targetType: 'branch',
         targetId: branchId,
@@ -608,7 +616,7 @@ export function registerAdminApiRoutes(router: Router): void {
         restaurantId: restaurantId!,
         userId: existingUser.id,
         role,
-        addedBy: req.session.userId!,
+        addedBy: userId!,
         hasAllBranchAccess,
       });
       
@@ -624,7 +632,7 @@ export function registerAdminApiRoutes(router: Router): void {
       
       await storage.createActivityLog({
         restaurantId: restaurantId!,
-        userId: req.session.userId!,
+        userId: userId!,
         action: 'staff_added',
         targetType: 'portal_user',
         targetId: portalUser.id,
@@ -660,7 +668,7 @@ export function registerAdminApiRoutes(router: Router): void {
       
       await storage.createActivityLog({
         restaurantId: restaurantId!,
-        userId: req.session.userId!,
+        userId: userId!,
         action: 'staff_removed',
         targetType: 'portal_user',
         targetId: portalUserId,
@@ -712,7 +720,7 @@ export function registerAdminApiRoutes(router: Router): void {
       
       await storage.createActivityLog({
         restaurantId: restaurantId!,
-        userId: req.session.userId!,
+        userId: userId!,
         action: 'staff_branch_access_updated',
         targetType: 'portal_user',
         targetId: portalUserId,
@@ -813,7 +821,7 @@ export function registerAdminApiRoutes(router: Router): void {
 
       await storage.createActivityLog({
         restaurantId: restaurantId!,
-        userId: req.session.userId!,
+        userId: userId!,
         action: 'voucher_type_created',
         targetType: 'voucher_type',
         targetId: voucherType.id,
@@ -856,7 +864,7 @@ export function registerAdminApiRoutes(router: Router): void {
       
       await storage.createActivityLog({
         restaurantId: restaurantId!,
-        userId: req.session.userId!,
+        userId: userId!,
         action: 'voucher_type_updated',
         targetType: 'voucher_type',
         targetId: voucherTypeId,
@@ -896,7 +904,7 @@ export function registerAdminApiRoutes(router: Router): void {
       
       await storage.createActivityLog({
         restaurantId: restaurantId!,
-        userId: req.session.userId!,
+        userId: userId!,
         action: 'voucher_type_deleted',
         targetType: 'voucher_type',
         targetId: voucherTypeId,
@@ -951,6 +959,7 @@ export function registerAdminApiRoutes(router: Router): void {
 
   router.post("/api/admin/vouchers/redeem", async (req, res) => {
     try {
+      const userId = getAuthUserId(req);
       const { restaurantId, error } = await getAdminRestaurantId(req);
       if (error) return res.status(error.status).json({ error: error.message });
       
@@ -959,7 +968,7 @@ export function registerAdminApiRoutes(router: Router): void {
       
       await storage.createActivityLog({
         restaurantId: restaurantId!,
-        userId: req.session.userId || null,
+        userId: userId || null,
         action: 'voucher_redeemed',
         targetType: 'voucher',
         targetId: result.voucher?.id || code,

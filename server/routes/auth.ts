@@ -89,6 +89,7 @@ const selfRegisterDinerSchema = z.object({
   gender: z.enum(["male", "female", "other", "prefer_not_to_say"]),
   ageRange: z.enum(["18-29", "30-39", "40-49", "50-59", "60+"]),
   province: z.string().min(1, "Province is required"),
+  restaurantId: z.string().optional(),
 });
 
 const tokenLoginSchema = z.object({
@@ -596,7 +597,7 @@ export function registerAuthRoutes(router: Router): void {
         });
       }
 
-      const { name, lastName, email, phone, password, gender, ageRange, province } = parseResult.data;
+      const { name, lastName, email, phone, password, gender, ageRange, province, restaurantId } = parseResult.data;
 
       if (!req.session.verifiedPhone || req.session.verifiedPhone !== phone) {
         return res.status(400).json({ error: "Phone number must be verified before registration" });
@@ -625,6 +626,28 @@ export function registerAuthRoutes(router: Router): void {
         ageRange,
         province,
       });
+
+      // If registered via restaurant QR code, create initial points balance for that restaurant
+      if (restaurantId) {
+        try {
+          const restaurant = await storage.getRestaurant(restaurantId);
+          if (restaurant) {
+            // Check if points balance already exists
+            const existingBalance = await storage.getPointsBalance(user.id, restaurantId);
+            if (!existingBalance) {
+              await storage.createPointsBalance({
+                dinerId: user.id,
+                restaurantId: restaurantId,
+                currentPoints: 0,
+                totalPointsEarned: 0,
+              });
+            }
+          }
+        } catch (err) {
+          console.error("Failed to create initial points balance:", err);
+          // Don't fail registration if points balance creation fails
+        }
+      }
 
       req.session.userId = user.id;
       req.session.userType = user.userType;

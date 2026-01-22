@@ -41,7 +41,9 @@ const PROVINCE_OPTIONS = [
 export default function Register() {
   const searchString = useSearch();
   const [, navigate] = useLocation();
-  const token = new URLSearchParams(searchString).get('token') || '';
+  const searchParams = new URLSearchParams(searchString);
+  const token = searchParams.get('token') || '';
+  const restaurantId = searchParams.get('restaurantId') || '';
   
   const [name, setName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -140,7 +142,7 @@ export default function Register() {
   });
 
   const selfRegister = useMutation({
-    mutationFn: async (data: { name: string; lastName: string; email: string; phone: string; password: string; gender: string; ageRange: string; province: string }) => {
+    mutationFn: async (data: { name: string; lastName: string; email: string; phone: string; password: string; gender: string; ageRange: string; province: string; restaurantId?: string }) => {
       const res = await fetch('/api/auth/register-diner', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -184,6 +186,7 @@ export default function Register() {
       gender,
       ageRange,
       province,
+      restaurantId: restaurantId || undefined,
     });
   };
 

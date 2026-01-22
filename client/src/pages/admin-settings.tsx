@@ -54,7 +54,7 @@ function AdminSettingsContent() {
   const [editHasAllAccess, setEditHasAllAccess] = useState(true);
   
   const registrationUrl = typeof window !== 'undefined' 
-    ? `${window.location.origin}/register` 
+    ? `${window.location.origin}/register${restaurantId ? `?restaurantId=${restaurantId}` : ''}` 
     : '/register';
   
   const downloadQRCode = () => {

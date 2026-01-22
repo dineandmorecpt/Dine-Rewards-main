@@ -186,7 +186,8 @@ function AdminDashboardContent() {
     mutationFn: async ({ phone }: { phone: string }) => {
       const res = await fetch(`/api/admin/diners/invite`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        credentials: "include",
         body: JSON.stringify({ phone })
       });
       if (!res.ok) {

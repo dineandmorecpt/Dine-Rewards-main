@@ -207,8 +207,8 @@ export default function DinerDashboard() {
         });
       } else {
         toast({
-          title: "Points Added",
-          description: `+${data.transaction.pointsEarned} points. Total: ${data.balance.currentPoints}`,
+          title: "Transaction Recorded",
+          description: `Your visit has been successfully recorded.`,
         });
       }
     },

@@ -777,8 +777,12 @@ export function registerAdminApiRoutes(router: Router): void {
 
   router.post("/api/admin/voucher-types", async (req, res) => {
     try {
+      console.log("[DEBUG] Create voucher type - Headers:", JSON.stringify({ 'x-user-id': req.headers['x-user-id'], 'x-user-type': req.headers['x-user-type'] }));
+      console.log("[DEBUG] Create voucher type - Body:", JSON.stringify(req.body));
       const userId = getAuthUserId(req);
+      console.log("[DEBUG] Create voucher type - userId:", userId);
       const { restaurantId, error } = await getAdminRestaurantId(req);
+      console.log("[DEBUG] Create voucher type - restaurantId:", restaurantId, "error:", error);
       if (error) return res.status(error.status).json({ error: error.message });
       
       const restaurant = await storage.getRestaurant(restaurantId!);

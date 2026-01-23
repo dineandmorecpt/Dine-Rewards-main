@@ -69,7 +69,7 @@ function AdminVouchersContent() {
   const [captureScannerOpen, setCaptureScannerOpen] = useState(false);
   const [captureIsScanning, setCaptureIsScanning] = useState(false);
   const captureScannerRef = useRef<Html5Qrcode | null>(null);
-  const [captureSuccess, setCaptureSuccess] = useState<{dinerName: string; pointsEarned: number; currentPoints: number} | null>(null);
+  const [captureSuccess, setCaptureSuccess] = useState<{dinerName: string} | null>(null);
   
   // Phone QR scanner state
   const [phoneScannerOpen, setPhoneScannerOpen] = useState(false);
@@ -638,9 +638,7 @@ function AdminVouchersContent() {
     },
     onSuccess: (data) => {
       setCaptureSuccess({
-        dinerName: data.dinerName,
-        pointsEarned: data.transaction.pointsEarned,
-        currentPoints: data.balance.currentPoints
+        dinerName: data.dinerName
       });
       setCapturePhone("");
       setCaptureBillId("");
@@ -649,7 +647,7 @@ function AdminVouchersContent() {
       transactionsQuery.refetch();
       toast({
         title: "Transaction Recorded!",
-        description: `${data.dinerName} earned ${data.transaction.pointsEarned} points`
+        description: `Visit recorded for ${data.dinerName}`
       });
     },
     onError: (error: Error) => {
@@ -978,18 +976,8 @@ function AdminVouchersContent() {
                   <div className="mt-4 p-4 bg-green-50 dark:bg-green-950/30 rounded-md border border-green-200 dark:border-green-800">
                     <p className="text-sm text-green-700 dark:text-green-400 font-medium flex items-center gap-2">
                       <Check className="h-4 w-4" />
-                      Transaction recorded for {captureSuccess.dinerName}
+                      Transaction successfully recorded for {captureSuccess.dinerName}
                     </p>
-                    <div className="mt-2 grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <p className="text-muted-foreground">Points Earned</p>
-                        <p className="font-semibold text-green-600 dark:text-green-400">+{captureSuccess.pointsEarned}</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground">New Balance</p>
-                        <p className="font-semibold">{captureSuccess.currentPoints} points</p>
-                      </div>
-                    </div>
                   </div>
                 )}
               </CardContent>
@@ -1021,12 +1009,11 @@ function AdminVouchersContent() {
                                tx.dinerPhone?.includes(search);
                       });
                       const csvContent = [
-                        ['Customer Name', 'Phone', 'Amount (R)', 'Points Earned', 'Date'].join(','),
+                        ['Customer Name', 'Phone', 'Amount (R)', 'Date'].join(','),
                         ...filtered.map((tx: any) => [
                           `"${tx.dinerName || ''}"`,
                           tx.dinerPhone || '',
                           parseFloat(tx.amountSpent).toFixed(2),
-                          tx.pointsEarned,
                           new Date(tx.transactionDate).toLocaleDateString()
                         ].join(','))
                       ].join('\n');
@@ -1086,20 +1073,18 @@ function AdminVouchersContent() {
                   
                   return (
                     <div className="space-y-2">
-                      <div className="grid grid-cols-4 gap-2 text-xs font-medium text-muted-foreground border-b pb-2">
+                      <div className="grid grid-cols-3 gap-2 text-xs font-medium text-muted-foreground border-b pb-2">
                         <div>Customer</div>
                         <div>Amount</div>
-                        <div>Points</div>
                         <div>Date</div>
                       </div>
                       {filteredTransactions.slice(0, 50).map((tx: any) => (
-                        <div key={tx.id} className="grid grid-cols-4 gap-2 text-sm py-2 border-b border-dashed last:border-0">
+                        <div key={tx.id} className="grid grid-cols-3 gap-2 text-sm py-2 border-b border-dashed last:border-0">
                           <div className="truncate">
                             <p className="font-medium truncate">{tx.dinerName}</p>
                             <p className="text-xs text-muted-foreground truncate">{tx.dinerPhone}</p>
                           </div>
                           <div className="font-mono">R{parseFloat(tx.amountSpent).toFixed(2)}</div>
-                          <div className="text-green-600 dark:text-green-400 font-medium">+{tx.pointsEarned}</div>
                           <div className="text-muted-foreground text-xs">
                             {new Date(tx.transactionDate).toLocaleDateString()}
                           </div>

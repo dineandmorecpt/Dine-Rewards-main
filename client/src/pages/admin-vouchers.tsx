@@ -1009,11 +1009,12 @@ function AdminVouchersContent() {
                                tx.dinerPhone?.includes(search);
                       });
                       const csvContent = [
-                        ['Customer Name', 'Phone', 'Amount (R)', 'Date'].join(','),
+                        ['Customer Name', 'Phone', 'Amount (R)', 'Points Earned', 'Date'].join(','),
                         ...filtered.map((tx: any) => [
                           `"${tx.dinerName || ''}"`,
                           tx.dinerPhone || '',
                           parseFloat(tx.amountSpent).toFixed(2),
+                          tx.pointsEarned,
                           new Date(tx.transactionDate).toLocaleDateString()
                         ].join(','))
                       ].join('\n');
@@ -1073,18 +1074,20 @@ function AdminVouchersContent() {
                   
                   return (
                     <div className="space-y-2">
-                      <div className="grid grid-cols-3 gap-2 text-xs font-medium text-muted-foreground border-b pb-2">
+                      <div className="grid grid-cols-4 gap-2 text-xs font-medium text-muted-foreground border-b pb-2">
                         <div>Customer</div>
                         <div>Amount</div>
+                        <div>Points</div>
                         <div>Date</div>
                       </div>
                       {filteredTransactions.slice(0, 50).map((tx: any) => (
-                        <div key={tx.id} className="grid grid-cols-3 gap-2 text-sm py-2 border-b border-dashed last:border-0">
+                        <div key={tx.id} className="grid grid-cols-4 gap-2 text-sm py-2 border-b border-dashed last:border-0">
                           <div className="truncate">
                             <p className="font-medium truncate">{tx.dinerName}</p>
                             <p className="text-xs text-muted-foreground truncate">{tx.dinerPhone}</p>
                           </div>
                           <div className="font-mono">R{parseFloat(tx.amountSpent).toFixed(2)}</div>
+                          <div className="text-green-600 dark:text-green-400 font-medium">+{tx.pointsEarned}</div>
                           <div className="text-muted-foreground text-xs">
                             {new Date(tx.transactionDate).toLocaleDateString()}
                           </div>

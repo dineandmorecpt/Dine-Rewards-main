@@ -11,6 +11,15 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { Building2, MapPin, User, CheckCircle2, ArrowRight, ArrowLeft, Loader2 } from "lucide-react";
+import { getStoredAuth } from "@/lib/queryClient";
+
+function getAuthHeaders(): Record<string, string> {
+  const auth = getStoredAuth();
+  if (auth) {
+    return { "X-User-Id": auth.userId, "X-User-Type": auth.userType };
+  }
+  return {};
+}
 
 type OnboardingStep = "business" | "address" | "contact" | "review";
 
@@ -60,7 +69,7 @@ export default function AdminOnboarding() {
   const { data: restaurantData, isLoading } = useQuery({
     queryKey: ["/api/admin/restaurant"],
     queryFn: async () => {
-      const res = await fetch(`/api/admin/restaurant`);
+      const res = await fetch(`/api/admin/restaurant`, { credentials: "include", headers: getAuthHeaders() });
       if (!res.ok) throw new Error("Failed to fetch restaurant");
       return res.json();
     },
@@ -89,7 +98,8 @@ export default function AdminOnboarding() {
     mutationFn: async (data: Partial<OnboardingData>) => {
       const res = await fetch(`/api/admin/restaurant/onboarding`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        credentials: "include",
         body: JSON.stringify(data),
       });
       if (!res.ok) {
@@ -107,6 +117,8 @@ export default function AdminOnboarding() {
     mutationFn: async () => {
       const res = await fetch(`/api/admin/restaurant/onboarding/submit`, {
         method: "POST",
+        credentials: "include",
+        headers: getAuthHeaders(),
       });
       if (!res.ok) {
         const error = await res.json();
@@ -134,6 +146,8 @@ export default function AdminOnboarding() {
     mutationFn: async () => {
       const res = await fetch(`/api/admin/restaurant/onboarding/activate`, {
         method: "POST",
+        credentials: "include",
+        headers: getAuthHeaders(),
       });
       if (!res.ok) {
         const error = await res.json();

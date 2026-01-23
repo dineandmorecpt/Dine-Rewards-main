@@ -295,7 +295,7 @@ export default function AdminProfile() {
       return;
     }
     
-    fetch(`/api/admin/restaurant`)
+    fetch(`/api/admin/restaurant`, { credentials: "include", headers: getAuthHeaders() })
       .then(res => res.json())
       .then(data => {
         if (data) {

@@ -159,8 +159,13 @@ export default function AdminProfile() {
     setIsLoadingBranches(true);
     try {
       const res = await fetch(`/api/admin/branches`, { credentials: "include", headers: getAuthHeaders() });
+      if (!res.ok) {
+        throw new Error("Failed to fetch branches");
+      }
       const data = await res.json();
-      setBranches(data);
+      if (Array.isArray(data)) {
+        setBranches(data);
+      }
     } catch (err) {
       console.error("Failed to load branches:", err);
     } finally {
@@ -296,9 +301,14 @@ export default function AdminProfile() {
     }
     
     fetch(`/api/admin/restaurant`, { credentials: "include", headers: getAuthHeaders() })
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) {
+          throw new Error("Failed to fetch restaurant");
+        }
+        return res.json();
+      })
       .then(data => {
-        if (data) {
+        if (data && !data.error) {
           setFormData({
             name: data.name || "",
             tradingName: data.tradingName || "",

@@ -43,6 +43,7 @@ export default function AdminUsers() {
   const [addStaffOpen, setAddStaffOpen] = useState(false);
   const [newStaffName, setNewStaffName] = useState("");
   const [newStaffEmail, setNewStaffEmail] = useState("");
+  const [newStaffPhone, setNewStaffPhone] = useState("");
   const [newStaffRole, setNewStaffRole] = useState<"manager" | "staff">("staff");
 
   const { data: portalUsers = [], isLoading: loadingPortalUsers } = useQuery<PortalUser[]>({
@@ -56,7 +57,7 @@ export default function AdminUsers() {
   });
 
   const addStaff = useMutation({
-    mutationFn: async (data: { name: string; email: string; role: string }) => {
+    mutationFn: async (data: { name: string; email: string; phone?: string; role: string }) => {
       const res = await fetch(`/api/admin/staff`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
@@ -74,6 +75,7 @@ export default function AdminUsers() {
       setAddStaffOpen(false);
       setNewStaffName("");
       setNewStaffEmail("");
+      setNewStaffPhone("");
       setNewStaffRole("staff");
       toast({
         title: "Staff member added",
@@ -182,6 +184,17 @@ export default function AdminUsers() {
                       />
                     </div>
                     <div className="space-y-2">
+                      <Label htmlFor="staff-phone">Phone Number</Label>
+                      <Input
+                        id="staff-phone"
+                        type="tel"
+                        placeholder="0821234567"
+                        value={newStaffPhone}
+                        onChange={(e) => setNewStaffPhone(e.target.value)}
+                        data-testid="input-staff-phone"
+                      />
+                    </div>
+                    <div className="space-y-2">
                       <Label htmlFor="staff-role">Role</Label>
                       <Select value={newStaffRole} onValueChange={(v) => setNewStaffRole(v as "manager" | "staff")}>
                         <SelectTrigger data-testid="select-staff-role">
@@ -202,7 +215,12 @@ export default function AdminUsers() {
                       Cancel
                     </Button>
                     <Button
-                      onClick={() => addStaff.mutate({ name: newStaffName, email: newStaffEmail, role: newStaffRole })}
+                      onClick={() => addStaff.mutate({ 
+                        name: newStaffName, 
+                        email: newStaffEmail, 
+                        phone: newStaffPhone || undefined,
+                        role: newStaffRole 
+                      })}
                       disabled={!newStaffName || !newStaffEmail || addStaff.isPending}
                       data-testid="button-confirm-add-staff"
                     >

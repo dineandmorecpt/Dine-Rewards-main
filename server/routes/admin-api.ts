@@ -66,6 +66,7 @@ const createBranchSchema = z.object({
 const addStaffUserSchema = z.object({
   email: z.string().email("Valid email is required"),
   name: z.string().min(1, "Name is required"),
+  phone: z.string().min(7, "Phone number must be at least 7 digits").optional(),
   role: z.enum(["manager", "staff"]).default("staff"),
   hasAllBranchAccess: z.boolean().default(true),
   branchIds: z.array(z.string()).default([]),
@@ -601,7 +602,7 @@ export function registerAdminApiRoutes(router: Router): void {
         return res.status(422).json({ error: parseResult.error.errors[0]?.message || "Validation failed" });
       }
       
-      const { email, name, role, hasAllBranchAccess, branchIds } = parseResult.data;
+      const { email, name, phone, role, hasAllBranchAccess, branchIds } = parseResult.data;
       
       let staffUser = await storage.getUserByEmail(email);
       
@@ -621,6 +622,7 @@ export function registerAdminApiRoutes(router: Router): void {
         staffUser = await storage.createUser({
           email,
           name,
+          phone: phone || null,
           password: hashedPassword,
           userType: 'restaurant_admin',
         });

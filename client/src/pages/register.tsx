@@ -10,6 +10,7 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp
 import { Captcha } from "@/components/ui/captcha";
 import { Gift, Loader2, CheckCircle2, AlertCircle, Phone, ShieldCheck } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import logoImage from "@/assets/logo.png";
 
 const GENDER_OPTIONS = [
   { value: "male", label: "Male" },
@@ -203,7 +204,8 @@ export default function Register() {
       <div className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-emerald-50 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800 flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
-            <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-2" />
+            <img src={logoImage} alt="Dine&More" className="h-20 w-auto mx-auto mb-2" />
+            <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-2" />
             <CardTitle className="text-2xl">Welcome to Dine&More!</CardTitle>
             <CardDescription className="text-base">
               Your registration is complete. Start earning points on your next visit!
@@ -224,9 +226,7 @@ export default function Register() {
       <div className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-emerald-50 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800 flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
-            <div className="mx-auto mb-4 p-3 rounded-full bg-primary/10">
-              <Gift className="h-8 w-8 text-primary" />
-            </div>
+            <img src={logoImage} alt="Dine&More" className="h-24 w-auto mx-auto mb-4" />
             <CardTitle className="text-2xl font-serif">Join Dine&More Rewards</CardTitle>
             <CardDescription>
               Create your account to start earning rewards at participating restaurants!
@@ -414,6 +414,7 @@ export default function Register() {
       <div className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-emerald-50 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800 flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
+            <img src={logoImage} alt="Dine&More" className="h-20 w-auto mx-auto mb-4" />
             <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-2" />
             <CardTitle>Link Error</CardTitle>
             <CardDescription>
@@ -431,9 +432,7 @@ export default function Register() {
       <div className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-emerald-50 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800 flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
-            <div className="mx-auto mb-4 p-3 rounded-full bg-primary/10">
-              <Phone className="h-8 w-8 text-primary" />
-            </div>
+            <img src={logoImage} alt="Dine&More" className="h-20 w-auto mx-auto mb-4" />
             <CardTitle className="text-2xl font-serif">Verify Your Number</CardTitle>
             <CardDescription>
               To join {invitation.data?.restaurantName}'s rewards program, please verify your mobile number.
@@ -489,9 +488,7 @@ export default function Register() {
       <div className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-emerald-50 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800 flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
-            <div className="mx-auto mb-4 p-3 rounded-full bg-primary/10">
-              <ShieldCheck className="h-8 w-8 text-primary" />
-            </div>
+            <img src={logoImage} alt="Dine&More" className="h-20 w-auto mx-auto mb-4" />
             <CardTitle className="text-2xl font-serif">Enter Code</CardTitle>
             <CardDescription>
               We sent a 6-digit code to {invitation.data?.phone}
@@ -576,9 +573,7 @@ export default function Register() {
     <div className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-emerald-50 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800 flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 p-3 rounded-full bg-green-100">
-            <CheckCircle2 className="h-8 w-8 text-green-600" />
-          </div>
+          <img src={logoImage} alt="Dine&More" className="h-20 w-auto mx-auto mb-4" />
           <CardTitle className="text-2xl font-serif">Complete Your Profile</CardTitle>
           <CardDescription>
             Phone verified! Now complete your profile to join {invitation.data?.restaurantName}.

@@ -28,6 +28,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { BranchProvider, useBranch } from "@/hooks/use-branch";
 import { useQuery } from "@tanstack/react-query";
+import logoImage from "@/assets/logo.png";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -71,11 +72,9 @@ function AdminLayoutContent({ children }: AdminLayoutProps) {
     <div className="flex flex-col h-full bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
       <div className="p-6">
         <Link href="/" onClick={() => setSidebarOpen(false)} className="block hover:opacity-80 transition-opacity">
-          <h1 className="text-2xl font-serif font-bold tracking-tight text-primary-foreground">
-            Dine<span className="text-sidebar-primary">&</span>More
-          </h1>
+          <img src={logoImage} alt="Dine&More" className="h-12 w-auto" />
         </Link>
-        <p className="text-sm text-sidebar-primary font-semibold mt-1">{restaurant?.name || 'Restaurant'}</p>
+        <p className="text-sm text-sidebar-primary font-semibold mt-2">{restaurant?.name || 'Restaurant'}</p>
         <p className="text-xs text-sidebar-foreground/60 uppercase tracking-wider font-medium">Restaurant Admin</p>
         
         {(hasMultipleBranches || accessibleBranches.length > 0) && accessibleBranches.length > 0 && (
@@ -189,7 +188,9 @@ function AdminLayoutContent({ children }: AdminLayoutProps) {
     <div className="min-h-screen bg-background font-sans">
       {/* Mobile Header - sticky at top */}
       <div className="lg:hidden p-4 border-b flex items-center justify-between bg-card sticky top-0 z-40">
-        <Link href="/" className="font-serif font-bold text-xl hover:opacity-80 transition-opacity">Dine&More</Link>
+        <Link href="/" className="hover:opacity-80 transition-opacity">
+          <img src={logoImage} alt="Dine&More" className="h-10 w-auto" />
+        </Link>
         <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon">

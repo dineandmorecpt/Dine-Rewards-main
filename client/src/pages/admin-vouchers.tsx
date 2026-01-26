@@ -1156,41 +1156,47 @@ function AdminVouchersContent() {
                     <Separator className="flex-1" />
                   </div>
 
-                  <div className="flex gap-3">
-                    <Input
-                      placeholder="Enter voucher code (e.g., BURG-1234)"
-                      value={redeemCode}
-                      onChange={(e) => {
-                        setRedeemCode(e.target.value.toUpperCase());
-                        setRedemptionSuccess(null);
-                      }}
-                      className="font-mono tracking-wider uppercase"
-                      data-testid="input-redeem-code"
-                    />
-                    <Button
-                      onClick={() => redeemVoucher.mutate({ code: redeemCode, billId: billId || undefined })}
-                      disabled={!redeemCode.trim() || redeemVoucher.isPending}
-                      className="gap-2"
-                      data-testid="button-redeem-voucher"
-                    >
-                      {redeemVoucher.isPending ? (
-                        "Processing..."
-                      ) : (
-                        <>
-                          <Check className="h-4 w-4" />
-                          Redeem
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                  <div className="flex gap-3 items-center">
-                    <Input
-                      placeholder="Bill/Invoice ID (for reconciliation)"
-                      value={billId}
-                      onChange={(e) => setBillId(e.target.value)}
-                      className="font-mono"
-                      data-testid="input-bill-id"
-                    />
+                  <div className="space-y-3">
+                    <div>
+                      <Label className="text-sm font-medium mb-1.5 block">Bill / Invoice ID <span className="text-destructive">*</span></Label>
+                      <Input
+                        placeholder="Enter bill/invoice ID (required)"
+                        value={billId}
+                        onChange={(e) => setBillId(e.target.value)}
+                        className="font-mono"
+                        data-testid="input-bill-id"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium mb-1.5 block">Voucher Code <span className="text-destructive">*</span></Label>
+                      <div className="flex gap-3">
+                        <Input
+                          placeholder="Enter voucher code (e.g., BURG-1234)"
+                          value={redeemCode}
+                          onChange={(e) => {
+                            setRedeemCode(e.target.value.toUpperCase());
+                            setRedemptionSuccess(null);
+                          }}
+                          className="font-mono tracking-wider uppercase"
+                          data-testid="input-redeem-code"
+                        />
+                        <Button
+                          onClick={() => redeemVoucher.mutate({ code: redeemCode, billId })}
+                          disabled={!redeemCode.trim() || !billId.trim() || redeemVoucher.isPending}
+                          className="gap-2"
+                          data-testid="button-redeem-voucher"
+                        >
+                          {redeemVoucher.isPending ? (
+                            "Processing..."
+                          ) : (
+                            <>
+                              <Check className="h-4 w-4" />
+                              Redeem
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 </div>
                 {redemptionSuccess && (

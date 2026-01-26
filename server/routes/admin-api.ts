@@ -982,7 +982,12 @@ export function registerAdminApiRoutes(router: Router): void {
       if (error) return res.status(error.status).json({ error: error.message });
       
       const { code, billId, branchId } = req.body;
-      const result = await services.voucher.redeemVoucherByCode(restaurantId!, code, billId, branchId);
+      
+      if (!billId || !billId.trim()) {
+        return res.status(400).json({ error: "Bill ID is required to redeem a voucher" });
+      }
+      
+      const result = await services.voucher.redeemVoucherByCode(restaurantId!, code, billId.trim(), branchId);
       
       await storage.createActivityLog({
         restaurantId: restaurantId!,

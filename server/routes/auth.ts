@@ -152,22 +152,17 @@ export function registerAuthRoutes(router: Router): void {
       }
 
       const { email, password } = parseResult.data;
-      console.log('[LOGIN DEBUG] Password received - Length:', password.length, '- First/Last char codes:', password.charCodeAt(0), password.charCodeAt(password.length - 1));
 
       const user = await storage.getUserByEmail(email);
-      console.log('[LOGIN DEBUG] User lookup for email:', email, '- Found:', !!user, user?.id);
       if (!user) {
         return res.status(401).json({ error: "Invalid email or password" });
       }
 
       let passwordValid = false;
-      console.log('[LOGIN DEBUG] Password hash prefix:', user.password.substring(0, 10), '- Length:', user.password.length);
       if (user.password.startsWith('$2')) {
         passwordValid = await bcrypt.compare(password, user.password);
-        console.log('[LOGIN DEBUG] bcrypt.compare result:', passwordValid);
       } else {
         passwordValid = user.password === password;
-        console.log('[LOGIN DEBUG] Plain text compare result:', passwordValid);
       }
 
       if (!passwordValid) {
@@ -429,9 +424,7 @@ export function registerAuthRoutes(router: Router): void {
         return res.status(400).json({ error: "This reset link has expired" });
       }
 
-      console.log('[RESET DEBUG] Password to hash - Length:', password.length, '- First/Last char codes:', password.charCodeAt(0), password.charCodeAt(password.length - 1));
       const hashedPassword = await bcrypt.hash(password, 12);
-      console.log('[RESET DEBUG] Hashed password prefix:', hashedPassword.substring(0, 10), '- For user:', resetToken.userId);
 
       await storage.updateUserPassword(resetToken.userId, hashedPassword);
 

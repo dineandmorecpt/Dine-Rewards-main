@@ -65,6 +65,7 @@ const createBranchSchema = z.object({
 
 const addStaffUserSchema = z.object({
   email: z.string().email("Valid email is required"),
+  name: z.string().min(1, "Name is required"),
   role: z.enum(["manager", "staff"]).default("staff"),
   hasAllBranchAccess: z.boolean().default(true),
   branchIds: z.array(z.string()).default([]),
@@ -596,25 +597,34 @@ export function registerAdminApiRoutes(router: Router): void {
         return res.status(422).json({ error: parseResult.error.errors[0]?.message });
       }
       
-      const { email, role, hasAllBranchAccess, branchIds } = parseResult.data;
+      const { email, name, role, hasAllBranchAccess, branchIds } = parseResult.data;
       
-      const existingUser = await storage.getUserByEmail(email);
-      if (!existingUser) {
-        return res.status(404).json({ error: "No user found with that email. They must register first." });
-      }
+      let staffUser = await storage.getUserByEmail(email);
       
-      if (existingUser.userType !== 'restaurant_admin') {
-        return res.status(400).json({ error: "This email belongs to a diner account, not a restaurant admin." });
-      }
-      
-      const existingPortalUser = await storage.getPortalUserByUserAndRestaurant(existingUser.id, restaurantId!);
-      if (existingPortalUser) {
-        return res.status(400).json({ error: "This user is already a staff member of this restaurant." });
+      if (staffUser) {
+        if (staffUser.userType !== 'restaurant_admin') {
+          return res.status(400).json({ error: "This email belongs to a diner account, not a restaurant admin." });
+        }
+        
+        const existingPortalUser = await storage.getPortalUserByUserAndRestaurant(staffUser.id, restaurantId!);
+        if (existingPortalUser) {
+          return res.status(400).json({ error: "This user is already a staff member of this restaurant." });
+        }
+      } else {
+        const tempPassword = crypto.randomBytes(16).toString('hex');
+        const hashedPassword = crypto.createHash('sha256').update(tempPassword).digest('hex');
+        
+        staffUser = await storage.createUser({
+          email,
+          name,
+          password: hashedPassword,
+          userType: 'restaurant_admin',
+        });
       }
       
       const portalUser = await storage.addPortalUser({
         restaurantId: restaurantId!,
-        userId: existingUser.id,
+        userId: staffUser.id,
         role,
         addedBy: userId!,
         hasAllBranchAccess,
@@ -639,7 +649,7 @@ export function registerAdminApiRoutes(router: Router): void {
         details: JSON.stringify({ email, role }),
       });
       
-      res.json({ ...portalUser, user: existingUser });
+      res.json({ ...portalUser, user: staffUser });
     } catch (error: any) {
       console.error("Add portal user error:", error);
       res.status(500).json({ error: error.message || "Failed to add staff member" });

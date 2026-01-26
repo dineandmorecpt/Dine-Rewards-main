@@ -154,15 +154,19 @@ export function registerAuthRoutes(router: Router): void {
       const { email, password } = parseResult.data;
 
       const user = await storage.getUserByEmail(email);
+      console.log('[LOGIN DEBUG] User lookup for email:', email, '- Found:', !!user, user?.id);
       if (!user) {
         return res.status(401).json({ error: "Invalid email or password" });
       }
 
       let passwordValid = false;
+      console.log('[LOGIN DEBUG] Password hash prefix:', user.password.substring(0, 10), '- Length:', user.password.length);
       if (user.password.startsWith('$2')) {
         passwordValid = await bcrypt.compare(password, user.password);
+        console.log('[LOGIN DEBUG] bcrypt.compare result:', passwordValid);
       } else {
         passwordValid = user.password === password;
+        console.log('[LOGIN DEBUG] Plain text compare result:', passwordValid);
       }
 
       if (!passwordValid) {

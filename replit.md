@@ -56,6 +56,33 @@ The platform offers flexible loyalty configurations, including:
 ### Security & Privacy
 SMS rate limiting is implemented across multiple layers (per-IP, per-phone, per-restaurant, global daily limits) to prevent abuse. Cloudflare Turnstile provides captcha protection for authentication flows. For analytics, diners have a unique `analyticsId` for anonymous trend reporting, ensuring POPIA-compliant pseudonymization of data.
 
+### Authentication Requirements (CRITICAL)
+**All API calls must include proper authentication credentials.** This is essential for consistent behavior across the application.
+
+**Frontend API Calls:**
+Every `fetch` request to `/api/admin/*` or `/api/diner/*` endpoints MUST include:
+```typescript
+fetch(url, {
+  credentials: "include",           // Required for session cookies
+  headers: getAuthHeaders(),        // Required for X-User-Id and X-User-Type headers
+})
+```
+
+Import `getAuthHeaders` from `@/lib/queryClient`:
+```typescript
+import { getAuthHeaders } from "@/lib/queryClient";
+```
+
+**Backend Authentication:**
+- Use `getAuthUserId(req)` from `server/routes/auth.ts` to get the authenticated user ID
+- Use `getAuthUserType(req)` to get the user type (diner or restaurant_admin)
+- These functions check both session cookies AND X-User-Id/X-User-Type headers for dual authentication support
+
+**DO NOT:**
+- Make API calls without `credentials: "include"`
+- Make API calls without `headers: getAuthHeaders()`
+- Modify authentication logic without thorough testing of both admin and diner portals
+
 ### Core Features
 - **User Management**: Restaurant admins can view and manage diners, and owners can manage staff with role-based access.
 - **Profile Management**: Admins manage business profiles, while diners can manage their personal profiles and view transaction history.

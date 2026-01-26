@@ -41,6 +41,7 @@ export default function AdminUsers() {
   const restaurantId = restaurant?.id;
   const queryClient = useQueryClient();
   const [addStaffOpen, setAddStaffOpen] = useState(false);
+  const [newStaffName, setNewStaffName] = useState("");
   const [newStaffEmail, setNewStaffEmail] = useState("");
   const [newStaffRole, setNewStaffRole] = useState<"manager" | "staff">("staff");
 
@@ -55,7 +56,7 @@ export default function AdminUsers() {
   });
 
   const addStaff = useMutation({
-    mutationFn: async (data: { email: string; role: string }) => {
+    mutationFn: async (data: { name: string; email: string; role: string }) => {
       const res = await fetch(`/api/admin/staff`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
@@ -71,6 +72,7 @@ export default function AdminUsers() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/staff"] });
       setAddStaffOpen(false);
+      setNewStaffName("");
       setNewStaffEmail("");
       setNewStaffRole("staff");
       toast({
@@ -153,10 +155,21 @@ export default function AdminUsers() {
                   <DialogHeader>
                     <DialogTitle>Add Staff Member</DialogTitle>
                     <DialogDescription>
-                      Add an existing restaurant admin to your team. They must already have an account.
+                      Add a new team member to your restaurant. If they don't have an account, one will be created for them.
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="staff-name">Full Name</Label>
+                      <Input
+                        id="staff-name"
+                        type="text"
+                        placeholder="John Smith"
+                        value={newStaffName}
+                        onChange={(e) => setNewStaffName(e.target.value)}
+                        data-testid="input-staff-name"
+                      />
+                    </div>
                     <div className="space-y-2">
                       <Label htmlFor="staff-email">Email Address</Label>
                       <Input
@@ -189,8 +202,8 @@ export default function AdminUsers() {
                       Cancel
                     </Button>
                     <Button
-                      onClick={() => addStaff.mutate({ email: newStaffEmail, role: newStaffRole })}
-                      disabled={!newStaffEmail || addStaff.isPending}
+                      onClick={() => addStaff.mutate({ name: newStaffName, email: newStaffEmail, role: newStaffRole })}
+                      disabled={!newStaffName || !newStaffEmail || addStaff.isPending}
                       data-testid="button-confirm-add-staff"
                     >
                       {addStaff.isPending ? (

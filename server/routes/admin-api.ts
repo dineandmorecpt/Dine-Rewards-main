@@ -578,6 +578,8 @@ export function registerAdminApiRoutes(router: Router): void {
 
   router.post("/api/admin/staff", async (req, res) => {
     try {
+      console.log("[Staff Create] Request body:", JSON.stringify(req.body));
+      
       const userId = getAuthUserId(req);
       const { restaurantId, error } = await getAdminRestaurantId(req);
       if (error) return res.status(error.status).json({ error: error.message });
@@ -594,7 +596,9 @@ export function registerAdminApiRoutes(router: Router): void {
       
       const parseResult = addStaffUserSchema.safeParse(req.body);
       if (!parseResult.success) {
-        return res.status(422).json({ error: parseResult.error.errors[0]?.message });
+        const errorDetails = parseResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
+        console.log("[Staff Create] Validation failed:", errorDetails);
+        return res.status(422).json({ error: parseResult.error.errors[0]?.message || "Validation failed" });
       }
       
       const { email, name, role, hasAllBranchAccess, branchIds } = parseResult.data;
@@ -649,6 +653,7 @@ export function registerAdminApiRoutes(router: Router): void {
         details: JSON.stringify({ email, role }),
       });
       
+      console.log("[Staff Create] Success - created staff:", email, "with role:", role);
       res.json({ ...portalUser, user: staffUser });
     } catch (error: any) {
       console.error("Add portal user error:", error);

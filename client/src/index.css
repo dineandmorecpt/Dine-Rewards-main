@@ -52,8 +52,9 @@
   --color-sidebar-border: hsl(var(--sidebar-border));
   --color-sidebar-ring: hsl(var(--sidebar-ring));
 
-  --font-sans: 'DM Sans', sans-serif;
+  --font-sans: 'Poppins', sans-serif;
   --font-serif: 'Playfair Display', serif;
+  --font-mono: 'Work Sans', sans-serif;
 }
 
 /* Luxury/Hospitality Theme - "Midnight & Gold" */

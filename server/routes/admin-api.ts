@@ -6,6 +6,7 @@ import { checkSMSRateLimit, recordSMSSent } from "../services/smsRateLimiter";
 import { getAuthUserId, getAuthUserType } from "./auth";
 import { z } from "zod";
 import crypto from "crypto";
+import bcrypt from "bcryptjs";
 import rateLimit from "express-rate-limit";
 
 const services = createLoyaltyServices(storage);
@@ -617,7 +618,7 @@ export function registerAdminApiRoutes(router: Router): void {
         }
       } else {
         const tempPassword = crypto.randomBytes(16).toString('hex');
-        const hashedPassword = crypto.createHash('sha256').update(tempPassword).digest('hex');
+        const hashedPassword = await bcrypt.hash(tempPassword, 12);
         
         staffUser = await storage.createUser({
           email,

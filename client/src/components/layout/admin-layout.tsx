@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { getAuthHeaders } from "@/lib/queryClient";
 import { BranchProvider, useBranch } from "@/hooks/use-branch";
 import { useQuery } from "@tanstack/react-query";
 import logoImage from "@/assets/logo.png";
@@ -43,7 +44,10 @@ function AdminLayoutContent({ children }: AdminLayoutProps) {
   const { data: restaurantData } = useQuery({
     queryKey: ["/api/admin/restaurant"],
     queryFn: async () => {
-      const res = await fetch(`/api/admin/restaurant`);
+      const res = await fetch(`/api/admin/restaurant`, {
+        credentials: "include",
+        headers: getAuthHeaders(),
+      });
       if (!res.ok) return null;
       return res.json();
     },

@@ -48,6 +48,15 @@ This separation provides:
 ### Data Storage
 PostgreSQL is the primary database, accessed via Drizzle ORM. The schema is defined in `/shared/schema.ts` and includes core models for `users` (diners and admins), `restaurants`, `branches`, `pointsBalances`, `transactions`, and `vouchers`. The system supports multi-branch architecture, tracking data per-branch with organization-wide roll-ups.
 
+### User Model Architecture
+A person can be both a **diner** AND a **restaurant staff member** on the platform. The `users` table uses composite unique constraints:
+- `(email, user_type)` - Same email can exist for both 'diner' and 'restaurant_admin' user types
+- `(phone, user_type)` - Same phone can exist for both user types
+
+This allows:
+- Restaurant staff to also be loyalty members at the same or other restaurants
+- No duplicate records within the same entity (e.g., can't have two diner accounts with the same email)
+
 ### Loyalty Program Features
 The platform offers flexible loyalty configurations, including:
 - **Loyalty Scope**: Points accumulation and voucher redemption can be configured as either organization-wide or branch-specific.

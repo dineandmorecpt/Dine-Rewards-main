@@ -1,17 +1,19 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, boolean, timestamp, decimal } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, boolean, timestamp, decimal, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // User Types: 'diner' or 'restaurant_admin'
+// A person can be both a diner AND a restaurant staff member with the same email/phone,
+// but cannot have duplicate records within the same user type.
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   analyticsId: text("analytics_id").unique(), // Anonymous ID for analytics (no PII exposure)
-  email: text("email").notNull().unique(),
+  email: text("email").notNull(), // Unique per userType (composite constraint below)
   password: text("password").notNull(),
   name: text("name").notNull(),
   lastName: text("last_name"), // Surname for diners
-  phone: text("phone").unique(), // Phone number for diner identification
+  phone: text("phone"), // Unique per userType (composite constraint below)
   userType: text("user_type").notNull(), // 'diner' | 'restaurant_admin'
   gender: text("gender"), // 'male' | 'female' | 'other' | 'prefer_not_to_say'
   ageRange: text("age_range"), // '18-29' | '30-39' | '40-49' | '50-59' | '60+'
@@ -24,7 +26,10 @@ export const users = pgTable("users", {
   termsAcceptedAt: timestamp("terms_accepted_at"), // When T&Cs were accepted
   privacyAcceptedAt: timestamp("privacy_accepted_at"), // When privacy policy was accepted
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => [
+  uniqueIndex("users_email_user_type_idx").on(table.email, table.userType),
+  uniqueIndex("users_phone_user_type_idx").on(table.phone, table.userType),
+]);
 
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,

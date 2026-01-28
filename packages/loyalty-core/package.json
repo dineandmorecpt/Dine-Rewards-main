@@ -1,0 +1,47 @@
+{
+  "name": "@loyaltycore/core",
+  "version": "1.0.0",
+  "description": "Core loyalty platform engine - reusable across industries",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    },
+    "./types": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/types/index.js"
+    },
+    "./services": {
+      "types": "./dist/services/index.d.ts",
+      "import": "./dist/services/index.js"
+    },
+    "./storage": {
+      "types": "./dist/storage/index.d.ts",
+      "import": "./dist/storage/index.js"
+    }
+  },
+  "peerDependencies": {
+    "drizzle-orm": ">=0.30.0",
+    "zod": ">=3.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0"
+  },
+  "keywords": [
+    "loyalty",
+    "rewards",
+    "points",
+    "vouchers",
+    "crm"
+  ],
+  "license": "UNLICENSED",
+  "private": true
+}

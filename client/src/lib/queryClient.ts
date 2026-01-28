@@ -19,7 +19,7 @@ export function clearStoredAuth(): void {
   localStorage.removeItem(AUTH_STORAGE_KEY);
 }
 
-function getAuthHeaders(): Record<string, string> {
+export function getAuthHeaders(): Record<string, string> {
   const auth = getStoredAuth();
   if (auth) {
     return { "X-User-Id": auth.userId, "X-User-Type": auth.userType };

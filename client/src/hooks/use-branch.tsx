@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useMemo, ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "./use-auth";
+import { getAuthHeaders } from "@/lib/queryClient";
 
 interface Branch {
   id: string;
@@ -38,7 +39,10 @@ export function BranchProvider({ children }: { children: ReactNode }) {
     queryKey: ["branches", restaurant?.id],
     queryFn: async () => {
       if (!restaurant?.id) return [];
-      const res = await fetch(`/api/restaurants/${restaurant.id}/branches`);
+      const res = await fetch(`/api/admin/branches`, {
+        credentials: "include",
+        headers: getAuthHeaders(),
+      });
       if (!res.ok) throw new Error("Failed to fetch branches");
       return res.json();
     },

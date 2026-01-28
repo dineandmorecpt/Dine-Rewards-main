@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { DinerLayout } from "@/components/layout/diner-layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Receipt, Utensils, Calendar, Coins } from "lucide-react";
+import { Receipt, Utensils, Calendar, CheckCircle2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
 interface TransactionWithRestaurant {
@@ -12,7 +12,6 @@ interface TransactionWithRestaurant {
   restaurantName: string;
   billId?: string;
   amountSpent: string;
-  pointsEarned: number;
   transactionDate: string;
 }
 
@@ -21,9 +20,9 @@ export default function DinerHistory() {
   const dinerId = user?.id;
 
   const { data: transactions = [], isLoading } = useQuery<TransactionWithRestaurant[]>({
-    queryKey: ["/api/diners", dinerId, "transactions"],
+    queryKey: ["/api/diner/transactions"],
     queryFn: async () => {
-      const res = await fetch(`/api/diners/${dinerId}/transactions`);
+      const res = await fetch(`/api/diner/transactions`);
       if (!res.ok) throw new Error("Failed to fetch transactions");
       return res.json();
     },
@@ -100,21 +99,20 @@ export default function DinerHistory() {
                         </div>
                         <div className="flex items-center gap-2 sm:gap-3 md:gap-4 mt-1 sm:mt-0">
                           <div className="text-left sm:text-right">
-                            <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide">Spent</p>
+                            <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide">Amount</p>
                             <p className="text-sm sm:text-lg font-bold text-foreground" data-testid={`activity-amount-${tx.id}`}>
                               R{parseFloat(tx.amountSpent).toFixed(2)}
                             </p>
                           </div>
                           <div className="h-8 sm:h-10 w-px bg-border" />
                           <div className="text-left sm:text-right">
-                            <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide">Earned</p>
                             <Badge 
                               variant="secondary" 
-                              className="bg-primary/10 text-primary font-bold text-xs sm:text-base"
-                              data-testid={`activity-points-${tx.id}`}
+                              className="bg-green-100 text-green-700 font-medium text-xs sm:text-sm"
+                              data-testid={`activity-status-${tx.id}`}
                             >
-                              <Coins className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-0.5 sm:mr-1" />
-                              +{tx.pointsEarned}
+                              <CheckCircle2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-0.5 sm:mr-1" />
+                              Recorded
                             </Badge>
                           </div>
                         </div>

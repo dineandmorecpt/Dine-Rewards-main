@@ -15,6 +15,15 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useUpload } from "@/hooks/use-upload";
+import { getStoredAuth } from "@/lib/queryClient";
+
+function getAuthHeaders(): Record<string, string> {
+  const auth = getStoredAuth();
+  if (auth) {
+    return { "X-User-Id": auth.userId, "X-User-Type": auth.userType };
+  }
+  return {};
+}
 
 const cuisineTypes = [
   "African",
@@ -149,9 +158,14 @@ export default function AdminProfile() {
     if (!restaurantId) return;
     setIsLoadingBranches(true);
     try {
-      const res = await fetch(`/api/restaurants/${restaurantId}/branches`);
+      const res = await fetch(`/api/admin/branches`, { credentials: "include", headers: getAuthHeaders() });
+      if (!res.ok) {
+        throw new Error("Failed to fetch branches");
+      }
       const data = await res.json();
-      setBranches(data);
+      if (Array.isArray(data)) {
+        setBranches(data);
+      }
     } catch (err) {
       console.error("Failed to load branches:", err);
     } finally {
@@ -182,12 +196,13 @@ export default function AdminProfile() {
     setIsSavingBranch(true);
     try {
       const url = editingBranch
-        ? `/api/restaurants/${restaurantId}/branches/${editingBranch.id}`
-        : `/api/restaurants/${restaurantId}/branches`;
+        ? `/api/admin/branches/${editingBranch.id}`
+        : `/api/admin/branches`;
       
       const res = await fetch(url, {
         method: editingBranch ? "PATCH" : "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        credentials: "include",
         body: JSON.stringify(branchForm),
       });
 
@@ -219,8 +234,10 @@ export default function AdminProfile() {
     
     setIsDeletingBranch(true);
     try {
-      const res = await fetch(`/api/restaurants/${restaurantId}/branches/${deleteBranchId}`, {
+      const res = await fetch(`/api/admin/branches/${deleteBranchId}`, {
         method: "DELETE",
+        credentials: "include",
+        headers: getAuthHeaders(),
       });
 
       if (!res.ok) {
@@ -250,9 +267,10 @@ export default function AdminProfile() {
     if (!restaurantId) return;
     
     try {
-      const res = await fetch(`/api/restaurants/${restaurantId}/branches/${branchId}`, {
+      const res = await fetch(`/api/admin/branches/${branchId}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        credentials: "include",
         body: JSON.stringify({ isDefault: true }),
       });
 
@@ -282,10 +300,15 @@ export default function AdminProfile() {
       return;
     }
     
-    fetch(`/api/restaurants/${restaurantId}`)
-      .then(res => res.json())
+    fetch(`/api/admin/restaurant`, { credentials: "include", headers: getAuthHeaders() })
+      .then(res => {
+        if (!res.ok) {
+          throw new Error("Failed to fetch restaurant");
+        }
+        return res.json();
+      })
       .then(data => {
-        if (data) {
+        if (data && !data.error) {
           setFormData({
             name: data.name || "",
             tradingName: data.tradingName || "",
@@ -333,9 +356,10 @@ export default function AdminProfile() {
     
     setIsSaving(true);
     try {
-      const res = await fetch(`/api/restaurants/${restaurantId}/profile`, {
+      const res = await fetch(`/api/admin/restaurant/profile`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        credentials: "include",
         body: JSON.stringify({ ...formData, logoUrl }),
       });
 

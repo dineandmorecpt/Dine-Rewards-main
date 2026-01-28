@@ -11,6 +11,15 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { Building2, MapPin, User, CheckCircle2, ArrowRight, ArrowLeft, Loader2 } from "lucide-react";
+import { getStoredAuth } from "@/lib/queryClient";
+
+function getAuthHeaders(): Record<string, string> {
+  const auth = getStoredAuth();
+  if (auth) {
+    return { "X-User-Id": auth.userId, "X-User-Type": auth.userType };
+  }
+  return {};
+}
 
 type OnboardingStep = "business" | "address" | "contact" | "review";
 
@@ -58,9 +67,9 @@ export default function AdminOnboarding() {
   const restaurantId = restaurant?.id;
 
   const { data: restaurantData, isLoading } = useQuery({
-    queryKey: ["/api/restaurants", restaurantId],
+    queryKey: ["/api/admin/restaurant"],
     queryFn: async () => {
-      const res = await fetch(`/api/restaurants/${restaurantId}`);
+      const res = await fetch(`/api/admin/restaurant`, { credentials: "include", headers: getAuthHeaders() });
       if (!res.ok) throw new Error("Failed to fetch restaurant");
       return res.json();
     },
@@ -87,9 +96,10 @@ export default function AdminOnboarding() {
 
   const saveOnboarding = useMutation({
     mutationFn: async (data: Partial<OnboardingData>) => {
-      const res = await fetch(`/api/restaurants/${restaurantId}/onboarding`, {
+      const res = await fetch(`/api/admin/restaurant/onboarding`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        credentials: "include",
         body: JSON.stringify(data),
       });
       if (!res.ok) {
@@ -99,14 +109,16 @@ export default function AdminOnboarding() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/restaurants", restaurantId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/restaurant"] });
     },
   });
 
   const submitOnboarding = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`/api/restaurants/${restaurantId}/onboarding/submit`, {
+      const res = await fetch(`/api/admin/restaurant/onboarding/submit`, {
         method: "POST",
+        credentials: "include",
+        headers: getAuthHeaders(),
       });
       if (!res.ok) {
         const error = await res.json();
@@ -115,7 +127,7 @@ export default function AdminOnboarding() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/restaurants", restaurantId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/restaurant"] });
       toast({
         title: "Onboarding Submitted",
         description: "Your restaurant details have been submitted for review.",
@@ -132,8 +144,10 @@ export default function AdminOnboarding() {
 
   const activateRestaurant = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`/api/restaurants/${restaurantId}/onboarding/activate`, {
+      const res = await fetch(`/api/admin/restaurant/onboarding/activate`, {
         method: "POST",
+        credentials: "include",
+        headers: getAuthHeaders(),
       });
       if (!res.ok) {
         const error = await res.json();
@@ -142,7 +156,7 @@ export default function AdminOnboarding() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/restaurants", restaurantId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/restaurant"] });
       toast({
         title: "Restaurant Activated!",
         description: "Your restaurant is now live. Diners can register using your link.",

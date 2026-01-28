@@ -2,8 +2,6 @@ import { build as esbuild } from "esbuild";
 import { build as viteBuild } from "vite";
 import { rm, readFile } from "fs/promises";
 
-// server deps to bundle to reduce openat(2) syscalls
-// which helps cold start times
 const allowlist = [
   "@google/generative-ai",
   "axios",
@@ -32,12 +30,7 @@ const allowlist = [
   "zod-validation-error",
 ];
 
-async function buildAll() {
-  await rm("dist", { recursive: true, force: true });
-
-  console.log("building client...");
-  await viteBuild();
-
+async function buildServer() {
   console.log("building server...");
   const pkg = JSON.parse(await readFile("package.json", "utf-8"));
   const allDeps = [
@@ -61,7 +54,57 @@ async function buildAll() {
   });
 }
 
-buildAll().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+async function buildAll() {
+  await rm("dist", { recursive: true, force: true });
+
+  console.log("building client...");
+  await viteBuild();
+
+  await buildServer();
+}
+
+async function buildDiner() {
+  await rm("dist/public-diner", { recursive: true, force: true });
+
+  console.log("building diner portal...");
+  await viteBuild({ configFile: "vite.config.diner.ts" });
+}
+
+async function buildAdmin() {
+  await rm("dist/public-admin", { recursive: true, force: true });
+
+  console.log("building admin portal...");
+  await viteBuild({ configFile: "vite.config.admin.ts" });
+}
+
+async function buildSeparate() {
+  await rm("dist", { recursive: true, force: true });
+
+  await buildDiner();
+  await buildAdmin();
+  await buildServer();
+}
+
+const buildType = process.argv[2];
+
+if (buildType === "diner") {
+  buildDiner().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+} else if (buildType === "admin") {
+  buildAdmin().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+} else if (buildType === "separate") {
+  buildSeparate().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+} else {
+  buildAll().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}

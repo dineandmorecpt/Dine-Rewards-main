@@ -252,6 +252,7 @@ export interface IStorage {
   
   // Portal User Management
   getPortalUsersByRestaurant(restaurantId: string): Promise<(PortalUser & { user: User; branchIds: string[]; branchNames: string[] })[]>;
+  getPortalUsersByUserId(userId: string): Promise<PortalUser[]>;
   addPortalUser(portalUser: InsertPortalUser): Promise<PortalUser>;
   removePortalUser(id: string): Promise<void>;
   getPortalUserByUserAndRestaurant(userId: string, restaurantId: string): Promise<PortalUser | undefined>;
@@ -302,12 +303,29 @@ export class DbStorage implements IStorage {
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    const result = await db.select().from(users).where(eq(users.email, email));
+    const result = await db.select().from(users).where(eq(sql`lower(${users.email})`, email.toLowerCase()));
     return result[0];
   }
 
   async getUserByPhone(phone: string): Promise<User | undefined> {
-    const result = await db.select().from(users).where(eq(users.phone, phone));
+    const normalizedPhone = phone.trim().replace(/[\s\-()]/g, '');
+    
+    const phonesToSearch: string[] = [normalizedPhone];
+    
+    if (normalizedPhone.startsWith('0')) {
+      phonesToSearch.push('+27' + normalizedPhone.substring(1));
+    }
+    if (normalizedPhone.startsWith('+27')) {
+      phonesToSearch.push('0' + normalizedPhone.substring(3));
+    }
+    if (normalizedPhone.startsWith('27') && !normalizedPhone.startsWith('+')) {
+      phonesToSearch.push('+' + normalizedPhone);
+      phonesToSearch.push('0' + normalizedPhone.substring(2));
+    }
+    
+    const result = await db.select().from(users).where(
+      sql`${users.phone} IN (${sql.join(phonesToSearch.map(p => sql`${p}`), sql`, `)})`
+    );
     return result[0];
   }
 
@@ -934,6 +952,11 @@ export class DbStorage implements IStorage {
     }));
     
     return enrichedResults;
+  }
+
+  async getPortalUsersByUserId(userId: string): Promise<PortalUser[]> {
+    const results = await db.select().from(portalUsers).where(eq(portalUsers.userId, userId));
+    return results;
   }
 
   async addPortalUser(portalUser: InsertPortalUser): Promise<PortalUser> {

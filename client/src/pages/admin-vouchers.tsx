@@ -18,6 +18,15 @@ import { Html5Qrcode } from "html5-qrcode";
 import { useAuth } from "@/hooks/use-auth";
 import { useBranch } from "@/hooks/use-branch";
 import { QRCodeCanvas } from "qrcode.react";
+import { getStoredAuth } from "@/lib/queryClient";
+
+function getAuthHeaders(): Record<string, string> {
+  const auth = getStoredAuth();
+  if (auth) {
+    return { "X-User-Id": auth.userId, "X-User-Type": auth.userType };
+  }
+  return {};
+}
 
 // Mock Data
 
@@ -60,7 +69,7 @@ function AdminVouchersContent() {
   const [captureScannerOpen, setCaptureScannerOpen] = useState(false);
   const [captureIsScanning, setCaptureIsScanning] = useState(false);
   const captureScannerRef = useRef<Html5Qrcode | null>(null);
-  const [captureSuccess, setCaptureSuccess] = useState<{dinerName: string; pointsEarned: number; currentPoints: number} | null>(null);
+  const [captureSuccess, setCaptureSuccess] = useState<{dinerName: string} | null>(null);
   
   // Phone QR scanner state
   const [phoneScannerOpen, setPhoneScannerOpen] = useState(false);
@@ -103,7 +112,7 @@ function AdminVouchersContent() {
   
   // Get registration URL
   const registrationUrl = typeof window !== 'undefined' 
-    ? `${window.location.origin}/register` 
+    ? `${window.location.origin}/register${restaurantId ? `?restaurantId=${restaurantId}` : ''}` 
     : '/register';
   
   const downloadQRCode = () => {
@@ -125,8 +134,9 @@ function AdminVouchersContent() {
   const transactionsQuery = useQuery({
     queryKey: ['restaurant-transactions', restaurantId],
     queryFn: async () => {
-      const res = await fetch(`/api/restaurants/${restaurantId}/transactions`, {
-        credentials: 'include'
+      const res = await fetch(`/api/admin/transactions`, {
+        credentials: 'include',
+        headers: getAuthHeaders()
       });
       if (!res.ok) throw new Error('Failed to fetch transactions');
       return res.json();
@@ -138,7 +148,7 @@ function AdminVouchersContent() {
   const portalUsersQuery = useQuery({
     queryKey: ['portal-users', restaurantId],
     queryFn: async () => {
-      const res = await fetch(`/api/restaurants/${restaurantId}/portal-users`);
+      const res = await fetch(`/api/admin/staff`, { credentials: "include", headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Failed to fetch portal users');
       return res.json();
     },
@@ -147,9 +157,10 @@ function AdminVouchersContent() {
   
   const addPortalUser = useMutation({
     mutationFn: async ({ email, name, role }: { email: string; name: string; role: string }) => {
-      const res = await fetch(`/api/restaurants/${restaurantId}/portal-users`, {
+      const res = await fetch(`/api/admin/staff`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        credentials: "include",
         body: JSON.stringify({ email, name, role })
       });
       if (!res.ok) {
@@ -180,8 +191,10 @@ function AdminVouchersContent() {
   
   const removePortalUser = useMutation({
     mutationFn: async (portalUserId: string) => {
-      const res = await fetch(`/api/restaurants/${restaurantId}/portal-users/${portalUserId}`, {
-        method: "DELETE"
+      const res = await fetch(`/api/admin/staff/${portalUserId}`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: getAuthHeaders()
       });
       if (!res.ok) throw new Error("Failed to remove user");
       return res.json();
@@ -206,7 +219,7 @@ function AdminVouchersContent() {
   const voucherTypesQuery = useQuery({
     queryKey: ['voucher-types', restaurantId],
     queryFn: async () => {
-      const res = await fetch(`/api/restaurants/${restaurantId}/voucher-types`);
+      const res = await fetch(`/api/admin/voucher-types`, { credentials: "include", headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Failed to fetch voucher types');
       return res.json();
     },
@@ -217,7 +230,7 @@ function AdminVouchersContent() {
   const branchesQuery = useQuery({
     queryKey: ['branches', restaurantId],
     queryFn: async () => {
-      const res = await fetch(`/api/restaurants/${restaurantId}/branches`);
+      const res = await fetch(`/api/admin/branches`, { credentials: "include", headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Failed to fetch branches');
       return res.json();
     },
@@ -304,9 +317,10 @@ function AdminVouchersContent() {
   
   const createVoucherType = useMutation({
     mutationFn: async (data: { category: string; name: string; description?: string; rewardDetails?: string; value?: number; freeItemType?: string; freeItemDescription?: string; creditsCost: number; validityDays: number; expiresAt?: string; isActive: boolean }) => {
-      const res = await fetch(`/api/restaurants/${restaurantId}/voucher-types`, {
+      const res = await fetch(`/api/admin/voucher-types`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        credentials: "include",
         body: JSON.stringify(data)
       });
       if (!res.ok) {
@@ -335,9 +349,10 @@ function AdminVouchersContent() {
   
   const updateVoucherType = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: { category?: string; name?: string; description?: string; rewardDetails?: string; value?: number; freeItemType?: string; freeItemDescription?: string; creditsCost?: number; validityDays?: number; isActive?: boolean } }) => {
-      const res = await fetch(`/api/restaurants/${restaurantId}/voucher-types/${id}`, {
+      const res = await fetch(`/api/admin/voucher-types/${id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        credentials: "include",
         body: JSON.stringify(data)
       });
       if (!res.ok) {
@@ -366,8 +381,10 @@ function AdminVouchersContent() {
   
   const deleteVoucherType = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`/api/restaurants/${restaurantId}/voucher-types/${id}`, {
-        method: "DELETE"
+      const res = await fetch(`/api/admin/voucher-types/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: getAuthHeaders()
       });
       if (!res.ok) {
         const error = await res.json();
@@ -607,9 +624,10 @@ function AdminVouchersContent() {
 
   const recordTransaction = useMutation({
     mutationFn: async ({ phone, billId, amountSpent }: { phone: string; billId?: string; amountSpent: number }) => {
-      const res = await fetch(`/api/restaurants/${restaurantId}/transactions/record`, {
+      const res = await fetch(`/api/admin/transactions/record`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        credentials: "include",
         body: JSON.stringify({ phone, billId: billId || undefined, amountSpent })
       });
       if (!res.ok) {
@@ -620,9 +638,7 @@ function AdminVouchersContent() {
     },
     onSuccess: (data) => {
       setCaptureSuccess({
-        dinerName: data.dinerName,
-        pointsEarned: data.transaction.pointsEarned,
-        currentPoints: data.balance.currentPoints
+        dinerName: data.dinerName
       });
       setCapturePhone("");
       setCaptureBillId("");
@@ -631,7 +647,7 @@ function AdminVouchersContent() {
       transactionsQuery.refetch();
       toast({
         title: "Transaction Recorded!",
-        description: `${data.dinerName} earned ${data.transaction.pointsEarned} points`
+        description: `Visit recorded for ${data.dinerName}`
       });
     },
     onError: (error: Error) => {
@@ -646,7 +662,7 @@ function AdminVouchersContent() {
   const reconciliationBatches = useQuery({
     queryKey: ['reconciliation-batches', restaurantId],
     queryFn: async () => {
-      const res = await fetch(`/api/restaurants/${restaurantId}/reconciliation/batches`);
+      const res = await fetch(`/api/admin/reconciliation/batches`, { credentials: "include", headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Failed to fetch batches');
       return res.json();
     },
@@ -657,7 +673,7 @@ function AdminVouchersContent() {
     queryKey: ['batch-details', selectedBatchId],
     queryFn: async () => {
       if (!selectedBatchId) return null;
-      const res = await fetch(`/api/restaurants/${restaurantId}/reconciliation/batches/${selectedBatchId}`);
+      const res = await fetch(`/api/admin/reconciliation/batches/${selectedBatchId}`, { credentials: "include", headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Failed to fetch batch details');
       return res.json();
     },
@@ -667,9 +683,10 @@ function AdminVouchersContent() {
   const uploadCSV = useMutation({
     mutationFn: async (file: File) => {
       const content = await file.text();
-      const res = await fetch(`/api/restaurants/${restaurantId}/reconciliation/upload`, {
+      const res = await fetch(`/api/admin/reconciliation/upload`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        credentials: "include",
         body: JSON.stringify({ fileName: file.name, csvContent: content })
       });
       if (!res.ok) {
@@ -697,9 +714,10 @@ function AdminVouchersContent() {
 
   const redeemVoucher = useMutation({
     mutationFn: async ({ code, billId }: { code: string; billId?: string }) => {
-      const res = await fetch(`/api/restaurants/${restaurantId}/vouchers/redeem`, {
+      const res = await fetch(`/api/admin/vouchers/redeem`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        credentials: "include",
         body: JSON.stringify({ code, billId: billId || undefined, branchId: selectedBranchId || undefined })
       });
       if (!res.ok) {
@@ -727,7 +745,7 @@ function AdminVouchersContent() {
   });
 
   useEffect(() => {
-    fetch(`/api/restaurants/${restaurantId}`)
+    fetch(`/api/admin/restaurant`, { credentials: "include", headers: getAuthHeaders() })
       .then(res => res.json())
       .then(data => {
         if (data) {
@@ -743,9 +761,10 @@ function AdminVouchersContent() {
   const handleSaveSettings = async () => {
     setIsSaving(true);
     try {
-      const response = await fetch(`/api/restaurants/${restaurantId}/settings`, {
+      const response = await fetch(`/api/admin/restaurant/settings`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        credentials: "include",
         body: JSON.stringify({
           voucherValue,
           voucherValidityDays,
@@ -957,18 +976,8 @@ function AdminVouchersContent() {
                   <div className="mt-4 p-4 bg-green-50 dark:bg-green-950/30 rounded-md border border-green-200 dark:border-green-800">
                     <p className="text-sm text-green-700 dark:text-green-400 font-medium flex items-center gap-2">
                       <Check className="h-4 w-4" />
-                      Transaction recorded for {captureSuccess.dinerName}
+                      Transaction successfully recorded for {captureSuccess.dinerName}
                     </p>
-                    <div className="mt-2 grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <p className="text-muted-foreground">Points Earned</p>
-                        <p className="font-semibold text-green-600 dark:text-green-400">+{captureSuccess.pointsEarned}</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground">New Balance</p>
-                        <p className="font-semibold">{captureSuccess.currentPoints} points</p>
-                      </div>
-                    </div>
                   </div>
                 )}
               </CardContent>
@@ -1147,41 +1156,47 @@ function AdminVouchersContent() {
                     <Separator className="flex-1" />
                   </div>
 
-                  <div className="flex gap-3">
-                    <Input
-                      placeholder="Enter voucher code (e.g., BURG-1234)"
-                      value={redeemCode}
-                      onChange={(e) => {
-                        setRedeemCode(e.target.value.toUpperCase());
-                        setRedemptionSuccess(null);
-                      }}
-                      className="font-mono tracking-wider uppercase"
-                      data-testid="input-redeem-code"
-                    />
-                    <Button
-                      onClick={() => redeemVoucher.mutate({ code: redeemCode, billId: billId || undefined })}
-                      disabled={!redeemCode.trim() || redeemVoucher.isPending}
-                      className="gap-2"
-                      data-testid="button-redeem-voucher"
-                    >
-                      {redeemVoucher.isPending ? (
-                        "Processing..."
-                      ) : (
-                        <>
-                          <Check className="h-4 w-4" />
-                          Redeem
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                  <div className="flex gap-3 items-center">
-                    <Input
-                      placeholder="Bill/Invoice ID (for reconciliation)"
-                      value={billId}
-                      onChange={(e) => setBillId(e.target.value)}
-                      className="font-mono"
-                      data-testid="input-bill-id"
-                    />
+                  <div className="space-y-3">
+                    <div>
+                      <Label className="text-sm font-medium mb-1.5 block">Bill / Invoice ID <span className="text-destructive">*</span></Label>
+                      <Input
+                        placeholder="Enter bill/invoice ID (required)"
+                        value={billId}
+                        onChange={(e) => setBillId(e.target.value)}
+                        className="font-mono"
+                        data-testid="input-bill-id"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium mb-1.5 block">Voucher Code <span className="text-destructive">*</span></Label>
+                      <div className="flex gap-3">
+                        <Input
+                          placeholder="Enter voucher code (e.g., BURG-1234)"
+                          value={redeemCode}
+                          onChange={(e) => {
+                            setRedeemCode(e.target.value.toUpperCase());
+                            setRedemptionSuccess(null);
+                          }}
+                          className="font-mono tracking-wider uppercase"
+                          data-testid="input-redeem-code"
+                        />
+                        <Button
+                          onClick={() => redeemVoucher.mutate({ code: redeemCode, billId })}
+                          disabled={!redeemCode.trim() || !billId.trim() || redeemVoucher.isPending}
+                          className="gap-2"
+                          data-testid="button-redeem-voucher"
+                        >
+                          {redeemVoucher.isPending ? (
+                            "Processing..."
+                          ) : (
+                            <>
+                              <Check className="h-4 w-4" />
+                              Redeem
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 </div>
                 {redemptionSuccess && (

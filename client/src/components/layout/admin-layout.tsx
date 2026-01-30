@@ -75,7 +75,7 @@ function AdminLayoutContent({ children }: AdminLayoutProps) {
   const SidebarContent = () => (
     <div className="flex flex-col h-full bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
       <div className="p-6">
-        <Link href="/" onClick={() => setSidebarOpen(false)} className="block hover:opacity-80 transition-opacity">
+        <Link href="/admin/dashboard" onClick={() => setSidebarOpen(false)} className="block hover:opacity-80 transition-opacity">
           <img src={logoImage} alt="Dine&More" className="h-12 w-auto" />
         </Link>
         <p className="text-sm text-sidebar-primary font-semibold mt-2">{restaurant?.name || 'Restaurant'}</p>
@@ -192,7 +192,7 @@ function AdminLayoutContent({ children }: AdminLayoutProps) {
     <div className="min-h-screen bg-background font-sans">
       {/* Mobile Header - sticky at top */}
       <div className="lg:hidden p-4 border-b flex items-center justify-between bg-card sticky top-0 z-40">
-        <Link href="/" className="hover:opacity-80 transition-opacity">
+        <Link href="/admin/dashboard" className="hover:opacity-80 transition-opacity">
           <img src={logoImage} alt="Dine&More" className="h-10 w-auto" />
         </Link>
         <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>

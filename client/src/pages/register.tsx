@@ -70,7 +70,9 @@ export default function Register() {
     queryKey: ['invitation', token],
     queryFn: async () => {
       if (!token) throw new Error("No invitation token provided");
-      const res = await fetch(`/api/invitations/${token}`);
+      const res = await fetch(`/api/invitations/${token}`, {
+        credentials: "include",
+      });
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error || "Invalid invitation");
@@ -87,6 +89,7 @@ export default function Register() {
       const res = await fetch('/api/auth/invitation-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: "include",
         body: JSON.stringify({ phone: phoneNumber, token }),
       });
       if (!res.ok) {
@@ -107,6 +110,7 @@ export default function Register() {
       const res = await fetch('/api/auth/verify-invitation-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: "include",
         body: JSON.stringify({ phone: phoneNumber, otp: otpCode, token }),
       });
       if (!res.ok) {
@@ -129,6 +133,7 @@ export default function Register() {
       const res = await fetch('/api/diners/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: "include",
         body: JSON.stringify(data),
       });
       if (!res.ok) {
@@ -147,6 +152,7 @@ export default function Register() {
       const res = await fetch('/api/auth/register-diner', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: "include",
         body: JSON.stringify(data),
       });
       if (!res.ok) {

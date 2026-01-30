@@ -27,7 +27,9 @@ export default function ConfirmAccountDeletion() {
       }
 
       try {
-        const response = await fetch(`/api/account/validate-deletion-token?token=${token}`);
+        const response = await fetch(`/api/account/validate-deletion-token?token=${token}`, {
+          credentials: "include",
+        });
         const data = await response.json();
 
         setIsValid(data.valid);
@@ -51,6 +53,7 @@ export default function ConfirmAccountDeletion() {
       const response = await fetch("/api/account/confirm-deletion", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ token }),
       });
 

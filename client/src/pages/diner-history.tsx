@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Receipt, Utensils, Calendar, CheckCircle2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { getAuthHeaders } from "@/lib/queryClient";
 
 interface TransactionWithRestaurant {
   id: string;
@@ -22,7 +23,10 @@ export default function DinerHistory() {
   const { data: transactions = [], isLoading } = useQuery<TransactionWithRestaurant[]>({
     queryKey: ["/api/diner/transactions"],
     queryFn: async () => {
-      const res = await fetch(`/api/diner/transactions`);
+      const res = await fetch(`/api/diner/transactions`, {
+        credentials: "include",
+        headers: getAuthHeaders(),
+      });
       if (!res.ok) throw new Error("Failed to fetch transactions");
       return res.json();
     },

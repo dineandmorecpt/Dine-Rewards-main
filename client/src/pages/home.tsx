@@ -230,6 +230,31 @@ export default function Home() {
       return;
     }
 
+    // Validate date of birth - user must be 18 or older
+    if (registerDob) {
+      const dobParts = registerDob.split('/');
+      if (dobParts.length === 3) {
+        const day = parseInt(dobParts[0], 10);
+        const month = parseInt(dobParts[1], 10) - 1;
+        const year = parseInt(dobParts[2], 10);
+        const birthDate = new Date(year, month, day);
+        const today = new Date();
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const monthDiff = today.getMonth() - birthDate.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+          age--;
+        }
+        if (age < 18) {
+          toast({
+            title: "Age restriction",
+            description: "You must be 18 years or older to register.",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+    }
+
     setIsLoading(true);
     try {
       const response = await fetch("/api/auth/register-diner", {

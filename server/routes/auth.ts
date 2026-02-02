@@ -86,8 +86,8 @@ const selfRegisterDinerSchema = z.object({
     .refine(val => val.length >= 7, { message: "Phone number must be at least 7 digits" })
     .refine(val => /^[0-9+]+$/.test(val), { message: "Phone number contains invalid characters" }),
   password: passwordSchema,
-  gender: z.enum(["male", "female", "other", "prefer_not_to_say"]),
-  ageRange: z.enum(["18-29", "30-39", "40-49", "50-59", "60+"]),
+  gender: z.enum(["male", "female"]),
+  dateOfBirth: z.string().min(1, "Date of birth is required"),
   province: z.string().min(1, "Province is required"),
   restaurantId: z.string().optional(),
 });
@@ -597,7 +597,7 @@ export function registerAuthRoutes(router: Router): void {
         });
       }
 
-      const { name, lastName, email, phone, password, gender, ageRange, province, restaurantId } = parseResult.data;
+      const { name, lastName, email, phone, password, gender, dateOfBirth, province, restaurantId } = parseResult.data;
 
       if (!req.session.verifiedPhone || req.session.verifiedPhone !== phone) {
         return res.status(400).json({ error: "Phone number must be verified before registration" });
@@ -623,7 +623,7 @@ export function registerAuthRoutes(router: Router): void {
         password: hashedPassword,
         userType: 'diner',
         gender,
-        ageRange,
+        dateOfBirth,
         province,
       });
 

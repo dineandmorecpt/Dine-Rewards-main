@@ -17,14 +17,6 @@ const GENDER_OPTIONS = [
   { value: "female", label: "Female" },
 ];
 
-const AGE_RANGE_OPTIONS = [
-  { value: "18-29", label: "18-29" },
-  { value: "30-39", label: "30-39" },
-  { value: "40-49", label: "40-49" },
-  { value: "50-59", label: "50-59" },
-  { value: "60+", label: "60+" },
-];
-
 const PROVINCE_OPTIONS = [
   { value: "Eastern Cape", label: "Eastern Cape" },
   { value: "Free State", label: "Free State" },
@@ -50,7 +42,8 @@ export default function Register() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [gender, setGender] = useState("");
-  const [ageRange, setAgeRange] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [dateOfBirthError, setDateOfBirthError] = useState("");
   const [province, setProvince] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
@@ -127,7 +120,7 @@ export default function Register() {
   });
 
   const registerWithToken = useMutation({
-    mutationFn: async (data: { token: string; email: string; name: string; lastName: string; gender: string; ageRange: string; province: string; termsAccepted: boolean; privacyAccepted: boolean; captchaToken: string }) => {
+    mutationFn: async (data: { token: string; email: string; name: string; lastName: string; gender: string; dateOfBirth: string; province: string; termsAccepted: boolean; privacyAccepted: boolean; captchaToken: string }) => {
       const res = await fetch('/api/diners/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -146,7 +139,7 @@ export default function Register() {
   });
 
   const selfRegister = useMutation({
-    mutationFn: async (data: { name: string; lastName: string; email: string; phone: string; password: string; gender: string; ageRange: string; province: string; restaurantId?: string }) => {
+    mutationFn: async (data: { name: string; lastName: string; email: string; phone: string; password: string; gender: string; dateOfBirth: string; province: string; restaurantId?: string }) => {
       const res = await fetch('/api/auth/register-diner', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -164,15 +157,60 @@ export default function Register() {
     },
   });
 
+  const validateDateOfBirth = (dob: string): { valid: boolean; error: string } => {
+    if (!dob) return { valid: false, error: "Date of birth is required" };
+    
+    const parts = dob.split('/');
+    if (parts.length !== 3) return { valid: false, error: "Use DD/MM/YYYY format" };
+    
+    const day = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10);
+    const year = parseInt(parts[2], 10);
+    
+    if (isNaN(day) || isNaN(month) || isNaN(year)) {
+      return { valid: false, error: "Invalid date format" };
+    }
+    
+    if (day < 1 || day > 31 || month < 1 || month > 12) {
+      return { valid: false, error: "Invalid day or month" };
+    }
+    
+    if (year < 1900 || year > new Date().getFullYear()) {
+      return { valid: false, error: "Invalid year" };
+    }
+    
+    const birthDate = new Date(year, month - 1, day);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    
+    if (age < 18) {
+      return { valid: false, error: "You must be at least 18 years old to register" };
+    }
+    
+    return { valid: true, error: "" };
+  };
+
+  const isDateOfBirthValid = dateOfBirth && validateDateOfBirth(dateOfBirth).valid;
+
   const handleTokenSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const dobValidation = validateDateOfBirth(dateOfBirth);
+    if (!dobValidation.valid) {
+      setDateOfBirthError(dobValidation.error);
+      return;
+    }
+    setDateOfBirthError("");
     registerWithToken.mutate({
       token,
       email,
       name,
       lastName,
       gender,
-      ageRange,
+      dateOfBirth,
       province,
       termsAccepted,
       privacyAccepted,
@@ -182,6 +220,12 @@ export default function Register() {
 
   const handleSelfRegisterSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const dobValidation = validateDateOfBirth(dateOfBirth);
+    if (!dobValidation.valid) {
+      setDateOfBirthError(dobValidation.error);
+      return;
+    }
+    setDateOfBirthError("");
     selfRegister.mutate({
       name,
       lastName,
@@ -189,19 +233,19 @@ export default function Register() {
       phone,
       password,
       gender,
-      ageRange,
+      dateOfBirth,
       province,
       restaurantId: restaurantId || undefined,
     });
   };
 
-  const isTokenFormValid = name.trim() && lastName.trim() && email.trim() && gender && ageRange && province && termsAccepted && privacyAccepted && captchaToken;
+  const isTokenFormValid = name.trim() && lastName.trim() && email.trim() && gender && isDateOfBirthValid && province && termsAccepted && privacyAccepted && captchaToken;
   const isPasswordValid = password.length >= 8 && 
     /[A-Z]/.test(password) && 
     /[a-z]/.test(password) && 
     /[0-9]/.test(password) && 
     /[^A-Za-z0-9]/.test(password);
-  const isSelfFormValid = name.trim() && lastName.trim() && email.trim() && phone.trim() && gender && ageRange && province && isPasswordValid && termsAccepted && privacyAccepted;
+  const isSelfFormValid = name.trim() && lastName.trim() && email.trim() && phone.trim() && gender && isDateOfBirthValid && province && isPasswordValid && termsAccepted && privacyAccepted;
 
   if (registrationComplete) {
     return (
@@ -319,17 +363,21 @@ export default function Register() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="ageRange">Age Range</Label>
-                <Select value={ageRange} onValueChange={setAgeRange}>
-                  <SelectTrigger id="ageRange" data-testid="select-register-age-range">
-                    <SelectValue placeholder="Select age range" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {AGE_RANGE_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="dateOfBirth">Date of Birth <span className="text-destructive">*</span></Label>
+                <Input
+                  id="dateOfBirth"
+                  type="text"
+                  placeholder="DD/MM/YYYY"
+                  value={dateOfBirth}
+                  onChange={(e) => {
+                    setDateOfBirth(e.target.value);
+                    setDateOfBirthError("");
+                  }}
+                  data-testid="input-register-dob"
+                />
+                {dateOfBirthError && (
+                  <p className="text-sm text-destructive">{dateOfBirthError}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -653,17 +701,21 @@ export default function Register() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="ageRange">Age Range <span className="text-destructive">*</span></Label>
-              <Select value={ageRange} onValueChange={setAgeRange}>
-                <SelectTrigger id="ageRange" data-testid="select-register-age-range">
-                  <SelectValue placeholder="Select age range" />
-                </SelectTrigger>
-                <SelectContent>
-                  {AGE_RANGE_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="dateOfBirth">Date of Birth <span className="text-destructive">*</span></Label>
+              <Input
+                id="dateOfBirth"
+                type="text"
+                placeholder="DD/MM/YYYY"
+                value={dateOfBirth}
+                onChange={(e) => {
+                  setDateOfBirth(e.target.value);
+                  setDateOfBirthError("");
+                }}
+                data-testid="input-register-dob"
+              />
+              {dateOfBirthError && (
+                <p className="text-sm text-destructive">{dateOfBirthError}</p>
+              )}
             </div>
 
             <div className="space-y-2">

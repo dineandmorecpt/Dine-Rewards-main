@@ -197,7 +197,7 @@ export default function Home() {
         description: "Please complete your registration.",
       });
 
-      setVerifiedPhone(registerPhone);
+      setVerifiedPhone(data.verifiedPhone || registerPhone);
       setRegisterStep(3);
     } catch (error: any) {
       toast({

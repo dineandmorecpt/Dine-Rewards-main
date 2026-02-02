@@ -599,6 +599,13 @@ export function registerAuthRoutes(router: Router): void {
 
       const { name, lastName, email, phone, password, gender, dateOfBirth, province, restaurantId } = parseResult.data;
 
+      console.log("Register-diner session check:", {
+        sessionId: req.session.id,
+        verifiedPhone: req.session.verifiedPhone,
+        submittedPhone: phone,
+        match: req.session.verifiedPhone === phone
+      });
+
       if (!req.session.verifiedPhone || req.session.verifiedPhone !== phone) {
         return res.status(400).json({ error: "Phone number must be verified before registration" });
       }
@@ -963,11 +970,17 @@ export function registerAuthRoutes(router: Router): void {
       
       req.session.verifiedPhone = phone;
       
+      console.log("Verify-registration-otp session save:", {
+        sessionId: req.session.id,
+        verifiedPhone: phone
+      });
+      
       req.session.save((err) => {
         if (err) {
           console.error("Session save error:", err);
           return res.status(500).json({ error: "Verification failed" });
         }
+        console.log("Session saved successfully for phone:", phone);
         res.json({
           success: true,
           message: "Phone number verified successfully",

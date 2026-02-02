@@ -57,6 +57,7 @@ const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
   password: z.string().min(1, "Password is required"),
   captchaToken: z.string().min(1, "Security verification required"),
+  portal: z.enum(["diner", "restaurant"]).optional(), // Which portal is being accessed
 });
 
 const forgotPasswordSchema = z.object({
@@ -153,28 +154,107 @@ export function registerAuthRoutes(router: Router): void {
         return res.status(403).json({ error: captchaResult.error || "Security verification failed" });
       }
 
-      const { email, password } = parseResult.data;
+      const { email, password, portal } = parseResult.data;
 
-      const user = await storage.getUserByEmail(email);
-      if (!user) {
-        return res.status(401).json({ error: "Invalid email or password" });
-      }
-
-      let passwordValid = false;
-      if (user.password.startsWith('$2')) {
-        passwordValid = await bcrypt.compare(password, user.password);
+      let user: any = null;
+      let userType: string = 'diner';
+      
+      // Portal-specific authentication using new tables
+      if (portal === 'restaurant') {
+        // Check restaurant_staff table first
+        const staff = await storage.getStaffByEmail(email);
+        if (staff) {
+          let passwordValid = false;
+          if (staff.password.startsWith('$2')) {
+            passwordValid = await bcrypt.compare(password, staff.password);
+          } else {
+            passwordValid = staff.password === password;
+          }
+          
+          if (passwordValid) {
+            user = staff;
+            userType = 'restaurant_admin';
+          }
+        }
+        
+        // Fall back to legacy users table if not found in new table
+        if (!user) {
+          const legacyUser = await storage.getUserByEmailAndType(email, 'restaurant_admin');
+          if (legacyUser) {
+            let passwordValid = false;
+            if (legacyUser.password.startsWith('$2')) {
+              passwordValid = await bcrypt.compare(password, legacyUser.password);
+            } else {
+              passwordValid = legacyUser.password === password;
+            }
+            
+            if (passwordValid) {
+              user = legacyUser;
+              userType = 'restaurant_admin';
+            }
+          }
+        }
+      } else if (portal === 'diner') {
+        // Check diners table first
+        const diner = await storage.getDinerByEmail(email);
+        if (diner) {
+          let passwordValid = false;
+          if (diner.password.startsWith('$2')) {
+            passwordValid = await bcrypt.compare(password, diner.password);
+          } else {
+            passwordValid = diner.password === password;
+          }
+          
+          if (passwordValid) {
+            user = diner;
+            userType = 'diner';
+          }
+        }
+        
+        // Fall back to legacy users table if not found in new table
+        if (!user) {
+          const legacyUser = await storage.getUserByEmailAndType(email, 'diner');
+          if (legacyUser) {
+            let passwordValid = false;
+            if (legacyUser.password.startsWith('$2')) {
+              passwordValid = await bcrypt.compare(password, legacyUser.password);
+            } else {
+              passwordValid = legacyUser.password === password;
+            }
+            
+            if (passwordValid) {
+              user = legacyUser;
+              userType = 'diner';
+            }
+          }
+        }
       } else {
-        passwordValid = user.password === password;
+        // No portal specified - use legacy behavior (check all users)
+        user = await storage.getUserByEmail(email);
+        if (user) {
+          let passwordValid = false;
+          if (user.password.startsWith('$2')) {
+            passwordValid = await bcrypt.compare(password, user.password);
+          } else {
+            passwordValid = user.password === password;
+          }
+          
+          if (!passwordValid) {
+            user = null;
+          } else {
+            userType = user.userType;
+          }
+        }
       }
 
-      if (!passwordValid) {
+      if (!user) {
         return res.status(401).json({ error: "Invalid email or password" });
       }
 
       let restaurant = null;
       let portalRole = null;
       
-      if (user.userType === 'restaurant_admin') {
+      if (userType === 'restaurant_admin') {
         const ownedRestaurants = await storage.getRestaurantsByAdmin(user.id);
         
         if (ownedRestaurants.length > 0) {
@@ -194,7 +274,7 @@ export function registerAuthRoutes(router: Router): void {
       }
 
       req.session.userId = user.id;
-      req.session.userType = user.userType;
+      req.session.userType = userType;
       
       console.log("[DEBUG] Login - Session ID:", req.sessionID, "userId:", user.id);
 
@@ -645,19 +725,32 @@ export function registerAuthRoutes(router: Router): void {
         return res.status(400).json({ error: "Phone number must be verified before registration" });
       }
 
-      // Check for existing DINER accounts only (allow same email/phone for admin + diner)
-      const existingEmail = await storage.getUserByEmailAndType(email, 'diner');
+      // Check for existing DINER accounts in the new diners table
+      const existingEmail = await storage.getDinerByEmail(email);
       if (existingEmail) {
         return res.status(400).json({ error: "A diner account with this email already exists" });
       }
 
-      const existingPhone = await storage.getUserByPhoneAndType(phone, 'diner');
+      const existingPhone = await storage.getDinerByPhone(phone);
       if (existingPhone) {
         return res.status(400).json({ error: "A diner account with this phone number already exists" });
       }
 
       const hashedPassword = await bcrypt.hash(password, 12);
 
+      // Create diner in the new diners table
+      const diner = await storage.createDiner({
+        name,
+        lastName,
+        email,
+        phone,
+        password: hashedPassword,
+        gender,
+        dateOfBirth,
+        province,
+      });
+      
+      // For backward compatibility, also create in users table
       const user = await storage.createUser({
         name,
         lastName,

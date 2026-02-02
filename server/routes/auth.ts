@@ -159,73 +159,26 @@ export function registerAuthRoutes(router: Router): void {
       let user: any = null;
       let userType: string = 'diner';
       
-      // Portal-specific authentication using new tables
-      if (portal === 'restaurant') {
-        // Check restaurant_staff table first
-        const staff = await storage.getStaffByEmail(email);
-        if (staff) {
+      // Portal-specific authentication using legacy users table
+      // IMPORTANT: Legacy users table is source of truth for FK relationships
+      // The portal parameter determines which userType to authenticate against
+      const expectedUserType = portal === 'restaurant' ? 'restaurant_admin' : 
+                              portal === 'diner' ? 'diner' : null;
+      
+      if (expectedUserType) {
+        // Look up user in legacy table by email and expected type
+        const legacyUser = await storage.getUserByEmailAndType(email, expectedUserType);
+        if (legacyUser) {
           let passwordValid = false;
-          if (staff.password.startsWith('$2')) {
-            passwordValid = await bcrypt.compare(password, staff.password);
+          if (legacyUser.password.startsWith('$2')) {
+            passwordValid = await bcrypt.compare(password, legacyUser.password);
           } else {
-            passwordValid = staff.password === password;
+            passwordValid = legacyUser.password === password;
           }
           
           if (passwordValid) {
-            user = staff;
-            userType = 'restaurant_admin';
-          }
-        }
-        
-        // Fall back to legacy users table if not found in new table
-        if (!user) {
-          const legacyUser = await storage.getUserByEmailAndType(email, 'restaurant_admin');
-          if (legacyUser) {
-            let passwordValid = false;
-            if (legacyUser.password.startsWith('$2')) {
-              passwordValid = await bcrypt.compare(password, legacyUser.password);
-            } else {
-              passwordValid = legacyUser.password === password;
-            }
-            
-            if (passwordValid) {
-              user = legacyUser;
-              userType = 'restaurant_admin';
-            }
-          }
-        }
-      } else if (portal === 'diner') {
-        // Check diners table first
-        const diner = await storage.getDinerByEmail(email);
-        if (diner) {
-          let passwordValid = false;
-          if (diner.password.startsWith('$2')) {
-            passwordValid = await bcrypt.compare(password, diner.password);
-          } else {
-            passwordValid = diner.password === password;
-          }
-          
-          if (passwordValid) {
-            user = diner;
-            userType = 'diner';
-          }
-        }
-        
-        // Fall back to legacy users table if not found in new table
-        if (!user) {
-          const legacyUser = await storage.getUserByEmailAndType(email, 'diner');
-          if (legacyUser) {
-            let passwordValid = false;
-            if (legacyUser.password.startsWith('$2')) {
-              passwordValid = await bcrypt.compare(password, legacyUser.password);
-            } else {
-              passwordValid = legacyUser.password === password;
-            }
-            
-            if (passwordValid) {
-              user = legacyUser;
-              userType = 'diner';
-            }
+            user = legacyUser;
+            userType = expectedUserType;
           }
         }
       } else {

@@ -620,6 +620,7 @@ export function registerAdminApiRoutes(router: Router): void {
         const tempPassword = crypto.randomBytes(16).toString('hex');
         const hashedPassword = await bcrypt.hash(tempPassword, 12);
         
+        // Create in legacy users table (for FK relationships)
         staffUser = await storage.createUser({
           email,
           name,
@@ -627,6 +628,19 @@ export function registerAdminApiRoutes(router: Router): void {
           password: hashedPassword,
           userType: 'restaurant_admin',
         });
+        
+        // Also create in new restaurant_staff table (for portal authentication)
+        try {
+          await storage.createStaff({
+            email,
+            name,
+            phone: phone || null,
+            password: hashedPassword,
+          });
+        } catch (staffErr) {
+          console.log("[Staff Create] Could not create in restaurant_staff table:", staffErr);
+          // Continue even if staff creation fails - legacy users table is the source of truth
+        }
       }
       
       const portalUser = await storage.addPortalUser({

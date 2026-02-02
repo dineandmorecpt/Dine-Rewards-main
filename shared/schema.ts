@@ -3,9 +3,62 @@ import { pgTable, text, varchar, integer, boolean, timestamp, decimal, uniqueInd
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// User Types: 'diner' or 'restaurant_admin'
-// A person can be both a diner AND a restaurant staff member with the same email/phone,
-// but cannot have duplicate records within the same user type.
+// ============================================================================
+// DINERS - Users who earn and redeem rewards at restaurants
+// ============================================================================
+export const diners = pgTable("diners", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  analyticsId: text("analytics_id").unique(), // Anonymous ID for analytics (no PII exposure)
+  email: text("email").notNull().unique(),
+  password: text("password").notNull(),
+  name: text("name").notNull(),
+  lastName: text("last_name"), // Surname
+  phone: text("phone").unique(),
+  gender: text("gender"), // 'male' | 'female'
+  dateOfBirth: text("date_of_birth"), // DD/MM/YYYY format
+  province: text("province"), // South African province
+  accessToken: text("access_token").unique(), // Persistent token for auto-login (valid for 90 days)
+  accessTokenExpiresAt: timestamp("access_token_expires_at"), // When the access token expires
+  activeVoucherCode: text("active_voucher_code"), // Temporary presentation code for redemption (generated on tap)
+  activeVoucherId: text("active_voucher_id"), // ID of voucher being presented for redemption
+  activeVoucherCodeSetAt: timestamp("active_voucher_code_set_at"), // When the code was presented (valid for 15 mins)
+  termsAcceptedAt: timestamp("terms_accepted_at"), // When T&Cs were accepted
+  privacyAcceptedAt: timestamp("privacy_accepted_at"), // When privacy policy was accepted
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertDinerSchema = createInsertSchema(diners).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertDiner = z.infer<typeof insertDinerSchema>;
+export type Diner = typeof diners.$inferSelect;
+
+// ============================================================================
+// RESTAURANT STAFF - Users who manage restaurant admin portals
+// ============================================================================
+export const restaurantStaff = pgTable("restaurant_staff", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: text("email").notNull().unique(),
+  password: text("password").notNull(),
+  name: text("name").notNull(),
+  phone: text("phone").unique(),
+  accessToken: text("access_token").unique(), // Persistent token for auto-login
+  accessTokenExpiresAt: timestamp("access_token_expires_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertRestaurantStaffSchema = createInsertSchema(restaurantStaff).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertRestaurantStaff = z.infer<typeof insertRestaurantStaffSchema>;
+export type RestaurantStaff = typeof restaurantStaff.$inferSelect;
+
+// ============================================================================
+// LEGACY: Users table (kept for backward compatibility during migration)
+// Will be deprecated after full migration to diners/restaurant_staff tables
+// ============================================================================
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   analyticsId: text("analytics_id").unique(), // Anonymous ID for analytics (no PII exposure)

@@ -80,6 +80,8 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   getUserByPhone(phone: string): Promise<User | undefined>;
+  getUserByPhoneAndType(phone: string, userType: string): Promise<User | undefined>;
+  getUserByEmailAndType(email: string, userType: string): Promise<User | undefined>;
   getUserByAccessToken(accessToken: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   
@@ -325,6 +327,41 @@ export class DbStorage implements IStorage {
     
     const result = await db.select().from(users).where(
       sql`${users.phone} IN (${sql.join(phonesToSearch.map(p => sql`${p}`), sql`, `)})`
+    );
+    return result[0];
+  }
+
+  async getUserByPhoneAndType(phone: string, userType: string): Promise<User | undefined> {
+    const normalizedPhone = phone.trim().replace(/[\s\-()]/g, '');
+    
+    const phonesToSearch: string[] = [normalizedPhone];
+    
+    if (normalizedPhone.startsWith('0')) {
+      phonesToSearch.push('+27' + normalizedPhone.substring(1));
+    }
+    if (normalizedPhone.startsWith('+27')) {
+      phonesToSearch.push('0' + normalizedPhone.substring(3));
+    }
+    if (normalizedPhone.startsWith('27') && !normalizedPhone.startsWith('+')) {
+      phonesToSearch.push('+' + normalizedPhone);
+      phonesToSearch.push('0' + normalizedPhone.substring(2));
+    }
+    
+    const result = await db.select().from(users).where(
+      and(
+        sql`${users.phone} IN (${sql.join(phonesToSearch.map(p => sql`${p}`), sql`, `)})`,
+        eq(users.userType, userType)
+      )
+    );
+    return result[0];
+  }
+
+  async getUserByEmailAndType(email: string, userType: string): Promise<User | undefined> {
+    const result = await db.select().from(users).where(
+      and(
+        eq(sql`lower(${users.email})`, email.toLowerCase()),
+        eq(users.userType, userType)
+      )
     );
     return result[0];
   }

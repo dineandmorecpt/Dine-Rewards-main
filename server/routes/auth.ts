@@ -645,14 +645,15 @@ export function registerAuthRoutes(router: Router): void {
         return res.status(400).json({ error: "Phone number must be verified before registration" });
       }
 
-      const existingEmail = await storage.getUserByEmail(email);
+      // Check for existing DINER accounts only (allow same email/phone for admin + diner)
+      const existingEmail = await storage.getUserByEmailAndType(email, 'diner');
       if (existingEmail) {
-        return res.status(400).json({ error: "An account with this email already exists" });
+        return res.status(400).json({ error: "A diner account with this email already exists" });
       }
 
-      const existingPhone = await storage.getUserByPhone(phone);
+      const existingPhone = await storage.getUserByPhoneAndType(phone, 'diner');
       if (existingPhone) {
-        return res.status(400).json({ error: "An account with this phone number already exists" });
+        return res.status(400).json({ error: "A diner account with this phone number already exists" });
       }
 
       const hashedPassword = await bcrypt.hash(password, 12);
@@ -937,9 +938,10 @@ export function registerAuthRoutes(router: Router): void {
 
       const { phone } = parseResult.data;
 
-      const existingUser = await storage.getUserByPhone(phone);
-      if (existingUser) {
-        return res.status(400).json({ error: "This phone number is already registered" });
+      // Check if a DINER account already exists with this phone (allow same phone for admin + diner)
+      const existingDiner = await storage.getUserByPhoneAndType(phone, 'diner');
+      if (existingDiner) {
+        return res.status(400).json({ error: "This phone number is already registered as a diner" });
       }
 
       const smsLimitCheck = checkSMSRateLimit(phone);

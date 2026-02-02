@@ -640,6 +640,19 @@ export default function Home() {
                           {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                           Complete Registration
                         </Button>
+                        <button
+                          type="button"
+                          className="w-full text-sm text-muted-foreground hover:text-foreground mt-2"
+                          onClick={() => {
+                            setRegisterStep(1);
+                            setRegisterPhone("");
+                            setRegisterOtp("");
+                            setVerifiedPhone("");
+                          }}
+                          data-testid="button-back-to-phone"
+                        >
+                          Use a different phone number
+                        </button>
                       </>
                     )}
                     <div className="text-center text-sm text-muted-foreground">

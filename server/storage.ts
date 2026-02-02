@@ -1,6 +1,10 @@
 import { 
   type User, 
   type InsertUser,
+  type Diner,
+  type InsertDiner,
+  type RestaurantStaff,
+  type InsertRestaurantStaff,
   type Restaurant,
   type InsertRestaurant,
   type Branch,
@@ -30,6 +34,8 @@ import {
   type ArchivedUser,
   type InsertArchivedUser,
   users,
+  diners,
+  restaurantStaff,
   restaurants,
   branches,
   pointsBalances,
@@ -76,7 +82,25 @@ const pool = new Pool({
 const db = drizzle(pool);
 
 export interface IStorage {
-  // User Management
+  // Diner Management (new table)
+  getDiner(id: string): Promise<Diner | undefined>;
+  getDinerByEmail(email: string): Promise<Diner | undefined>;
+  getDinerByPhone(phone: string): Promise<Diner | undefined>;
+  getDinerByAccessToken(accessToken: string): Promise<Diner | undefined>;
+  createDiner(diner: InsertDiner): Promise<Diner>;
+  updateDiner(id: string, updates: Partial<InsertDiner>): Promise<Diner>;
+  updateDinerActiveVoucherPresentation(dinerId: string, voucherId: string | null, code: string | null): Promise<Diner>;
+  getDinerByActiveVoucherCode(code: string): Promise<Diner | undefined>;
+  
+  // Restaurant Staff Management (new table)
+  getStaff(id: string): Promise<RestaurantStaff | undefined>;
+  getStaffByEmail(email: string): Promise<RestaurantStaff | undefined>;
+  getStaffByPhone(phone: string): Promise<RestaurantStaff | undefined>;
+  getStaffByAccessToken(accessToken: string): Promise<RestaurantStaff | undefined>;
+  createStaff(staff: InsertRestaurantStaff): Promise<RestaurantStaff>;
+  updateStaff(id: string, updates: Partial<InsertRestaurantStaff>): Promise<RestaurantStaff>;
+  
+  // Legacy User Management (kept for backward compatibility during migration)
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   getUserByPhone(phone: string): Promise<User | undefined>;
@@ -298,7 +322,136 @@ export interface IStorage {
 }
 
 export class DbStorage implements IStorage {
-  // User Methods
+  // ============================================================================
+  // DINER METHODS (new table)
+  // ============================================================================
+  async getDiner(id: string): Promise<Diner | undefined> {
+    const result = await db.select().from(diners).where(eq(diners.id, id));
+    return result[0];
+  }
+
+  async getDinerByEmail(email: string): Promise<Diner | undefined> {
+    const result = await db.select().from(diners).where(eq(sql`lower(${diners.email})`, email.toLowerCase()));
+    return result[0];
+  }
+
+  async getDinerByPhone(phone: string): Promise<Diner | undefined> {
+    const normalizedPhone = phone.trim().replace(/[\s\-()]/g, '');
+    
+    const phonesToSearch: string[] = [normalizedPhone];
+    
+    if (normalizedPhone.startsWith('0')) {
+      phonesToSearch.push('+27' + normalizedPhone.substring(1));
+    }
+    if (normalizedPhone.startsWith('+27')) {
+      phonesToSearch.push('0' + normalizedPhone.substring(3));
+    }
+    if (normalizedPhone.startsWith('27') && !normalizedPhone.startsWith('+')) {
+      phonesToSearch.push('+' + normalizedPhone);
+      phonesToSearch.push('0' + normalizedPhone.substring(2));
+    }
+    
+    const result = await db.select().from(diners).where(
+      sql`${diners.phone} IN (${sql.join(phonesToSearch.map(p => sql`${p}`), sql`, `)})`
+    );
+    return result[0];
+  }
+
+  async getDinerByAccessToken(accessToken: string): Promise<Diner | undefined> {
+    const result = await db.select().from(diners).where(eq(diners.accessToken, accessToken));
+    return result[0];
+  }
+
+  async createDiner(insertDiner: InsertDiner): Promise<Diner> {
+    const dinerWithAnalyticsId = {
+      ...insertDiner,
+      analyticsId: insertDiner.analyticsId || generateAnalyticsId(),
+    };
+    const result = await db.insert(diners).values(dinerWithAnalyticsId).returning();
+    return result[0];
+  }
+
+  async updateDiner(id: string, updates: Partial<InsertDiner>): Promise<Diner> {
+    const result = await db.update(diners)
+      .set(updates)
+      .where(eq(diners.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async updateDinerActiveVoucherPresentation(dinerId: string, voucherId: string | null, code: string | null): Promise<Diner> {
+    const result = await db.update(diners)
+      .set({
+        activeVoucherId: voucherId,
+        activeVoucherCode: code,
+        activeVoucherCodeSetAt: code ? new Date() : null,
+      })
+      .where(eq(diners.id, dinerId))
+      .returning();
+    return result[0];
+  }
+
+  async getDinerByActiveVoucherCode(code: string): Promise<Diner | undefined> {
+    const result = await db.select().from(diners).where(eq(diners.activeVoucherCode, code));
+    return result[0];
+  }
+
+  // ============================================================================
+  // RESTAURANT STAFF METHODS (new table)
+  // ============================================================================
+  async getStaff(id: string): Promise<RestaurantStaff | undefined> {
+    const result = await db.select().from(restaurantStaff).where(eq(restaurantStaff.id, id));
+    return result[0];
+  }
+
+  async getStaffByEmail(email: string): Promise<RestaurantStaff | undefined> {
+    const result = await db.select().from(restaurantStaff).where(eq(sql`lower(${restaurantStaff.email})`, email.toLowerCase()));
+    return result[0];
+  }
+
+  async getStaffByPhone(phone: string): Promise<RestaurantStaff | undefined> {
+    const normalizedPhone = phone.trim().replace(/[\s\-()]/g, '');
+    
+    const phonesToSearch: string[] = [normalizedPhone];
+    
+    if (normalizedPhone.startsWith('0')) {
+      phonesToSearch.push('+27' + normalizedPhone.substring(1));
+    }
+    if (normalizedPhone.startsWith('+27')) {
+      phonesToSearch.push('0' + normalizedPhone.substring(3));
+    }
+    if (normalizedPhone.startsWith('27') && !normalizedPhone.startsWith('+')) {
+      phonesToSearch.push('+' + normalizedPhone);
+      phonesToSearch.push('0' + normalizedPhone.substring(2));
+    }
+    
+    const result = await db.select().from(restaurantStaff).where(
+      sql`${restaurantStaff.phone} IN (${sql.join(phonesToSearch.map(p => sql`${p}`), sql`, `)})`
+    );
+    return result[0];
+  }
+
+  async getStaffByAccessToken(accessToken: string): Promise<RestaurantStaff | undefined> {
+    const result = await db.select().from(restaurantStaff).where(eq(restaurantStaff.accessToken, accessToken));
+    return result[0];
+  }
+
+  async createStaff(insertStaff: InsertRestaurantStaff): Promise<RestaurantStaff> {
+    const result = await db.insert(restaurantStaff).values(insertStaff).returning();
+    return result[0];
+  }
+
+  async updateStaff(id: string, updates: Partial<InsertRestaurantStaff>): Promise<RestaurantStaff> {
+    const result = await db.update(restaurantStaff)
+      .set(updates)
+      .where(eq(restaurantStaff.id, id))
+      .returning();
+    return result[0];
+  }
+
+  // ============================================================================
+  // LEGACY USER METHODS (kept for backward compatibility during migration)
+  // ============================================================================
   async getUser(id: string): Promise<User | undefined> {
     const result = await db.select().from(users).where(eq(users.id, id));
     return result[0];

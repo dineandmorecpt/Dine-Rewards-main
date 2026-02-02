@@ -591,7 +591,7 @@ export default function Home() {
                           </Select>
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="register-dob">Date of Birth</Label>
+                          <Label htmlFor="register-dob">Date of Birth (DD/MM/YYYY)</Label>
                           <Input
                             id="register-dob"
                             type="text"

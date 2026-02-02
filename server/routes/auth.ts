@@ -28,6 +28,7 @@ const smsRateLimiter = rateLimit({
 });
 
 const otpStore = new Map<string, { otp: string; expiresAt: Date }>();
+const verifiedPhoneStore = new Map<string, { phone: string; expiresAt: Date }>();
 
 export function getAuthUserId(req: any): string | null {
   const headerUserId = req.headers['x-user-id'] as string | undefined;
@@ -90,6 +91,7 @@ const selfRegisterDinerSchema = z.object({
   dateOfBirth: z.string().min(1, "Date of birth is required"),
   province: z.string().min(1, "Province is required"),
   restaurantId: z.string().optional(),
+  verificationToken: z.string().optional(),
 });
 
 const tokenLoginSchema = z.object({
@@ -597,16 +599,49 @@ export function registerAuthRoutes(router: Router): void {
         });
       }
 
-      const { name, lastName, email, phone, password, gender, dateOfBirth, province, restaurantId } = parseResult.data;
+      const { name, lastName, email, phone, password, gender, dateOfBirth, province, restaurantId, verificationToken } = parseResult.data;
 
-      console.log("Register-diner session check:", {
+      // Check verification via token first (more reliable), then fall back to session
+      let isPhoneVerified = false;
+      
+      // Method 1: Check verification token
+      if (verificationToken) {
+        const storedVerification = verifiedPhoneStore.get(verificationToken);
+        if (storedVerification) {
+          if (new Date() > storedVerification.expiresAt) {
+            verifiedPhoneStore.delete(verificationToken);
+            console.log("Register-diner: Verification token expired", { phone });
+          } else if (storedVerification.phone === phone) {
+            isPhoneVerified = true;
+            verifiedPhoneStore.delete(verificationToken); // Single use
+            console.log("Register-diner: Verified via token", { phone });
+          } else {
+            console.log("Register-diner: Token phone mismatch", { 
+              tokenPhone: storedVerification.phone, 
+              submittedPhone: phone 
+            });
+          }
+        } else {
+          console.log("Register-diner: Verification token not found", { token: verificationToken?.substring(0, 8) });
+        }
+      }
+      
+      // Method 2: Fall back to session
+      if (!isPhoneVerified && req.session.verifiedPhone === phone) {
+        isPhoneVerified = true;
+        console.log("Register-diner: Verified via session", { phone });
+      }
+
+      console.log("Register-diner verification result:", {
         sessionId: req.session.id,
-        verifiedPhone: req.session.verifiedPhone,
+        sessionVerifiedPhone: req.session.verifiedPhone,
         submittedPhone: phone,
-        match: req.session.verifiedPhone === phone
+        hasToken: !!verificationToken,
+        isPhoneVerified
       });
 
-      if (!req.session.verifiedPhone || req.session.verifiedPhone !== phone) {
+      if (!isPhoneVerified) {
+        console.error("Register-diner FAILED: Phone not verified", { phone, hasToken: !!verificationToken });
         return res.status(400).json({ error: "Phone number must be verified before registration" });
       }
 
@@ -968,23 +1003,30 @@ export function registerAuthRoutes(router: Router): void {
 
       otpStore.delete(`reg_${phone}`);
       
+      // Generate a verification token to bypass session cookie issues
+      const verificationToken = crypto.randomBytes(32).toString('hex');
+      const tokenExpiresAt = new Date();
+      tokenExpiresAt.setMinutes(tokenExpiresAt.getMinutes() + 30); // Valid for 30 minutes
+      verifiedPhoneStore.set(verificationToken, { phone, expiresAt: tokenExpiresAt });
+      
+      // Also store in session as backup
       req.session.verifiedPhone = phone;
       
-      console.log("Verify-registration-otp session save:", {
+      console.log("Verify-registration-otp:", {
         sessionId: req.session.id,
-        verifiedPhone: phone
+        verifiedPhone: phone,
+        verificationToken: verificationToken.substring(0, 8) + "..."
       });
       
       req.session.save((err) => {
         if (err) {
           console.error("Session save error:", err);
-          return res.status(500).json({ error: "Verification failed" });
         }
-        console.log("Session saved successfully for phone:", phone);
         res.json({
           success: true,
           message: "Phone number verified successfully",
           verifiedPhone: phone,
+          verificationToken: verificationToken,
         });
       });
     } catch (error: any) {

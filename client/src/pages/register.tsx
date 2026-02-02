@@ -54,6 +54,12 @@ export default function Register() {
   const [otp, setOtp] = useState("");
   const [otpError, setOtpError] = useState("");
   
+  // Self-registration phone verification state
+  const [selfVerificationStep, setSelfVerificationStep] = useState<"phone" | "otp" | "details">("phone");
+  const [selfOtp, setSelfOtp] = useState("");
+  const [selfOtpError, setSelfOtpError] = useState("");
+  const [verificationToken, setVerificationToken] = useState("");
+  
   // Captcha token for bot protection
   const [captchaToken, setCaptchaToken] = useState("");
 
@@ -138,8 +144,60 @@ export default function Register() {
     },
   });
 
+  // Request OTP for self-registration phone verification
+  const requestSelfOtp = useMutation({
+    mutationFn: async (phoneNumber: string) => {
+      const res = await fetch('/api/auth/request-registration-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: "include",
+        body: JSON.stringify({ phone: phoneNumber }),
+      });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to send verification code");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      setSelfVerificationStep("otp");
+      setSelfOtpError("");
+    },
+  });
+
+  // Verify self-registration OTP
+  const verifySelfOtp = useMutation({
+    mutationFn: async ({ phoneNumber, otpCode }: { phoneNumber: string; otpCode: string }) => {
+      const res = await fetch('/api/auth/verify-registration-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: "include",
+        body: JSON.stringify({ phone: phoneNumber, otp: otpCode }),
+      });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Invalid verification code");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      // Store the verification token and verified phone from server
+      if (data.verificationToken) {
+        setVerificationToken(data.verificationToken);
+      }
+      if (data.verifiedPhone) {
+        setPhone(data.verifiedPhone); // Use normalized phone from server
+      }
+      setSelfVerificationStep("details");
+      setSelfOtpError("");
+    },
+    onError: (error: Error) => {
+      setSelfOtpError(error.message);
+    },
+  });
+
   const selfRegister = useMutation({
-    mutationFn: async (data: { name: string; lastName: string; email: string; phone: string; password: string; gender: string; dateOfBirth: string; province: string; restaurantId?: string }) => {
+    mutationFn: async (data: { name: string; lastName: string; email: string; phone: string; password: string; gender: string; dateOfBirth: string; province: string; restaurantId?: string; verificationToken?: string }) => {
       const res = await fetch('/api/auth/register-diner', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -236,6 +294,7 @@ export default function Register() {
       dateOfBirth,
       province,
       restaurantId: restaurantId || undefined,
+      verificationToken: verificationToken || undefined,
     });
   };
 
@@ -270,18 +329,154 @@ export default function Register() {
   }
 
   if (!token) {
+    // Step 1: Phone entry for self-registration
+    if (selfVerificationStep === "phone") {
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-emerald-50 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800 flex items-center justify-center p-4">
+          <Card className="w-full max-w-md">
+            <CardHeader className="text-center">
+              <img src={logoImage} alt="Dine&More" className="h-24 w-auto mx-auto mb-4" />
+              <Phone className="h-10 w-10 text-primary mx-auto mb-2" />
+              <CardTitle className="text-2xl font-serif">Join Dine&More Rewards</CardTitle>
+              <CardDescription>
+                Enter your mobile number to get started. We'll send you a verification code.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="phone">Mobile Number</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  placeholder="e.g., 0821234567"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  data-testid="input-self-phone"
+                />
+              </div>
+
+              {requestSelfOtp.isError && (
+                <div className="p-3 bg-destructive/10 text-destructive text-sm rounded-md">
+                  {(requestSelfOtp.error as Error).message}
+                </div>
+              )}
+            </CardContent>
+            <CardFooter>
+              <Button
+                className="w-full"
+                disabled={!phone.trim() || requestSelfOtp.isPending}
+                onClick={() => requestSelfOtp.mutate(phone)}
+                data-testid="button-send-otp"
+              >
+                {requestSelfOtp.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  "Send Verification Code"
+                )}
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
+      );
+    }
+
+    // Step 2: OTP verification for self-registration
+    if (selfVerificationStep === "otp") {
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-emerald-50 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800 flex items-center justify-center p-4">
+          <Card className="w-full max-w-md">
+            <CardHeader className="text-center">
+              <img src={logoImage} alt="Dine&More" className="h-20 w-auto mx-auto mb-4" />
+              <ShieldCheck className="h-10 w-10 text-primary mx-auto mb-2" />
+              <CardTitle className="text-2xl font-serif">Enter Verification Code</CardTitle>
+              <CardDescription>
+                We sent a 6-digit code to {phone}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex justify-center">
+                <InputOTP
+                  maxLength={6}
+                  value={selfOtp}
+                  onChange={(value) => {
+                    setSelfOtp(value);
+                    setSelfOtpError("");
+                  }}
+                  data-testid="input-self-otp"
+                >
+                  <InputOTPGroup>
+                    <InputOTPSlot index={0} />
+                    <InputOTPSlot index={1} />
+                    <InputOTPSlot index={2} />
+                    <InputOTPSlot index={3} />
+                    <InputOTPSlot index={4} />
+                    <InputOTPSlot index={5} />
+                  </InputOTPGroup>
+                </InputOTP>
+              </div>
+
+              {selfOtpError && (
+                <div className="p-3 bg-destructive/10 text-destructive text-sm rounded-md text-center">
+                  {selfOtpError}
+                </div>
+              )}
+
+              <Button
+                variant="link"
+                className="w-full"
+                onClick={() => {
+                  setSelfOtp("");
+                  setSelfOtpError("");
+                  setSelfVerificationStep("phone");
+                }}
+                data-testid="button-go-back-phone"
+              >
+                Go back to change phone number
+              </Button>
+            </CardContent>
+            <CardFooter>
+              <Button
+                className="w-full"
+                disabled={selfOtp.length !== 6 || verifySelfOtp.isPending}
+                onClick={() => verifySelfOtp.mutate({ phoneNumber: phone, otpCode: selfOtp })}
+                data-testid="button-verify-otp"
+              >
+                {verifySelfOtp.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Verifying...
+                  </>
+                ) : (
+                  "Verify Code"
+                )}
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
+      );
+    }
+
+    // Step 3: Complete profile for self-registration
     return (
       <div className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-emerald-50 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800 flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <img src={logoImage} alt="Dine&More" className="h-24 w-auto mx-auto mb-4" />
-            <CardTitle className="text-2xl font-serif">Join Dine&More Rewards</CardTitle>
+            <CheckCircle2 className="h-8 w-8 text-green-500 mx-auto mb-2" />
+            <CardTitle className="text-2xl font-serif">Complete Your Profile</CardTitle>
             <CardDescription>
-              Create your account to start earning rewards at participating restaurants!
+              Phone verified! Now finish setting up your account.
             </CardDescription>
           </CardHeader>
           <form onSubmit={handleSelfRegisterSubmit}>
             <CardContent className="space-y-4">
+              <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-md text-sm text-center">
+                <span className="text-green-600 dark:text-green-400">Verified phone: {phone}</span>
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="name">First Name</Label>
                 <Input
@@ -316,19 +511,6 @@ export default function Register() {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   data-testid="input-register-email"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone Number</Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="e.g., 0821234567"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  required
-                  data-testid="input-register-phone"
                 />
               </div>
 
@@ -425,6 +607,21 @@ export default function Register() {
                   {(selfRegister.error as Error).message}
                 </div>
               )}
+
+              <Button
+                variant="link"
+                className="w-full"
+                type="button"
+                onClick={() => {
+                  setSelfOtp("");
+                  setSelfOtpError("");
+                  setVerificationToken("");
+                  setSelfVerificationStep("phone");
+                }}
+                data-testid="button-go-back-otp"
+              >
+                Go back to change phone number
+              </Button>
             </CardContent>
             <CardFooter>
               <Button

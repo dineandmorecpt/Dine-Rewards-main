@@ -39,7 +39,7 @@ export default function Register() {
   const [name, setName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
+  const [phone, setPhone] = useState(() => localStorage.getItem('dinemore_reg_phone') || "");
   const [password, setPassword] = useState("");
   const [gender, setGender] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
@@ -55,10 +55,35 @@ export default function Register() {
   const [otpError, setOtpError] = useState("");
   
   // Self-registration phone verification state
-  const [selfVerificationStep, setSelfVerificationStep] = useState<"phone" | "otp" | "details">("phone");
+  // Initialize from localStorage to survive page refreshes in Replit webview
+  const [selfVerificationStep, setSelfVerificationStep] = useState<"phone" | "otp" | "details">(() => {
+    const savedStep = localStorage.getItem('dinemore_reg_step');
+    return (savedStep === 'otp' || savedStep === 'details') ? savedStep : 'phone';
+  });
   const [selfOtp, setSelfOtp] = useState("");
   const [selfOtpError, setSelfOtpError] = useState("");
-  const [verificationToken, setVerificationToken] = useState("");
+  const [verificationToken, setVerificationToken] = useState(() => {
+    return localStorage.getItem('dinemore_verification_token') || "";
+  });
+  
+  // Persist verification token and step to localStorage
+  const saveVerificationToken = (token: string) => {
+    setVerificationToken(token);
+    localStorage.setItem('dinemore_verification_token', token);
+  };
+  
+  const saveSelfVerificationStep = (step: "phone" | "otp" | "details") => {
+    setSelfVerificationStep(step);
+    localStorage.setItem('dinemore_reg_step', step);
+  };
+  
+  const clearVerificationState = () => {
+    setVerificationToken("");
+    setSelfVerificationStep("phone");
+    localStorage.removeItem('dinemore_verification_token');
+    localStorage.removeItem('dinemore_reg_step');
+    localStorage.removeItem('dinemore_reg_phone');
+  };
   
   // Captcha token for bot protection
   const [captchaToken, setCaptchaToken] = useState("");
@@ -160,7 +185,7 @@ export default function Register() {
       return res.json();
     },
     onSuccess: () => {
-      setSelfVerificationStep("otp");
+      saveSelfVerificationStep("otp");
       setSelfOtpError("");
     },
   });
@@ -182,13 +207,15 @@ export default function Register() {
     },
     onSuccess: (data) => {
       // Store the verification token and verified phone from server
+      // Persist to localStorage to survive page refreshes in Replit webview
       if (data.verificationToken) {
-        setVerificationToken(data.verificationToken);
+        saveVerificationToken(data.verificationToken);
       }
       if (data.verifiedPhone) {
         setPhone(data.verifiedPhone); // Use normalized phone from server
+        localStorage.setItem('dinemore_reg_phone', data.verifiedPhone);
       }
-      setSelfVerificationStep("details");
+      saveSelfVerificationStep("details");
       setSelfOtpError("");
     },
     onError: (error: Error) => {
@@ -211,6 +238,8 @@ export default function Register() {
       return res.json();
     },
     onSuccess: () => {
+      // Clear localStorage on successful registration
+      clearVerificationState();
       setRegistrationComplete(true);
     },
   });
@@ -430,7 +459,7 @@ export default function Register() {
                 onClick={() => {
                   setSelfOtp("");
                   setSelfOtpError("");
-                  setSelfVerificationStep("phone");
+                  clearVerificationState();
                 }}
                 data-testid="button-go-back-phone"
               >
@@ -615,8 +644,7 @@ export default function Register() {
                 onClick={() => {
                   setSelfOtp("");
                   setSelfOtpError("");
-                  setVerificationToken("");
-                  setSelfVerificationStep("phone");
+                  clearVerificationState();
                 }}
                 data-testid="button-go-back-otp"
               >

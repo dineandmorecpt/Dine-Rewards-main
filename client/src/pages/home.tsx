@@ -50,6 +50,7 @@ export default function Home() {
   const [verifiedPhone, setVerifiedPhone] = useState("");
   const [registerGender, setRegisterGender] = useState("");
   const [registerProvince, setRegisterProvince] = useState("");
+  const [registerDob, setRegisterDob] = useState("");
   
   const [adminEmail, setAdminEmail] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
@@ -243,6 +244,7 @@ export default function Home() {
           password: registerPassword,
           gender: registerGender,
           province: registerProvince,
+          dateOfBirth: registerDob,
         }),
       });
 
@@ -588,6 +590,16 @@ export default function Home() {
                             </SelectContent>
                           </Select>
                         </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="register-dob">Date of Birth</Label>
+                          <Input
+                            id="register-dob"
+                            type="date"
+                            value={registerDob}
+                            onChange={(e) => setRegisterDob(e.target.value)}
+                            data-testid="input-register-dob"
+                          />
+                        </div>
                         <Button 
                           className="w-full bg-[#8B1538] hover:bg-[#6d1029] text-white" 
                           onClick={handleDinerRegister}
@@ -616,6 +628,7 @@ export default function Home() {
                           setRegisterPassword("");
                           setRegisterGender("");
                           setRegisterProvince("");
+                          setRegisterDob("");
                         }}
                         data-testid="button-show-login"
                       >

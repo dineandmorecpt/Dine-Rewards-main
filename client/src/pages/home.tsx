@@ -6,10 +6,28 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Captcha } from "@/components/ui/captcha";
 import { Utensils, ChefHat, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import logoImage from "@/assets/logo.png";
+
+const GENDER_OPTIONS = [
+  { value: "male", label: "Male" },
+  { value: "female", label: "Female" },
+];
+
+const PROVINCE_OPTIONS = [
+  { value: "Eastern Cape", label: "Eastern Cape" },
+  { value: "Free State", label: "Free State" },
+  { value: "Gauteng", label: "Gauteng" },
+  { value: "KwaZulu-Natal", label: "KwaZulu-Natal" },
+  { value: "Limpopo", label: "Limpopo" },
+  { value: "Mpumalanga", label: "Mpumalanga" },
+  { value: "Northern Cape", label: "Northern Cape" },
+  { value: "North West", label: "North West" },
+  { value: "Western Cape", label: "Western Cape" },
+];
 
 export default function Home() {
   const [, navigate] = useLocation();
@@ -30,6 +48,8 @@ export default function Home() {
   const [registerPassword, setRegisterPassword] = useState("");
   const [registerOtp, setRegisterOtp] = useState("");
   const [verifiedPhone, setVerifiedPhone] = useState("");
+  const [registerGender, setRegisterGender] = useState("");
+  const [registerProvince, setRegisterProvince] = useState("");
   
   const [adminEmail, setAdminEmail] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
@@ -221,6 +241,8 @@ export default function Home() {
           email: registerEmail,
           phone: verifiedPhone,
           password: registerPassword,
+          gender: registerGender,
+          province: registerProvince,
         }),
       });
 
@@ -537,9 +559,34 @@ export default function Home() {
                             placeholder="Create a password"
                             value={registerPassword}
                             onChange={(e) => setRegisterPassword(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleDinerRegister()}
                             data-testid="input-register-password"
                           />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="register-gender">Gender</Label>
+                          <Select value={registerGender} onValueChange={setRegisterGender}>
+                            <SelectTrigger id="register-gender" data-testid="select-register-gender">
+                              <SelectValue placeholder="Select gender" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {GENDER_OPTIONS.map((opt) => (
+                                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="register-province">Location (Province)</Label>
+                          <Select value={registerProvince} onValueChange={setRegisterProvince}>
+                            <SelectTrigger id="register-province" data-testid="select-register-province">
+                              <SelectValue placeholder="Select province" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {PROVINCE_OPTIONS.map((opt) => (
+                                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
                         <Button 
                           className="w-full bg-[#8B1538] hover:bg-[#6d1029] text-white" 
@@ -567,6 +614,8 @@ export default function Home() {
                           setRegisterLastName("");
                           setRegisterEmail("");
                           setRegisterPassword("");
+                          setRegisterGender("");
+                          setRegisterProvince("");
                         }}
                         data-testid="button-show-login"
                       >

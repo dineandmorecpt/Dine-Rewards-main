@@ -84,7 +84,7 @@ export default function Home() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ email: dinerEmail, password: dinerPassword, captchaToken: dinerCaptchaToken }),
+        body: JSON.stringify({ email: dinerEmail, password: dinerPassword, captchaToken: dinerCaptchaToken, portal: "diner" }),
       });
 
       const data = await response.json();
@@ -329,7 +329,7 @@ export default function Home() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ email: adminEmail, password: adminPassword, captchaToken: adminCaptchaToken }),
+        body: JSON.stringify({ email: adminEmail, password: adminPassword, captchaToken: adminCaptchaToken, portal: "restaurant" }),
       });
 
       const data = await response.json();

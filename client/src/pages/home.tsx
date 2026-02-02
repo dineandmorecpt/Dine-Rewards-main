@@ -594,7 +594,8 @@ export default function Home() {
                           <Label htmlFor="register-dob">Date of Birth</Label>
                           <Input
                             id="register-dob"
-                            type="date"
+                            type="text"
+                            placeholder="DD/MM/YYYY"
                             value={registerDob}
                             onChange={(e) => setRegisterDob(e.target.value)}
                             data-testid="input-register-dob"

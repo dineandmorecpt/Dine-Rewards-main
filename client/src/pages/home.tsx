@@ -211,7 +211,7 @@ export default function Home() {
   };
 
   const handleDinerRegister = async () => {
-    if (!registerName || !registerLastName || !registerEmail || !registerPassword) {
+    if (!registerName || !registerLastName || !registerEmail || !registerPassword || !registerGender || !registerProvince || !registerDob) {
       toast({
         title: "Missing information",
         description: "Please fill in all fields.",
@@ -548,50 +548,54 @@ export default function Home() {
                           <p className="text-xs text-green-600 mt-1">Phone verified: {verifiedPhone}</p>
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="register-name">First Name</Label>
+                          <Label htmlFor="register-name">First Name <span className="text-destructive">*</span></Label>
                           <Input
                             id="register-name"
                             placeholder="Enter your first name"
                             value={registerName}
                             onChange={(e) => setRegisterName(e.target.value)}
+                            required
                             data-testid="input-register-name"
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="register-lastname">Surname</Label>
+                          <Label htmlFor="register-lastname">Surname <span className="text-destructive">*</span></Label>
                           <Input
                             id="register-lastname"
                             placeholder="Enter your surname"
                             value={registerLastName}
                             onChange={(e) => setRegisterLastName(e.target.value)}
+                            required
                             data-testid="input-register-lastname"
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="register-email">Email</Label>
+                          <Label htmlFor="register-email">Email <span className="text-destructive">*</span></Label>
                           <Input
                             id="register-email"
                             type="email"
                             placeholder="your@email.com"
                             value={registerEmail}
                             onChange={(e) => setRegisterEmail(e.target.value)}
+                            required
                             data-testid="input-register-email"
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="register-password">Password</Label>
+                          <Label htmlFor="register-password">Password <span className="text-destructive">*</span></Label>
                           <Input
                             id="register-password"
                             type="password"
                             placeholder="Create a password"
                             value={registerPassword}
                             onChange={(e) => setRegisterPassword(e.target.value)}
+                            required
                             data-testid="input-register-password"
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="register-gender">Gender</Label>
-                          <Select value={registerGender} onValueChange={setRegisterGender}>
+                          <Label htmlFor="register-gender">Gender <span className="text-destructive">*</span></Label>
+                          <Select value={registerGender} onValueChange={setRegisterGender} required>
                             <SelectTrigger id="register-gender" data-testid="select-register-gender">
                               <SelectValue placeholder="Select gender" />
                             </SelectTrigger>
@@ -603,8 +607,8 @@ export default function Home() {
                           </Select>
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="register-province">Location (Province)</Label>
-                          <Select value={registerProvince} onValueChange={setRegisterProvince}>
+                          <Label htmlFor="register-province">Location (Province) <span className="text-destructive">*</span></Label>
+                          <Select value={registerProvince} onValueChange={setRegisterProvince} required>
                             <SelectTrigger id="register-province" data-testid="select-register-province">
                               <SelectValue placeholder="Select province" />
                             </SelectTrigger>
@@ -616,13 +620,14 @@ export default function Home() {
                           </Select>
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="register-dob">Date of Birth (DD/MM/YYYY)</Label>
+                          <Label htmlFor="register-dob">Date of Birth (DD/MM/YYYY) <span className="text-destructive">*</span></Label>
                           <Input
                             id="register-dob"
                             type="text"
                             placeholder="DD/MM/YYYY"
                             value={registerDob}
                             onChange={(e) => setRegisterDob(e.target.value)}
+                            required
                             data-testid="input-register-dob"
                           />
                         </div>

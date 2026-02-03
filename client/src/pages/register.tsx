@@ -208,8 +208,20 @@ export default function Register() {
     onSuccess: (data) => {
       // Store the verification token and verified phone from server
       // Persist to localStorage to survive page refreshes in Replit webview
+      console.log("OTP verification success, saving token:", {
+        hasToken: !!data.verificationToken,
+        tokenPreview: data.verificationToken ? data.verificationToken.substring(0, 8) + "..." : "none",
+        verifiedPhone: data.verifiedPhone
+      });
+      
       if (data.verificationToken) {
         saveVerificationToken(data.verificationToken);
+        // Verify it was saved
+        const savedToken = localStorage.getItem('dinemore_verification_token');
+        console.log("Token saved to localStorage:", {
+          success: savedToken === data.verificationToken,
+          savedLength: savedToken?.length || 0
+        });
       }
       if (data.verifiedPhone) {
         setPhone(data.verifiedPhone); // Use normalized phone from server
@@ -313,17 +325,30 @@ export default function Register() {
       return;
     }
     setDateOfBirthError("");
+    
+    // Read token fresh from localStorage at submit time to handle page refresh issues
+    // React state might be stale after Replit webview refreshes
+    const freshToken = localStorage.getItem('dinemore_verification_token') || verificationToken;
+    const freshPhone = localStorage.getItem('dinemore_reg_phone') || phone;
+    
+    console.log("Self-register submit:", {
+      hasStateToken: !!verificationToken,
+      hasLocalStorageToken: !!localStorage.getItem('dinemore_verification_token'),
+      freshToken: freshToken ? freshToken.substring(0, 8) + "..." : "none",
+      phone: freshPhone
+    });
+    
     selfRegister.mutate({
       name,
       lastName,
       email,
-      phone,
+      phone: freshPhone,
       password,
       gender,
       dateOfBirth,
       province,
       restaurantId: restaurantId || undefined,
-      verificationToken: verificationToken || undefined,
+      verificationToken: freshToken || undefined,
     });
   };
 

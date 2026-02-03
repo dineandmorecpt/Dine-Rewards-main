@@ -36,10 +36,15 @@ export default function Register() {
   const token = searchParams.get('token') || '';
   const restaurantId = searchParams.get('restaurantId') || '';
   
+  // URL-based verification token (most reliable - survives all refreshes)
+  const urlVerificationToken = searchParams.get('vt') || '';
+  const urlVerifiedPhone = searchParams.get('vp') || '';
+  
   const [name, setName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState(() => localStorage.getItem('dinemore_reg_phone') || "");
+  // Priority: URL param > localStorage > empty
+  const [phone, setPhone] = useState(() => urlVerifiedPhone || localStorage.getItem('dinemore_reg_phone') || "");
   const [password, setPassword] = useState("");
   const [gender, setGender] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
@@ -55,21 +60,33 @@ export default function Register() {
   const [otpError, setOtpError] = useState("");
   
   // Self-registration phone verification state
-  // Initialize from localStorage to survive page refreshes in Replit webview
+  // Priority: URL param (vt) > localStorage > empty
+  // If URL has verification token, skip to details step
   const [selfVerificationStep, setSelfVerificationStep] = useState<"phone" | "otp" | "details">(() => {
+    if (urlVerificationToken) return 'details';
     const savedStep = localStorage.getItem('dinemore_reg_step');
     return (savedStep === 'otp' || savedStep === 'details') ? savedStep : 'phone';
   });
   const [selfOtp, setSelfOtp] = useState("");
   const [selfOtpError, setSelfOtpError] = useState("");
+  // Priority: URL param > localStorage > empty
   const [verificationToken, setVerificationToken] = useState(() => {
-    return localStorage.getItem('dinemore_verification_token') || "";
+    return urlVerificationToken || localStorage.getItem('dinemore_verification_token') || "";
   });
   
-  // Persist verification token and step to localStorage
-  const saveVerificationToken = (token: string) => {
-    setVerificationToken(token);
-    localStorage.setItem('dinemore_verification_token', token);
+  // Persist verification token and step to localStorage AND URL
+  const saveVerificationToken = (newToken: string, verifiedPhone: string) => {
+    setVerificationToken(newToken);
+    localStorage.setItem('dinemore_verification_token', newToken);
+    
+    // Also add to URL for maximum reliability (survives localStorage clearing)
+    const newParams = new URLSearchParams(searchString);
+    newParams.set('vt', newToken);
+    newParams.set('vp', verifiedPhone);
+    if (restaurantId) newParams.set('restaurantId', restaurantId);
+    
+    // Use navigate to update URL without page reload
+    navigate(`/register?${newParams.toString()}`, { replace: true });
   };
   
   const saveSelfVerificationStep = (step: "phone" | "otp" | "details") => {
@@ -83,6 +100,10 @@ export default function Register() {
     localStorage.removeItem('dinemore_verification_token');
     localStorage.removeItem('dinemore_reg_step');
     localStorage.removeItem('dinemore_reg_phone');
+    // Clear URL params too
+    const newParams = new URLSearchParams();
+    if (restaurantId) newParams.set('restaurantId', restaurantId);
+    navigate(`/register${newParams.toString() ? '?' + newParams.toString() : ''}`, { replace: true });
   };
   
   // Captcha token for bot protection
@@ -207,25 +228,28 @@ export default function Register() {
     },
     onSuccess: (data) => {
       // Store the verification token and verified phone from server
-      // Persist to localStorage to survive page refreshes in Replit webview
+      // Persist to localStorage AND URL to survive page refreshes in Replit webview
       console.log("OTP verification success, saving token:", {
         hasToken: !!data.verificationToken,
         tokenPreview: data.verificationToken ? data.verificationToken.substring(0, 8) + "..." : "none",
         verifiedPhone: data.verifiedPhone
       });
       
+      const verifiedPhone = data.verifiedPhone || phone;
+      
       if (data.verificationToken) {
-        saveVerificationToken(data.verificationToken);
-        // Verify it was saved
+        // Save to state, localStorage, AND URL for maximum reliability
+        saveVerificationToken(data.verificationToken, verifiedPhone);
+        // Verify it was saved to localStorage
         const savedToken = localStorage.getItem('dinemore_verification_token');
-        console.log("Token saved to localStorage:", {
-          success: savedToken === data.verificationToken,
-          savedLength: savedToken?.length || 0
+        console.log("Token saved:", {
+          localStorage: savedToken === data.verificationToken,
+          urlWillHave: true
         });
       }
-      if (data.verifiedPhone) {
-        setPhone(data.verifiedPhone); // Use normalized phone from server
-        localStorage.setItem('dinemore_reg_phone', data.verifiedPhone);
+      if (verifiedPhone) {
+        setPhone(verifiedPhone);
+        localStorage.setItem('dinemore_reg_phone', verifiedPhone);
       }
       saveSelfVerificationStep("details");
       setSelfOtpError("");
@@ -326,14 +350,19 @@ export default function Register() {
     }
     setDateOfBirthError("");
     
-    // Read token fresh from localStorage at submit time to handle page refresh issues
-    // React state might be stale after Replit webview refreshes
-    const freshToken = localStorage.getItem('dinemore_verification_token') || verificationToken;
-    const freshPhone = localStorage.getItem('dinemore_reg_phone') || phone;
+    // Priority for token: URL param > localStorage > React state
+    // URL is most reliable as it survives all browser storage restrictions
+    const currentParams = new URLSearchParams(window.location.search);
+    const urlToken = currentParams.get('vt') || '';
+    const urlPhone = currentParams.get('vp') || '';
+    
+    const freshToken = urlToken || localStorage.getItem('dinemore_verification_token') || verificationToken;
+    const freshPhone = urlPhone || localStorage.getItem('dinemore_reg_phone') || phone;
     
     console.log("Self-register submit:", {
-      hasStateToken: !!verificationToken,
+      hasUrlToken: !!urlToken,
       hasLocalStorageToken: !!localStorage.getItem('dinemore_verification_token'),
+      hasStateToken: !!verificationToken,
       freshToken: freshToken ? freshToken.substring(0, 8) + "..." : "none",
       phone: freshPhone
     });

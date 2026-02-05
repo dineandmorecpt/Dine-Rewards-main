@@ -54,11 +54,12 @@ function AdminLayoutContent({ children }: AdminLayoutProps) {
     enabled: !!restaurant?.id,
   });
 
-  useEffect(() => {
-    if (restaurantData && restaurantData.onboardingStatus !== 'active' && !location.startsWith('/admin/onboarding')) {
-      setLocation('/admin/onboarding');
-    }
-  }, [restaurantData, location, setLocation]);
+  // Onboarding redirect disabled - all admins go directly to dashboard
+  // useEffect(() => {
+  //   if (restaurantData && restaurantData.onboardingStatus !== 'active' && !location.startsWith('/admin/onboarding')) {
+  //     setLocation('/admin/onboarding');
+  //   }
+  // }, [restaurantData, location, setLocation]);
 
   const navigation = [
     { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },

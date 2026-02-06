@@ -195,6 +195,15 @@ export function registerVoucherRoutes(router: Router): void {
       }
 
       const voucherType = await storage.getVoucherType(voucherTypeId);
+      if (!voucherType || voucherType.restaurantId !== restaurantId) {
+        return res.status(404).json({ error: "Voucher type not found" });
+      }
+
+      // Prevent deletion if any diner has earned vouchers from this type
+      const hasVouchers = await storage.hasVouchersForType(voucherTypeId);
+      if (hasVouchers) {
+        return res.status(400).json({ error: "This voucher cannot be deleted because diners have already started earning points towards it. You can deactivate it instead." });
+      }
 
       await storage.deleteVoucherType(voucherTypeId);
       

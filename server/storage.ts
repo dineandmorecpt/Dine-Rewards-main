@@ -162,6 +162,7 @@ export interface IStorage {
   getVoucherType(id: string): Promise<VoucherType | undefined>;
   updateVoucherType(id: string, updates: Partial<InsertVoucherType>): Promise<VoucherType>;
   deleteVoucherType(id: string): Promise<void>;
+  hasVouchersForType(voucherTypeId: string): Promise<boolean>;
   
   // Registration Voucher Status (one per diner per restaurant lifetime)
   getRegistrationVoucherStatus(dinerId: string, restaurantId: string): Promise<RegistrationVoucherStatus | undefined>;
@@ -806,6 +807,13 @@ export class DbStorage implements IStorage {
 
   async deleteVoucherType(id: string): Promise<void> {
     await db.delete(voucherTypes).where(eq(voucherTypes.id, id));
+  }
+
+  async hasVouchersForType(voucherTypeId: string): Promise<boolean> {
+    const result = await db.select({ count: sql<number>`count(*)` })
+      .from(vouchers)
+      .where(eq(vouchers.voucherTypeId, voucherTypeId));
+    return (result[0]?.count ?? 0) > 0;
   }
 
   // Registration Voucher Status Methods

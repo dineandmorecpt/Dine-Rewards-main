@@ -10,8 +10,9 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { Building2, MapPin, User, CheckCircle2, ArrowRight, ArrowLeft, Loader2, Globe, GitBranch, Clock } from "lucide-react";
+import { Building2, MapPin, User, CheckCircle2, ArrowRight, ArrowLeft, Loader2, Globe, GitBranch, Clock, Upload, ImageIcon } from "lucide-react";
 import { getStoredAuth } from "@/lib/queryClient";
+import { useUpload } from "@/hooks/use-upload";
 
 function getAuthHeaders(): Record<string, string> {
   const auth = getStoredAuth();
@@ -97,6 +98,31 @@ export default function AdminOnboarding() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const restaurantId = restaurant?.id;
+
+  const { uploadFile, isUploading: isUploadingLogo } = useUpload({
+    onSuccess: (response) => {
+      setFormData((prev) => ({ ...prev, logoUrl: response.objectPath }));
+      toast({ title: "Logo Uploaded", description: "Your business logo has been uploaded." });
+    },
+    onError: (error) => {
+      toast({ title: "Upload Failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith("image/")) {
+        toast({ title: "Invalid File", description: "Please select an image file.", variant: "destructive" });
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        toast({ title: "File Too Large", description: "Logo must be under 5MB.", variant: "destructive" });
+        return;
+      }
+      await uploadFile(file);
+    }
+  };
 
   const { data: restaurantData, isLoading } = useQuery({
     queryKey: ["/api/admin/restaurant"],
@@ -398,6 +424,45 @@ export default function AdminOnboarding() {
           <CardContent className="space-y-6">
             {currentStep === "business" && (
               <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Business Logo</Label>
+                  <div className="flex items-center gap-4">
+                    <div className="w-20 h-20 rounded-lg border-2 border-dashed border-muted-foreground/30 flex items-center justify-center overflow-hidden bg-muted/50">
+                      {formData.logoUrl ? (
+                        <img
+                          src={formData.logoUrl}
+                          alt="Business logo"
+                          className="w-full h-full object-cover rounded-lg"
+                          data-testid="img-business-logo"
+                        />
+                      ) : (
+                        <ImageIcon className="h-8 w-8 text-muted-foreground/50" />
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <label htmlFor="logo-upload" className="cursor-pointer">
+                        <div className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors">
+                          {isUploadingLogo ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Upload className="h-4 w-4" />
+                          )}
+                          {isUploadingLogo ? "Uploading..." : formData.logoUrl ? "Change Logo" : "Upload Logo"}
+                        </div>
+                        <input
+                          id="logo-upload"
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleLogoUpload}
+                          disabled={isUploadingLogo}
+                          data-testid="input-logo-upload"
+                        />
+                      </label>
+                      <p className="text-xs text-muted-foreground mt-1">PNG, JPG or SVG. Max 5MB.</p>
+                    </div>
+                  </div>
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="businessName">Business Name</Label>
                   <Input
@@ -704,6 +769,16 @@ export default function AdminOnboarding() {
                     <h3 className="font-medium mb-2 flex items-center gap-2">
                       <Building2 className="h-4 w-4" /> Business Details
                     </h3>
+                    {formData.logoUrl && (
+                      <div className="mb-3">
+                        <img
+                          src={formData.logoUrl}
+                          alt="Business logo"
+                          className="w-16 h-16 rounded-lg object-cover border"
+                          data-testid="img-review-logo"
+                        />
+                      </div>
+                    )}
                     <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-muted-foreground">
                       <p>Business Name: {restaurantData?.name || "—"}</p>
                       <p>Trading Name: {formData.tradingName || "—"}</p>

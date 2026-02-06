@@ -892,6 +892,12 @@ export function registerAdminApiRoutes(router: Router): void {
         return res.status(404).json({ error: "Voucher type not found" });
       }
 
+      // Prevent changing from all_branches to specific_branches
+      // Expanding from specific to all is allowed (benefits diners)
+      if (voucherType.redemptionScope === "all_branches" && req.body.redemptionScope === "specific_branches") {
+        return res.status(400).json({ error: "Cannot restrict a voucher from all branches to specific branches, as this would negatively affect diners who expect to use it at any location." });
+      }
+
       const updated = await storage.updateVoucherType(voucherTypeId, req.body);
       
       await storage.createActivityLog({

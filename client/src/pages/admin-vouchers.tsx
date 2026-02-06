@@ -1727,11 +1727,17 @@ function AdminVouchersContent() {
                               variant={voucherTypeRedemptionScope === "specific_branches" ? "default" : "outline"}
                               size="sm"
                               onClick={() => setVoucherTypeRedemptionScope("specific_branches")}
+                              disabled={editingVoucherType && editingVoucherType.redemptionScope === "all_branches"}
                               data-testid="button-redemption-specific-branches"
                             >
                               Specific Branches
                             </Button>
                           </div>
+                          {editingVoucherType && editingVoucherType.redemptionScope === "all_branches" && (
+                            <p className="text-xs text-muted-foreground">
+                              This voucher is available at all branches and cannot be restricted to specific branches, as this would negatively affect diners who expect to use it at any location.
+                            </p>
+                          )}
                           {voucherTypeRedemptionScope === "specific_branches" && (
                             <div className="grid gap-2 pl-2 border-l-2 border-muted">
                               <p className="text-sm text-muted-foreground">Select branches where this voucher can be redeemed:</p>

@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Utensils, Gift, ChevronRight, Clock, QrCode, Receipt, Sparkles, Star, Store } from "lucide-react";
+import { Utensils, Gift, ChevronRight, Clock, QrCode, Receipt, Sparkles, Star, Store, PartyPopper, X, MapPin } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/hooks/use-toast";
@@ -94,6 +94,12 @@ export default function DinerDashboard() {
   const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null);
   const [showVoucherQR, setShowVoucherQR] = useState(false);
   const [voucherFilter, setVoucherFilter] = useState<"active" | "redeemed">("active");
+  const [dismissedRestaurants, setDismissedRestaurants] = useState<Set<string>>(() => {
+    try {
+      const stored = sessionStorage.getItem('dinemore_dismissed_restaurants');
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch { return new Set(); }
+  });
 
   useEffect(() => {
     if (!codeExpiresAt || !presentCodeOpen) return;
@@ -160,6 +166,70 @@ export default function DinerDashboard() {
     },
     enabled: !!dinerId,
   });
+
+  interface AvailableRestaurant {
+    id: string;
+    name: string;
+    tradingName?: string;
+    description?: string;
+    cuisineType?: string;
+    logoUrl?: string;
+    city?: string;
+    province?: string;
+  }
+
+  const { data: availableRestaurants = [] } = useQuery<AvailableRestaurant[]>({
+    queryKey: ["/api/diner/available-restaurants"],
+    queryFn: async () => {
+      const res = await fetch(`/api/diner/available-restaurants`, {
+        credentials: "include",
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!dinerId,
+  });
+
+  const joinRestaurant = useMutation({
+    mutationFn: async (restaurantId: string) => {
+      const res = await fetch("/api/diner/join-restaurant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        credentials: "include",
+        body: JSON.stringify({ restaurantId }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to join");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/diner/points"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/diner/available-restaurants"] });
+      toast({
+        title: "Welcome!",
+        description: data.message,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Could not join",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDismissRestaurant = (restaurantId: string) => {
+    const updated = new Set(dismissedRestaurants);
+    updated.add(restaurantId);
+    setDismissedRestaurants(updated);
+    sessionStorage.setItem('dinemore_dismissed_restaurants', JSON.stringify(Array.from(updated)));
+  };
+
+  const visibleNewRestaurants = availableRestaurants.filter(r => !dismissedRestaurants.has(r.id));
 
   // Fetch transactions for selected restaurant
   const { data: transactions = [], isLoading: loadingTransactions } = useQuery<Transaction[]>({
@@ -260,6 +330,70 @@ export default function DinerDashboard() {
   return (
     <DinerLayout>
       <div className="space-y-4 sm:space-y-6 lg:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        {visibleNewRestaurants.length > 0 && (
+          <div className="space-y-3">
+            {visibleNewRestaurants.map((restaurant) => (
+              <Card key={restaurant.id} className="border-primary/30 bg-primary/5" data-testid={`card-new-restaurant-${restaurant.id}`}>
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="shrink-0 w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center overflow-hidden">
+                      {restaurant.logoUrl ? (
+                        <img src={restaurant.logoUrl} alt={restaurant.name} className="w-full h-full object-cover rounded-lg" />
+                      ) : (
+                        <PartyPopper className="h-6 w-6 text-primary" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="font-semibold text-sm">New Restaurant Partner!</p>
+                          <p className="font-bold text-base">{restaurant.tradingName || restaurant.name}</p>
+                        </div>
+                        <button
+                          onClick={() => handleDismissRestaurant(restaurant.id)}
+                          className="shrink-0 p-1 rounded-full hover:bg-muted transition-colors"
+                          data-testid={`button-dismiss-restaurant-${restaurant.id}`}
+                        >
+                          <X className="h-4 w-4 text-muted-foreground" />
+                        </button>
+                      </div>
+                      {restaurant.cuisineType && (
+                        <p className="text-xs text-muted-foreground">{restaurant.cuisineType}</p>
+                      )}
+                      {restaurant.city && (
+                        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                          <MapPin className="h-3 w-3" /> {restaurant.city}{restaurant.province ? `, ${restaurant.province}` : ''}
+                        </p>
+                      )}
+                      {restaurant.description && (
+                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{restaurant.description}</p>
+                      )}
+                      <div className="flex gap-2 mt-3">
+                        <Button
+                          size="sm"
+                          onClick={() => joinRestaurant.mutate(restaurant.id)}
+                          disabled={joinRestaurant.isPending}
+                          data-testid={`button-join-restaurant-${restaurant.id}`}
+                        >
+                          {joinRestaurant.isPending ? "Joining..." : "Join Rewards"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleDismissRestaurant(restaurant.id)}
+                          data-testid={`button-not-now-restaurant-${restaurant.id}`}
+                        >
+                          Not Now
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
         <div className="flex flex-col gap-3 sm:gap-4">
           <div>
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-serif font-bold text-foreground leading-tight">

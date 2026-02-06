@@ -369,4 +369,81 @@ export function registerDinerApiRoutes(router: Router): void {
       res.status(500).json({ error: "Failed to verify phone change" });
     }
   });
+
+  router.get("/api/diner/available-restaurants", async (req, res) => {
+    try {
+      const dinerId = requireDinerAuth(req, res);
+      if (!dinerId) return;
+
+      const allRestaurants = await storage.getAllRestaurants();
+      const activeRestaurants = allRestaurants.filter(r => r.onboardingStatus === 'active');
+      const dinerBalances = await storage.getPointsBalancesByDiner(dinerId);
+      const joinedRestaurantIds = new Set(dinerBalances.map(b => b.restaurantId));
+
+      const available = activeRestaurants
+        .filter(r => !joinedRestaurantIds.has(r.id))
+        .map(r => ({
+          id: r.id,
+          name: r.name,
+          tradingName: r.tradingName,
+          description: r.description,
+          cuisineType: r.cuisineType,
+          logoUrl: r.logoUrl,
+          city: r.city,
+          province: r.province,
+        }));
+
+      res.json(available);
+    } catch (error) {
+      console.error("Get available restaurants error:", error);
+      res.status(500).json({ error: "Failed to fetch available restaurants" });
+    }
+  });
+
+  const joinRestaurantSchema = z.object({
+    restaurantId: z.string().min(1, "Restaurant ID is required"),
+  });
+
+  router.post("/api/diner/join-restaurant", async (req, res) => {
+    try {
+      const dinerId = requireDinerAuth(req, res);
+      if (!dinerId) return;
+
+      const parseResult = joinRestaurantSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(422).json({ error: parseResult.error.errors[0]?.message || "Invalid input" });
+      }
+
+      const { restaurantId } = parseResult.data;
+
+      const restaurant = await storage.getRestaurant(restaurantId);
+      if (!restaurant || restaurant.onboardingStatus !== 'active') {
+        return res.status(404).json({ error: "Restaurant not found or not active" });
+      }
+
+      const existingBalances = await storage.getPointsBalancesByDinerAndRestaurant(dinerId, restaurantId);
+      if (existingBalances.length > 0) {
+        return res.status(409).json({ error: "You have already joined this restaurant's rewards program" });
+      }
+
+      const balance = await storage.createPointsBalance({
+        dinerId,
+        restaurantId,
+        currentPoints: 0,
+        totalPointsEarned: 0,
+        currentVisits: 0,
+        totalVisits: 0,
+        totalVouchersGenerated: 0,
+        pointsCredits: 0,
+        visitCredits: 0,
+        availableVoucherCredits: 0,
+        totalVoucherCreditsEarned: 0,
+      });
+
+      res.json({ success: true, message: `You've joined ${restaurant.name}'s rewards program!`, balance });
+    } catch (error: any) {
+      console.error("Join restaurant error:", error);
+      res.status(500).json({ error: error.message || "Failed to join restaurant" });
+    }
+  });
 }

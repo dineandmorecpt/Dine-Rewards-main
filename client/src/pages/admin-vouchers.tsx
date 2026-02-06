@@ -1320,7 +1320,7 @@ function AdminVouchersContent() {
               setVoucherTypeDialogOpen(open);
               if (!open) resetVoucherTypeForm();
             }}>
-              <DialogContent className="sm:max-w-[500px] max-h-[85vh] overflow-y-auto">
+              <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
                 {categorySelectionStep && !editingVoucherType ? (
                   <>
                     <DialogHeader>

@@ -54,12 +54,16 @@ function AdminLayoutContent({ children }: AdminLayoutProps) {
     enabled: !!restaurant?.id,
   });
 
-  // Onboarding redirect disabled - all admins go directly to dashboard
-  // useEffect(() => {
-  //   if (restaurantData && restaurantData.onboardingStatus !== 'active' && !location.startsWith('/admin/onboarding')) {
-  //     setLocation('/admin/onboarding');
-  //   }
-  // }, [restaurantData, location, setLocation]);
+  // Redirect to onboarding for new restaurants that haven't completed setup
+  // Only applies to restaurants with status 'draft' or 'submitted' (not yet active)
+  // Active restaurants have already been onboarded and skip this entirely
+  // Respects "Complete Later" skip during the current session
+  useEffect(() => {
+    const skipped = sessionStorage.getItem('dinemore_onboarding_skipped');
+    if (restaurantData && restaurantData.onboardingStatus !== 'active' && !location.startsWith('/admin/onboarding') && !skipped) {
+      setLocation('/admin/onboarding');
+    }
+  }, [restaurantData, location, setLocation]);
 
   const navigation = [
     { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },

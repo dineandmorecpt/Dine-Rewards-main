@@ -172,8 +172,17 @@ export default function AdminOnboarding() {
     },
   });
 
+  const [skippedOnboarding, setSkippedOnboarding] = useState(false);
+  
   const currentStepIndex = steps.findIndex((s) => s.id === currentStep);
   const progress = ((currentStepIndex + 1) / steps.length) * 100;
+  
+  const handleSkipOnboarding = () => {
+    // Store in sessionStorage so they can use the dashboard during this session
+    // but will be prompted again on next login
+    sessionStorage.setItem('dinemore_onboarding_skipped', 'true');
+    setLocation("/admin/dashboard");
+  };
 
   const handleNext = async () => {
     await saveOnboarding.mutateAsync(formData);
@@ -240,6 +249,17 @@ export default function AdminOnboarding() {
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-3xl mx-auto space-y-6">
         <div className="text-center space-y-2">
+          <div className="flex justify-end">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleSkipOnboarding}
+              className="text-muted-foreground hover:text-foreground"
+              data-testid="button-skip-onboarding"
+            >
+              Complete Later →
+            </Button>
+          </div>
           <h1 className="text-3xl font-serif font-bold">Restaurant Onboarding</h1>
           <p className="text-muted-foreground">Complete your restaurant profile to get started</p>
         </div>

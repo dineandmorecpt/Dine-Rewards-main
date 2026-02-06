@@ -1604,20 +1604,20 @@ function AdminVouchersContent() {
                               </p>
                             </>
                           )}
-                          {voucherTypeEarningMode === "points" && !editingVoucherType && (
+                          {voucherTypeEarningMode === "points" && (
                             <div className="grid gap-2 mt-2">
                               <Label htmlFor="vt-points-per-currency">Points per R1 Spent</Label>
                               <Input 
                                 id="vt-points-per-currency" 
                                 type="number" 
                                 min="1"
-                                placeholder="Default: 1"
+                                placeholder={`Default: ${pointsPerCurrency} point${Number(pointsPerCurrency) !== 1 ? 's' : ''} per R1`}
                                 value={voucherTypePointsPerCurrency}
                                 onChange={(e) => setVoucherTypePointsPerCurrency(e.target.value)}
                                 data-testid="input-voucher-type-points-per-currency"
                               />
                               <p className="text-xs text-muted-foreground">
-                                Leave empty to use the restaurant default (1 point per R1)
+                                Your restaurant is set to {pointsPerCurrency} point{Number(pointsPerCurrency) !== 1 ? 's' : ''} per R1 spent. Leave empty to use this default, or enter a custom value for this voucher.
                               </p>
                             </div>
                           )}

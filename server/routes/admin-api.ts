@@ -45,6 +45,10 @@ const profileSchema = z.object({
 
 const onboardingSchema = z.object({
   registrationNumber: z.string().optional(),
+  vatNumber: z.string().optional(),
+  tradingName: z.string().optional(),
+  description: z.string().optional(),
+  cuisineType: z.string().optional(),
   streetAddress: z.string().optional(),
   city: z.string().optional(),
   province: z.string().optional(),
@@ -53,6 +57,11 @@ const onboardingSchema = z.object({
   contactName: z.string().optional(),
   contactEmail: z.string().email().optional().or(z.literal('')),
   contactPhone: z.string().optional(),
+  businessHours: z.string().optional(),
+  websiteUrl: z.string().url().optional().or(z.literal('')),
+  facebookUrl: z.string().url().optional().or(z.literal('')),
+  instagramUrl: z.string().url().optional().or(z.literal('')),
+  twitterUrl: z.string().url().optional().or(z.literal('')),
   hasAdditionalBranches: z.boolean().optional(),
   logoUrl: z.string().optional(),
 });

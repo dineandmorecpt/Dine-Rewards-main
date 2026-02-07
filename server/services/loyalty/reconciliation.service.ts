@@ -5,6 +5,7 @@ export interface CsvRecord {
   billId: string;
   amount?: string;
   date?: string;
+  allData: Record<string, string>;
 }
 
 export interface ReconciliationResult {
@@ -35,52 +36,111 @@ export interface IReconciliationService {
 export class ReconciliationService implements IReconciliationService {
   constructor(private storage: IStorage) {}
 
-  private parseCSV(csvContent: string): CsvRecord[] {
+  private parseCSVValues(line: string): string[] {
+    const values: string[] = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      if (char === '"') {
+        inQuotes = !inQuotes;
+      } else if (char === ',' && !inQuotes) {
+        values.push(current.trim().replace(/^["']|["']$/g, ''));
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    values.push(current.trim().replace(/^["']|["']$/g, ''));
+    return values;
+  }
+
+  private parseCSV(csvContent: string, restaurantName?: string): { headers: string[]; records: CsvRecord[] } {
     const lines = csvContent.trim().split('\n');
     if (lines.length < 2) {
-      return [];
+      return { headers: [], records: [] };
     }
 
-    const headerLine = lines[0].toLowerCase();
-    const headers = headerLine.split(',').map(h => h.trim().replace(/['"]/g, ''));
+    const rawHeaders = this.parseCSVValues(lines[0]);
+    const headersLower = rawHeaders.map(h => h.toLowerCase().trim());
     
-    const billIdIndex = headers.findIndex(h => 
+    const billIdIndex = headersLower.findIndex(h => 
       h === 'bill_id' || h === 'billid' || h === 'bill id' || h === 'invoice_id' || h === 'invoiceid' || h === 'invoice'
     );
-    const amountIndex = headers.findIndex(h => 
+    const amountIndex = headersLower.findIndex(h => 
       h === 'amount' || h === 'total' || h === 'value' || h === 'bill_amount'
     );
-    const dateIndex = headers.findIndex(h => 
+    const dateIndex = headersLower.findIndex(h => 
       h === 'date' || h === 'transaction_date' || h === 'bill_date'
     );
+    const restaurantNameIndex = headersLower.findIndex(h =>
+      h === 'restaurant' || h === 'restaurant_name' || h === 'restaurant name' || h === 'store' || h === 'store_name' || h === 'outlet' || h === 'outlet_name' || h === 'branch' || h === 'branch_name'
+    );
+    const customerNameIndices = headersLower.reduce((indices: number[], h, i) => {
+      if (h === 'customer' || h === 'customer_name' || h === 'customer name' || 
+          h === 'name' || h === 'user' || h === 'user_name' || h === 'user name' || 
+          h === 'guest' || h === 'guest_name' || h === 'guest name' ||
+          h === 'diner' || h === 'diner_name' || h === 'diner name' ||
+          h === 'client' || h === 'client_name' || h === 'client name' ||
+          h === 'member' || h === 'member_name' || h === 'member name') {
+        indices.push(i);
+      }
+      return indices;
+    }, []);
 
     if (billIdIndex === -1) {
       throw new Error("CSV must contain a column for Bill ID (e.g., 'bill_id', 'billid', 'invoice_id')");
     }
 
+    const displayHeaders = rawHeaders.map(h => h.trim());
+
     const records: CsvRecord[] = [];
+    const userNameMap = new Map<string, string>();
+    let userCounter = 0;
     
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i].trim();
       if (!line) continue;
       
-      const values = line.split(',').map(v => v.trim().replace(/['"]/g, ''));
+      const values = this.parseCSVValues(line);
       
       const billId = values[billIdIndex];
       if (!billId) continue;
+
+      const allData: Record<string, string> = {};
+      for (let j = 0; j < displayHeaders.length; j++) {
+        const header = displayHeaders[j];
+        let value = j < values.length ? values[j] : '';
+        if (restaurantName && j === restaurantNameIndex) {
+          value = restaurantName;
+        }
+        if (customerNameIndices.includes(j) && value) {
+          const normalizedName = value.trim().toLowerCase();
+          if (!userNameMap.has(normalizedName)) {
+            userCounter++;
+            userNameMap.set(normalizedName, `User ${userCounter}`);
+          }
+          value = userNameMap.get(normalizedName)!;
+        }
+        allData[header] = value;
+      }
       
       records.push({
         billId,
         amount: amountIndex >= 0 ? values[amountIndex] : undefined,
-        date: dateIndex >= 0 ? values[dateIndex] : undefined
+        date: dateIndex >= 0 ? values[dateIndex] : undefined,
+        allData
       });
     }
 
-    return records;
+    return { headers: displayHeaders, records };
   }
 
   async processCSV(restaurantId: string, fileName: string, csvContent: string): Promise<ReconciliationResult> {
-    const csvRecords = this.parseCSV(csvContent);
+    const restaurant = await this.storage.getRestaurant(restaurantId);
+    const restaurantName = restaurant?.tradingName || restaurant?.name || undefined;
+
+    const { headers, records: csvRecords } = this.parseCSV(csvContent, restaurantName);
     
     if (csvRecords.length === 0) {
       throw new Error("No valid records found in CSV file");
@@ -92,36 +152,56 @@ export class ReconciliationService implements IReconciliationService {
       totalRecords: csvRecords.length,
       matchedRecords: 0,
       unmatchedRecords: 0,
-      status: 'processing'
+      status: 'processing',
+      csvHeaders: headers
     });
 
     let matchedCount = 0;
+    let unmatchedCount = 0;
     const enrichedRecords: EnrichedReconciliationRecord[] = [];
 
     for (const csvRecord of csvRecords) {
-      const voucher = await this.storage.getVoucherByBillId(restaurantId, csvRecord.billId);
+      const transaction = await this.storage.getTransactionByBillId(restaurantId, csvRecord.billId);
       
-      const isMatched = !!voucher;
-      if (isMatched) matchedCount++;
+      if (!transaction) {
+        unmatchedCount++;
+        continue;
+      }
+
+      matchedCount++;
+
+      const voucher = await this.storage.getVoucherByBillId(restaurantId, csvRecord.billId);
 
       const record = await this.storage.createReconciliationRecord({
         batchId: batch.id,
         billId: csvRecord.billId,
         csvAmount: csvRecord.amount || null,
         csvDate: csvRecord.date || null,
-        isMatched,
+        csvData: csvRecord.allData,
+        isMatched: true,
         matchedVoucherId: voucher?.id || null
       });
 
+      let variance: string | undefined;
+      if (csvRecord.amount && transaction.amountSpent) {
+        const csvClean = csvRecord.amount.replace(/[R$,\s]/g, '').replace(',', '.');
+        const csvNum = parseFloat(csvClean);
+        const recordedNum = parseFloat(transaction.amountSpent);
+        if (!isNaN(csvNum) && !isNaN(recordedNum)) {
+          variance = (csvNum - recordedNum).toFixed(2);
+        }
+      }
+
       enrichedRecords.push({
         ...record,
-        voucherCode: voucher?.code,
-        voucherTitle: voucher?.title,
-        redeemedAt: voucher?.redeemedAt
+        voucherCode: voucher?.code ?? undefined,
+        voucherTitle: voucher?.title ?? undefined,
+        redeemedAt: voucher?.redeemedAt,
+        recordedAmount: transaction.amountSpent,
+        userPhone: `User ${matchedCount}`,
+        variance
       });
     }
-
-    const unmatchedCount = csvRecords.length - matchedCount;
 
     const updatedBatch = await this.storage.updateReconciliationBatch(batch.id, {
       matchedRecords: matchedCount,
@@ -151,25 +231,19 @@ export class ReconciliationService implements IReconciliationService {
 
     const records = await this.storage.getReconciliationRecordsByBatch(batchId);
     
+    let userIndex = 0;
     const enrichedRecords: EnrichedReconciliationRecord[] = await Promise.all(
       records.map(async (record) => {
         let enriched: EnrichedReconciliationRecord = { ...record };
         
-        // Get transaction by billId to get recorded amount and user info
         const transaction = await this.storage.getTransactionByBillId(batch.restaurantId, record.billId);
         if (transaction) {
           enriched.recordedAmount = transaction.amountSpent;
           
-          // Get user phone
-          const user = await this.storage.getUser(transaction.dinerId);
-          if (user?.phone) {
-            enriched.userPhone = user.phone;
-          }
+          userIndex++;
+          enriched.userPhone = `User ${userIndex}`;
           
-          // Calculate variance if both amounts exist (CSV amount - Recorded amount)
-          // Positive variance = POS shows more than recorded, Negative = POS shows less
           if (record.csvAmount && transaction.amountSpent) {
-            // Normalize CSV amount: remove currency symbols, spaces, and handle comma decimals
             const csvClean = record.csvAmount.replace(/[R$,\s]/g, '').replace(',', '.');
             const csvNum = parseFloat(csvClean);
             const recordedNum = parseFloat(transaction.amountSpent);
@@ -184,8 +258,8 @@ export class ReconciliationService implements IReconciliationService {
         if (record.matchedVoucherId) {
           const voucher = await this.storage.getVoucherById(record.matchedVoucherId);
           if (voucher) {
-            enriched.voucherCode = voucher.code;
-            enriched.voucherTitle = voucher.title;
+            enriched.voucherCode = voucher.code ?? undefined;
+            enriched.voucherTitle = voucher.title ?? undefined;
             enriched.redeemedAt = voucher.redeemedAt;
           }
         }

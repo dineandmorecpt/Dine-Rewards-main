@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Receipt, Utensils, Calendar, CheckCircle2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { getAuthHeaders } from "@/lib/queryClient";
 
 interface TransactionWithRestaurant {
   id: string;
@@ -22,7 +23,10 @@ export default function DinerHistory() {
   const { data: transactions = [], isLoading } = useQuery<TransactionWithRestaurant[]>({
     queryKey: ["/api/diner/transactions"],
     queryFn: async () => {
-      const res = await fetch(`/api/diner/transactions`);
+      const res = await fetch(`/api/diner/transactions`, {
+        credentials: "include",
+        headers: getAuthHeaders(),
+      });
       if (!res.ok) throw new Error("Failed to fetch transactions");
       return res.json();
     },
@@ -46,7 +50,7 @@ export default function DinerHistory() {
     <DinerLayout>
       <div className="space-y-4 sm:space-y-6 lg:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
         <div className="flex flex-col gap-1 sm:gap-2">
-          <h1 className="text-xl sm:text-2xl lg:text-3xl font-serif font-bold text-foreground">Activity History</h1>
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-sans font-bold text-foreground">Activity History</h1>
           <p className="text-sm sm:text-base text-muted-foreground">Your complete activity log across all restaurants.</p>
         </div>
 

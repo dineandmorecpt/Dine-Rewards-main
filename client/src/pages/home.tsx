@@ -6,10 +6,28 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Captcha } from "@/components/ui/captcha";
 import { Utensils, ChefHat, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import logoImage from "@/assets/logo.png";
+
+const GENDER_OPTIONS = [
+  { value: "male", label: "Male" },
+  { value: "female", label: "Female" },
+];
+
+const PROVINCE_OPTIONS = [
+  { value: "Eastern Cape", label: "Eastern Cape" },
+  { value: "Free State", label: "Free State" },
+  { value: "Gauteng", label: "Gauteng" },
+  { value: "KwaZulu-Natal", label: "KwaZulu-Natal" },
+  { value: "Limpopo", label: "Limpopo" },
+  { value: "Mpumalanga", label: "Mpumalanga" },
+  { value: "Northern Cape", label: "Northern Cape" },
+  { value: "North West", label: "North West" },
+  { value: "Western Cape", label: "Western Cape" },
+];
 
 export default function Home() {
   const [, navigate] = useLocation();
@@ -30,6 +48,9 @@ export default function Home() {
   const [registerPassword, setRegisterPassword] = useState("");
   const [registerOtp, setRegisterOtp] = useState("");
   const [verifiedPhone, setVerifiedPhone] = useState("");
+  const [registerGender, setRegisterGender] = useState("");
+  const [registerProvince, setRegisterProvince] = useState("");
+  const [registerDob, setRegisterDob] = useState("");
   
   const [adminEmail, setAdminEmail] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
@@ -63,7 +84,7 @@ export default function Home() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ email: dinerEmail, password: dinerPassword, captchaToken: dinerCaptchaToken }),
+        body: JSON.stringify({ email: dinerEmail, password: dinerPassword, captchaToken: dinerCaptchaToken, portal: "diner" }),
       });
 
       const data = await response.json();
@@ -176,7 +197,7 @@ export default function Home() {
         description: "Please complete your registration.",
       });
 
-      setVerifiedPhone(registerPhone);
+      setVerifiedPhone(data.verifiedPhone || registerPhone);
       setRegisterStep(3);
     } catch (error: any) {
       toast({
@@ -190,7 +211,7 @@ export default function Home() {
   };
 
   const handleDinerRegister = async () => {
-    if (!registerName || !registerLastName || !registerEmail || !registerPassword) {
+    if (!registerName || !registerLastName || !registerEmail || !registerPassword || !registerGender || !registerProvince || !registerDob) {
       toast({
         title: "Missing information",
         description: "Please fill in all fields.",
@@ -209,6 +230,31 @@ export default function Home() {
       return;
     }
 
+    // Validate date of birth - user must be 18 or older
+    if (registerDob) {
+      const dobParts = registerDob.split('/');
+      if (dobParts.length === 3) {
+        const day = parseInt(dobParts[0], 10);
+        const month = parseInt(dobParts[1], 10) - 1;
+        const year = parseInt(dobParts[2], 10);
+        const birthDate = new Date(year, month, day);
+        const today = new Date();
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const monthDiff = today.getMonth() - birthDate.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+          age--;
+        }
+        if (age < 18) {
+          toast({
+            title: "Age restriction",
+            description: "You must be 18 years or older to register.",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+    }
+
     setIsLoading(true);
     try {
       const response = await fetch("/api/auth/register-diner", {
@@ -221,6 +267,9 @@ export default function Home() {
           email: registerEmail,
           phone: verifiedPhone,
           password: registerPassword,
+          gender: registerGender,
+          province: registerProvince,
+          dateOfBirth: registerDob,
         }),
       });
 
@@ -280,7 +329,7 @@ export default function Home() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ email: adminEmail, password: adminPassword, captchaToken: adminCaptchaToken }),
+        body: JSON.stringify({ email: adminEmail, password: adminPassword, captchaToken: adminCaptchaToken, portal: "restaurant" }),
       });
 
       const data = await response.json();
@@ -499,46 +548,87 @@ export default function Home() {
                           <p className="text-xs text-green-600 mt-1">Phone verified: {verifiedPhone}</p>
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="register-name">First Name</Label>
+                          <Label htmlFor="register-name">First Name <span className="text-destructive">*</span></Label>
                           <Input
                             id="register-name"
                             placeholder="Enter your first name"
                             value={registerName}
                             onChange={(e) => setRegisterName(e.target.value)}
+                            required
                             data-testid="input-register-name"
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="register-lastname">Surname</Label>
+                          <Label htmlFor="register-lastname">Surname <span className="text-destructive">*</span></Label>
                           <Input
                             id="register-lastname"
                             placeholder="Enter your surname"
                             value={registerLastName}
                             onChange={(e) => setRegisterLastName(e.target.value)}
+                            required
                             data-testid="input-register-lastname"
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="register-email">Email</Label>
+                          <Label htmlFor="register-email">Email <span className="text-destructive">*</span></Label>
                           <Input
                             id="register-email"
                             type="email"
                             placeholder="your@email.com"
                             value={registerEmail}
                             onChange={(e) => setRegisterEmail(e.target.value)}
+                            required
                             data-testid="input-register-email"
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="register-password">Password</Label>
+                          <Label htmlFor="register-password">Password <span className="text-destructive">*</span></Label>
                           <Input
                             id="register-password"
                             type="password"
                             placeholder="Create a password"
                             value={registerPassword}
                             onChange={(e) => setRegisterPassword(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleDinerRegister()}
+                            required
                             data-testid="input-register-password"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="register-gender">Gender <span className="text-destructive">*</span></Label>
+                          <Select value={registerGender} onValueChange={setRegisterGender} required>
+                            <SelectTrigger id="register-gender" data-testid="select-register-gender">
+                              <SelectValue placeholder="Select gender" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {GENDER_OPTIONS.map((opt) => (
+                                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="register-province">Location (Province) <span className="text-destructive">*</span></Label>
+                          <Select value={registerProvince} onValueChange={setRegisterProvince} required>
+                            <SelectTrigger id="register-province" data-testid="select-register-province">
+                              <SelectValue placeholder="Select province" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {PROVINCE_OPTIONS.map((opt) => (
+                                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="register-dob">Date of Birth (DD/MM/YYYY) <span className="text-destructive">*</span></Label>
+                          <Input
+                            id="register-dob"
+                            type="text"
+                            placeholder="DD/MM/YYYY"
+                            value={registerDob}
+                            onChange={(e) => setRegisterDob(e.target.value)}
+                            required
+                            data-testid="input-register-dob"
                           />
                         </div>
                         <Button 
@@ -550,6 +640,19 @@ export default function Home() {
                           {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                           Complete Registration
                         </Button>
+                        <button
+                          type="button"
+                          className="w-full text-sm text-muted-foreground hover:text-foreground mt-2"
+                          onClick={() => {
+                            setRegisterStep(1);
+                            setRegisterPhone("");
+                            setRegisterOtp("");
+                            setVerifiedPhone("");
+                          }}
+                          data-testid="button-back-to-phone"
+                        >
+                          Use a different phone number
+                        </button>
                       </>
                     )}
                     <div className="text-center text-sm text-muted-foreground">
@@ -567,6 +670,9 @@ export default function Home() {
                           setRegisterLastName("");
                           setRegisterEmail("");
                           setRegisterPassword("");
+                          setRegisterGender("");
+                          setRegisterProvince("");
+                          setRegisterDob("");
                         }}
                         data-testid="button-show-login"
                       >

@@ -1,11 +1,64 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, boolean, timestamp, decimal, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, boolean, timestamp, decimal, uniqueIndex, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// User Types: 'diner' or 'restaurant_admin'
-// A person can be both a diner AND a restaurant staff member with the same email/phone,
-// but cannot have duplicate records within the same user type.
+// ============================================================================
+// DINERS - Users who earn and redeem rewards at restaurants
+// ============================================================================
+export const diners = pgTable("diners", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  analyticsId: text("analytics_id").unique(), // Anonymous ID for analytics (no PII exposure)
+  email: text("email").notNull().unique(),
+  password: text("password").notNull(),
+  name: text("name").notNull(),
+  lastName: text("last_name"), // Surname
+  phone: text("phone").unique(),
+  gender: text("gender"), // 'male' | 'female'
+  dateOfBirth: text("date_of_birth"), // DD/MM/YYYY format
+  province: text("province"), // South African province
+  accessToken: text("access_token").unique(), // Persistent token for auto-login (valid for 90 days)
+  accessTokenExpiresAt: timestamp("access_token_expires_at"), // When the access token expires
+  activeVoucherCode: text("active_voucher_code"), // Temporary presentation code for redemption (generated on tap)
+  activeVoucherId: text("active_voucher_id"), // ID of voucher being presented for redemption
+  activeVoucherCodeSetAt: timestamp("active_voucher_code_set_at"), // When the code was presented (valid for 15 mins)
+  termsAcceptedAt: timestamp("terms_accepted_at"), // When T&Cs were accepted
+  privacyAcceptedAt: timestamp("privacy_accepted_at"), // When privacy policy was accepted
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertDinerSchema = createInsertSchema(diners).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertDiner = z.infer<typeof insertDinerSchema>;
+export type Diner = typeof diners.$inferSelect;
+
+// ============================================================================
+// RESTAURANT STAFF - Users who manage restaurant admin portals
+// ============================================================================
+export const restaurantStaff = pgTable("restaurant_staff", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: text("email").notNull().unique(),
+  password: text("password").notNull(),
+  name: text("name").notNull(),
+  phone: text("phone").unique(),
+  accessToken: text("access_token").unique(), // Persistent token for auto-login
+  accessTokenExpiresAt: timestamp("access_token_expires_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertRestaurantStaffSchema = createInsertSchema(restaurantStaff).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertRestaurantStaff = z.infer<typeof insertRestaurantStaffSchema>;
+export type RestaurantStaff = typeof restaurantStaff.$inferSelect;
+
+// ============================================================================
+// LEGACY: Users table (kept for backward compatibility during migration)
+// Will be deprecated after full migration to diners/restaurant_staff tables
+// ============================================================================
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   analyticsId: text("analytics_id").unique(), // Anonymous ID for analytics (no PII exposure)
@@ -17,6 +70,7 @@ export const users = pgTable("users", {
   userType: text("user_type").notNull(), // 'diner' | 'restaurant_admin'
   gender: text("gender"), // 'male' | 'female' | 'other' | 'prefer_not_to_say'
   ageRange: text("age_range"), // '18-29' | '30-39' | '40-49' | '50-59' | '60+'
+  dateOfBirth: text("date_of_birth"), // DD/MM/YYYY format
   province: text("province"), // South African province
   accessToken: text("access_token").unique(), // Persistent token for auto-login (valid for 90 days)
   accessTokenExpiresAt: timestamp("access_token_expires_at"), // When the access token expires
@@ -259,7 +313,8 @@ export const reconciliationBatches = pgTable("reconciliation_batches", {
   totalRecords: integer("total_records").notNull().default(0),
   matchedRecords: integer("matched_records").notNull().default(0),
   unmatchedRecords: integer("unmatched_records").notNull().default(0),
-  status: text("status").notNull().default("pending"), // 'pending' | 'processing' | 'completed' | 'failed'
+  status: text("status").notNull().default("pending"),
+  csvHeaders: jsonb("csv_headers"),
   uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
   processedAt: timestamp("processed_at"),
 });
@@ -276,8 +331,9 @@ export const reconciliationRecords = pgTable("reconciliation_records", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   batchId: varchar("batch_id").notNull().references(() => reconciliationBatches.id),
   billId: text("bill_id").notNull(),
-  csvAmount: text("csv_amount"), // Amount from CSV (optional)
-  csvDate: text("csv_date"), // Date from CSV (optional)
+  csvAmount: text("csv_amount"),
+  csvDate: text("csv_date"),
+  csvData: jsonb("csv_data"),
   isMatched: boolean("is_matched").notNull().default(false),
   matchedVoucherId: varchar("matched_voucher_id").references(() => vouchers.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -439,3 +495,22 @@ export const insertPhoneChangeRequestSchema = createInsertSchema(phoneChangeRequ
 });
 export type InsertPhoneChangeRequest = z.infer<typeof insertPhoneChangeRequestSchema>;
 export type PhoneChangeRequest = typeof phoneChangeRequests.$inferSelect;
+
+export const restaurantSubscriptions = pgTable("restaurant_subscriptions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id),
+  isSubscribed: boolean("is_subscribed").notNull().default(false),
+  plan: text("plan").default("free"),
+  subscribedAt: timestamp("subscribed_at"),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertRestaurantSubscriptionSchema = createInsertSchema(restaurantSubscriptions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertRestaurantSubscription = z.infer<typeof insertRestaurantSubscriptionSchema>;
+export type RestaurantSubscription = typeof restaurantSubscriptions.$inferSelect;

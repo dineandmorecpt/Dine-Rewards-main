@@ -50,10 +50,10 @@ app.use(
       checkPeriod: 86400000, // prune expired entries every 24h
     }),
     cookie: {
-      secure: isProduction, // Only secure in production (HTTPS)
+      secure: true, // Always secure for Replit (uses HTTPS)
       httpOnly: true,
       maxAge: 90 * 24 * 60 * 60 * 1000, // 90 days
-      sameSite: isProduction ? "none" : "lax", // "lax" for development, "none" for production
+      sameSite: "none", // Required for cross-origin requests in Replit webview
     },
   })
 );

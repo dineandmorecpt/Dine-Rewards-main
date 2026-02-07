@@ -39,7 +39,7 @@ export function DinerLayout({ children }: DinerLayoutProps) {
   const SidebarContent = () => (
     <div className="flex flex-col h-full text-white border-r-0">
       <div className="p-4 sm:p-6">
-        <Link href="/" onClick={() => setSidebarOpen(false)} className="block hover:opacity-80 transition-opacity">
+        <Link href="/diner/dashboard" onClick={() => setSidebarOpen(false)} className="block hover:opacity-80 transition-opacity">
           <img src={dinerLogo} alt="Dine&More" className="h-16 sm:h-20 w-auto" />
         </Link>
         <p className="text-[10px] sm:text-xs text-rose-200 mt-1 uppercase tracking-wider font-medium">Diner Rewards</p>
@@ -101,7 +101,7 @@ export function DinerLayout({ children }: DinerLayoutProps) {
     <div className="min-h-screen bg-background font-sans diner-theme">
       {/* Header with hamburger menu - shown on all screen sizes */}
       <div className="px-4 py-4 sm:px-6 sm:py-5 flex items-center justify-between bg-background border-b border-gray-100 sticky top-0 z-40">
-        <Link href="/" className="hover:opacity-80 transition-opacity">
+        <Link href="/diner/dashboard" className="hover:opacity-80 transition-opacity">
           <img src={dinerLogo} alt="Dine&More" className="h-14 sm:h-16 w-auto" />
         </Link>
         <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>

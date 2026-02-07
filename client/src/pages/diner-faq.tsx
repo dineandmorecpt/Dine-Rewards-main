@@ -51,7 +51,7 @@ export default function DinerFaq() {
     <DinerLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-serif font-bold tracking-tight flex items-center gap-2">
+          <h1 className="text-2xl sm:text-3xl font-sans font-bold tracking-tight flex items-center gap-2">
             <HelpCircle className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
             FAQ
           </h1>

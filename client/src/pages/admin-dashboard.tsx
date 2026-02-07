@@ -359,7 +359,7 @@ function AdminDashboardContent() {
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-serif font-bold text-foreground">Dashboard</h1>
+            <h1 className="text-3xl font-sans font-bold text-foreground">Dashboard</h1>
             <div className="flex items-center gap-2 mt-1">
               <p className="text-muted-foreground">Welcome back, Restaurant Admin.</p>
               {hasMultipleBranches && (
@@ -404,7 +404,7 @@ function AdminDashboardContent() {
         <Card className="border-none shadow-sm">
           <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
             <div>
-              <CardTitle className="font-serif text-xl">Diner Registrations</CardTitle>
+              <CardTitle className="font-sans text-xl">Diner Registrations</CardTitle>
               <CardDescription>New registered diners over time</CardDescription>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -569,7 +569,7 @@ function AdminDashboardContent() {
         <Card className="border-none shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <div>
-              <CardTitle className="font-serif text-xl">Voucher Redemptions by Type</CardTitle>
+              <CardTitle className="font-sans text-xl">Voucher Redemptions by Type</CardTitle>
               <CardDescription>Number of vouchers redeemed per voucher type</CardDescription>
             </div>
             <div className="flex gap-2">
@@ -726,7 +726,7 @@ function AdminDashboardContent() {
         <Card className="border-none shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <div>
-              <CardTitle className="font-serif text-xl">Total Revenue</CardTitle>
+              <CardTitle className="font-sans text-xl">Total Revenue</CardTitle>
               <CardDescription>Daily revenue over time</CardDescription>
             </div>
             <div className="flex gap-2">

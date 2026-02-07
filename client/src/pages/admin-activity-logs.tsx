@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Activity, Clock, User, Settings, Ticket, Users, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { useAuth } from "@/hooks/use-auth";
+import { getAuthHeaders } from "@/lib/queryClient";
 
 const actionLabels: Record<string, { label: string; color: string; icon: typeof Activity }> = {
   voucher_redeemed: { label: "Voucher Redeemed", color: "bg-green-100 text-green-800", icon: Ticket },
@@ -25,7 +26,8 @@ export default function AdminActivityLogs() {
     queryFn: async () => {
       if (!restaurantId) return [];
       const res = await fetch(`/api/admin/activity-logs?limit=100`, {
-        credentials: 'include'
+        credentials: 'include',
+        headers: getAuthHeaders(),
       });
       if (!res.ok) throw new Error('Failed to fetch activity logs');
       return res.json();

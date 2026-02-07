@@ -32,7 +32,9 @@ export default function ResetPassword() {
       }
 
       try {
-        const response = await fetch(`/api/auth/validate-reset-token?token=${token}`);
+        const response = await fetch(`/api/auth/validate-reset-token?token=${token}`, {
+          credentials: "include",
+        });
         const data = await response.json();
 
         setIsValid(data.valid);
@@ -91,6 +93,7 @@ export default function ResetPassword() {
       const response = await fetch("/api/auth/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ token, password }),
       });
 

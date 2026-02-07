@@ -12,7 +12,9 @@ import {
   Activity,
   Building2,
   ChevronDown,
-  Users
+  Users,
+  Lightbulb,
+  Crown
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -54,8 +56,13 @@ function AdminLayoutContent({ children }: AdminLayoutProps) {
     enabled: !!restaurant?.id,
   });
 
+  // Redirect to onboarding for new restaurants that haven't completed setup
+  // Only applies to restaurants with status 'draft' or 'submitted' (not yet active)
+  // Active restaurants have already been onboarded and skip this entirely
+  // Respects "Complete Later" skip during the current session
   useEffect(() => {
-    if (restaurantData && restaurantData.onboardingStatus !== 'active' && !location.startsWith('/admin/onboarding')) {
+    const skipped = sessionStorage.getItem('dinemore_onboarding_skipped');
+    if (restaurantData && restaurantData.onboardingStatus !== 'active' && !location.startsWith('/admin/onboarding') && !skipped) {
       setLocation('/admin/onboarding');
     }
   }, [restaurantData, location, setLocation]);
@@ -65,9 +72,10 @@ function AdminLayoutContent({ children }: AdminLayoutProps) {
     { name: "Vouchers", href: "/admin/vouchers", icon: Ticket },
     { name: "Users", href: "/admin/users", icon: Users },
     { name: "Reconciliation", href: "/admin/reconciliation", icon: FileCheck },
+    { name: "Insights", href: "/admin/insights", icon: Lightbulb },
     { name: "Activity Logs", href: "/admin/activity-logs", icon: Activity },
-    { name: "Reservations", href: null, icon: CalendarDays, comingSoon: true },
-    { name: "Campaigns", href: null, icon: Megaphone, comingSoon: true },
+    { name: "Reservations", href: null, icon: CalendarDays, premium: true },
+    { name: "Campaigns", href: null, icon: Megaphone, premium: true },
     { name: "Business Profile", href: "/admin/profile", icon: Building2 },
     { name: "Settings", href: "/admin/settings", icon: Settings },
   ];
@@ -75,7 +83,7 @@ function AdminLayoutContent({ children }: AdminLayoutProps) {
   const SidebarContent = () => (
     <div className="flex flex-col h-full bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
       <div className="p-6">
-        <Link href="/" onClick={() => setSidebarOpen(false)} className="block hover:opacity-80 transition-opacity">
+        <Link href="/admin/dashboard" onClick={() => setSidebarOpen(false)} className="block hover:opacity-80 transition-opacity">
           <img src={logoImage} alt="Dine&More" className="h-12 w-auto" />
         </Link>
         <p className="text-sm text-sidebar-primary font-semibold mt-2">{restaurant?.name || 'Restaurant'}</p>
@@ -141,7 +149,7 @@ function AdminLayoutContent({ children }: AdminLayoutProps) {
         {navigation.map((item) => {
           const isActive = location === item.href;
           
-          if (item.comingSoon) {
+          if (item.premium) {
             return (
               <div
                 key={item.name}
@@ -149,8 +157,9 @@ function AdminLayoutContent({ children }: AdminLayoutProps) {
               >
                 <item.icon className="h-5 w-5 text-sidebar-foreground/30" />
                 {item.name}
-                <Badge variant="outline" className="ml-auto text-[10px] px-1.5 py-0 h-4 border-sidebar-foreground/20 text-sidebar-foreground/40">
-                  Soon
+                <Badge variant="outline" className="ml-auto text-[10px] px-1.5 py-0 h-4 border-amber-400/60 text-amber-500 gap-0.5">
+                  <Crown className="h-2.5 w-2.5" />
+                  Premium
                 </Badge>
               </div>
             );
@@ -192,7 +201,7 @@ function AdminLayoutContent({ children }: AdminLayoutProps) {
     <div className="min-h-screen bg-background font-sans">
       {/* Mobile Header - sticky at top */}
       <div className="lg:hidden p-4 border-b flex items-center justify-between bg-card sticky top-0 z-40">
-        <Link href="/" className="hover:opacity-80 transition-opacity">
+        <Link href="/admin/dashboard" className="hover:opacity-80 transition-opacity">
           <img src={logoImage} alt="Dine&More" className="h-10 w-auto" />
         </Link>
         <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>

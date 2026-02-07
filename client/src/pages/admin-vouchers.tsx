@@ -795,7 +795,7 @@ function AdminVouchersContent() {
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-serif font-bold text-foreground">Rewards & Campaigns</h1>
+          <h1 className="text-3xl font-sans font-bold text-foreground">Rewards & Campaigns</h1>
           <p className="text-muted-foreground mt-1">Manage your loyalty rewards and marketing campaigns.</p>
         </div>
       </div>
@@ -1216,7 +1216,7 @@ function AdminVouchersContent() {
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <div>
-                  <h2 className="text-xl font-medium font-serif">Voucher Types</h2>
+                  <h2 className="text-xl font-medium font-sans">Voucher Types</h2>
                   <p className="text-sm text-muted-foreground">Define the reward options diners can choose when they earn voucher credits.</p>
                 </div>
                 {canCreateVoucher ? (
@@ -1255,7 +1255,7 @@ function AdminVouchersContent() {
                       <div className={cn("absolute top-0 left-0 right-0 h-1", vt.isActive ? "bg-primary" : "bg-muted")} />
                       <CardHeader className="pb-2">
                         <div className="flex justify-between items-start gap-2">
-                          <CardTitle className="text-lg font-serif">{vt.name}</CardTitle>
+                          <CardTitle className="text-lg font-sans">{vt.name}</CardTitle>
                           <Badge variant={vt.isActive ? "default" : "secondary"}>
                             {vt.isActive ? "Active" : "Inactive"}
                           </Badge>
@@ -1320,7 +1320,7 @@ function AdminVouchersContent() {
               setVoucherTypeDialogOpen(open);
               if (!open) resetVoucherTypeForm();
             }}>
-              <DialogContent className="sm:max-w-[500px] max-h-[85vh] overflow-y-auto">
+              <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
                 {categorySelectionStep && !editingVoucherType ? (
                   <>
                     <DialogHeader>
@@ -1604,20 +1604,20 @@ function AdminVouchersContent() {
                               </p>
                             </>
                           )}
-                          {voucherTypeEarningMode === "points" && !editingVoucherType && (
+                          {voucherTypeEarningMode === "points" && (
                             <div className="grid gap-2 mt-2">
                               <Label htmlFor="vt-points-per-currency">Points per R1 Spent</Label>
                               <Input 
                                 id="vt-points-per-currency" 
                                 type="number" 
                                 min="1"
-                                placeholder="Default: 1"
+                                placeholder={`Default: ${pointsPerCurrency} point${Number(pointsPerCurrency) !== 1 ? 's' : ''} per R1`}
                                 value={voucherTypePointsPerCurrency}
                                 onChange={(e) => setVoucherTypePointsPerCurrency(e.target.value)}
                                 data-testid="input-voucher-type-points-per-currency"
                               />
                               <p className="text-xs text-muted-foreground">
-                                Leave empty to use the restaurant default (1 point per R1)
+                                Your restaurant is set to {pointsPerCurrency} point{Number(pointsPerCurrency) !== 1 ? 's' : ''} per R1 spent. Leave empty to use this default, or enter a custom value for this voucher.
                               </p>
                             </div>
                           )}
@@ -1727,11 +1727,17 @@ function AdminVouchersContent() {
                               variant={voucherTypeRedemptionScope === "specific_branches" ? "default" : "outline"}
                               size="sm"
                               onClick={() => setVoucherTypeRedemptionScope("specific_branches")}
+                              disabled={editingVoucherType && editingVoucherType.redemptionScope === "all_branches"}
                               data-testid="button-redemption-specific-branches"
                             >
                               Specific Branches
                             </Button>
                           </div>
+                          {editingVoucherType && editingVoucherType.redemptionScope === "all_branches" && (
+                            <p className="text-xs text-muted-foreground">
+                              This voucher is available at all branches and cannot be restricted to specific branches, as this would negatively affect diners who expect to use it at any location.
+                            </p>
+                          )}
                           {voucherTypeRedemptionScope === "specific_branches" && (
                             <div className="grid gap-2 pl-2 border-l-2 border-muted">
                               <p className="text-sm text-muted-foreground">Select branches where this voucher can be redeemed:</p>

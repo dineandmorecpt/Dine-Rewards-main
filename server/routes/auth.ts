@@ -28,6 +28,7 @@ const smsRateLimiter = rateLimit({
 });
 
 const otpStore = new Map<string, { otp: string; expiresAt: Date }>();
+const verifiedPhoneStore = new Map<string, { phone: string; expiresAt: Date }>();
 
 export function getAuthUserId(req: any): string | null {
   const headerUserId = req.headers['x-user-id'] as string | undefined;
@@ -56,6 +57,7 @@ const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
   password: z.string().min(1, "Password is required"),
   captchaToken: z.string().min(1, "Security verification required"),
+  portal: z.enum(["diner", "restaurant"]).optional(), // Which portal is being accessed
 });
 
 const forgotPasswordSchema = z.object({
@@ -86,10 +88,11 @@ const selfRegisterDinerSchema = z.object({
     .refine(val => val.length >= 7, { message: "Phone number must be at least 7 digits" })
     .refine(val => /^[0-9+]+$/.test(val), { message: "Phone number contains invalid characters" }),
   password: passwordSchema,
-  gender: z.enum(["male", "female", "other", "prefer_not_to_say"]),
-  ageRange: z.enum(["18-29", "30-39", "40-49", "50-59", "60+"]),
+  gender: z.enum(["male", "female"]),
+  dateOfBirth: z.string().min(1, "Date of birth is required"),
   province: z.string().min(1, "Province is required"),
   restaurantId: z.string().optional(),
+  verificationToken: z.string().optional(),
 });
 
 const tokenLoginSchema = z.object({
@@ -151,28 +154,60 @@ export function registerAuthRoutes(router: Router): void {
         return res.status(403).json({ error: captchaResult.error || "Security verification failed" });
       }
 
-      const { email, password } = parseResult.data;
+      const { email, password, portal } = parseResult.data;
 
-      const user = await storage.getUserByEmail(email);
-      if (!user) {
-        return res.status(401).json({ error: "Invalid email or password" });
-      }
-
-      let passwordValid = false;
-      if (user.password.startsWith('$2')) {
-        passwordValid = await bcrypt.compare(password, user.password);
+      let user: any = null;
+      let userType: string = 'diner';
+      
+      // Portal-specific authentication using legacy users table
+      // IMPORTANT: Legacy users table is source of truth for FK relationships
+      // The portal parameter determines which userType to authenticate against
+      const expectedUserType = portal === 'restaurant' ? 'restaurant_admin' : 
+                              portal === 'diner' ? 'diner' : null;
+      
+      if (expectedUserType) {
+        // Look up user in legacy table by email and expected type
+        const legacyUser = await storage.getUserByEmailAndType(email, expectedUserType);
+        if (legacyUser) {
+          let passwordValid = false;
+          if (legacyUser.password.startsWith('$2')) {
+            passwordValid = await bcrypt.compare(password, legacyUser.password);
+          } else {
+            passwordValid = legacyUser.password === password;
+          }
+          
+          if (passwordValid) {
+            user = legacyUser;
+            userType = expectedUserType;
+          }
+        }
       } else {
-        passwordValid = user.password === password;
+        // No portal specified - use legacy behavior (check all users)
+        user = await storage.getUserByEmail(email);
+        if (user) {
+          let passwordValid = false;
+          if (user.password.startsWith('$2')) {
+            passwordValid = await bcrypt.compare(password, user.password);
+          } else {
+            passwordValid = user.password === password;
+          }
+          
+          if (!passwordValid) {
+            user = null;
+          } else {
+            userType = user.userType;
+          }
+        }
       }
 
-      if (!passwordValid) {
+      if (!user) {
         return res.status(401).json({ error: "Invalid email or password" });
       }
 
       let restaurant = null;
       let portalRole = null;
       
-      if (user.userType === 'restaurant_admin') {
+      if (userType === 'restaurant_admin') {
         const ownedRestaurants = await storage.getRestaurantsByAdmin(user.id);
         
         if (ownedRestaurants.length > 0) {
@@ -192,7 +227,7 @@ export function registerAuthRoutes(router: Router): void {
       }
 
       req.session.userId = user.id;
-      req.session.userType = user.userType;
+      req.session.userType = userType;
       
       console.log("[DEBUG] Login - Session ID:", req.sessionID, "userId:", user.id);
 
@@ -597,24 +632,78 @@ export function registerAuthRoutes(router: Router): void {
         });
       }
 
-      const { name, lastName, email, phone, password, gender, ageRange, province, restaurantId } = parseResult.data;
+      const { name, lastName, email, phone, password, gender, dateOfBirth, province, restaurantId, verificationToken } = parseResult.data;
 
-      if (!req.session.verifiedPhone || req.session.verifiedPhone !== phone) {
+      // Check verification via token first (more reliable), then fall back to session
+      let isPhoneVerified = false;
+      
+      // Method 1: Check verification token
+      if (verificationToken) {
+        const storedVerification = verifiedPhoneStore.get(verificationToken);
+        if (storedVerification) {
+          if (new Date() > storedVerification.expiresAt) {
+            verifiedPhoneStore.delete(verificationToken);
+            console.log("Register-diner: Verification token expired", { phone });
+          } else if (storedVerification.phone === phone) {
+            isPhoneVerified = true;
+            verifiedPhoneStore.delete(verificationToken); // Single use
+            console.log("Register-diner: Verified via token", { phone });
+          } else {
+            console.log("Register-diner: Token phone mismatch", { 
+              tokenPhone: storedVerification.phone, 
+              submittedPhone: phone 
+            });
+          }
+        } else {
+          console.log("Register-diner: Verification token not found", { token: verificationToken?.substring(0, 8) });
+        }
+      }
+      
+      // Method 2: Fall back to session
+      if (!isPhoneVerified && req.session.verifiedPhone === phone) {
+        isPhoneVerified = true;
+        console.log("Register-diner: Verified via session", { phone });
+      }
+
+      console.log("Register-diner verification result:", {
+        sessionId: req.session.id,
+        sessionVerifiedPhone: req.session.verifiedPhone,
+        submittedPhone: phone,
+        hasToken: !!verificationToken,
+        isPhoneVerified
+      });
+
+      if (!isPhoneVerified) {
+        console.error("Register-diner FAILED: Phone not verified", { phone, hasToken: !!verificationToken });
         return res.status(400).json({ error: "Phone number must be verified before registration" });
       }
 
-      const existingEmail = await storage.getUserByEmail(email);
+      // Check for existing DINER accounts in the new diners table
+      const existingEmail = await storage.getDinerByEmail(email);
       if (existingEmail) {
-        return res.status(400).json({ error: "An account with this email already exists" });
+        return res.status(400).json({ error: "A diner account with this email already exists" });
       }
 
-      const existingPhone = await storage.getUserByPhone(phone);
+      const existingPhone = await storage.getDinerByPhone(phone);
       if (existingPhone) {
-        return res.status(400).json({ error: "An account with this phone number already exists" });
+        return res.status(400).json({ error: "A diner account with this phone number already exists" });
       }
 
       const hashedPassword = await bcrypt.hash(password, 12);
 
+      // Create diner in the new diners table
+      const diner = await storage.createDiner({
+        name,
+        lastName,
+        email,
+        phone,
+        password: hashedPassword,
+        gender,
+        dateOfBirth,
+        province,
+      });
+      
+      // For backward compatibility, also create in users table
       const user = await storage.createUser({
         name,
         lastName,
@@ -623,7 +712,7 @@ export function registerAuthRoutes(router: Router): void {
         password: hashedPassword,
         userType: 'diner',
         gender,
-        ageRange,
+        dateOfBirth,
         province,
       });
 
@@ -895,9 +984,10 @@ export function registerAuthRoutes(router: Router): void {
 
       const { phone } = parseResult.data;
 
-      const existingUser = await storage.getUserByPhone(phone);
-      if (existingUser) {
-        return res.status(400).json({ error: "This phone number is already registered" });
+      // Check if a DINER account already exists with this phone (allow same phone for admin + diner)
+      const existingDiner = await storage.getUserByPhoneAndType(phone, 'diner');
+      if (existingDiner) {
+        return res.status(400).json({ error: "This phone number is already registered as a diner" });
       }
 
       const smsLimitCheck = checkSMSRateLimit(phone);
@@ -961,17 +1051,30 @@ export function registerAuthRoutes(router: Router): void {
 
       otpStore.delete(`reg_${phone}`);
       
+      // Generate a verification token to bypass session cookie issues
+      const verificationToken = crypto.randomBytes(32).toString('hex');
+      const tokenExpiresAt = new Date();
+      tokenExpiresAt.setMinutes(tokenExpiresAt.getMinutes() + 30); // Valid for 30 minutes
+      verifiedPhoneStore.set(verificationToken, { phone, expiresAt: tokenExpiresAt });
+      
+      // Also store in session as backup
       req.session.verifiedPhone = phone;
+      
+      console.log("Verify-registration-otp:", {
+        sessionId: req.session.id,
+        verifiedPhone: phone,
+        verificationToken: verificationToken.substring(0, 8) + "..."
+      });
       
       req.session.save((err) => {
         if (err) {
           console.error("Session save error:", err);
-          return res.status(500).json({ error: "Verification failed" });
         }
         res.json({
           success: true,
           message: "Phone number verified successfully",
           verifiedPhone: phone,
+          verificationToken: verificationToken,
         });
       });
     } catch (error: any) {

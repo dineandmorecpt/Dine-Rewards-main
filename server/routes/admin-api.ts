@@ -45,6 +45,10 @@ const profileSchema = z.object({
 
 const onboardingSchema = z.object({
   registrationNumber: z.string().optional(),
+  vatNumber: z.string().optional(),
+  tradingName: z.string().optional(),
+  description: z.string().optional(),
+  cuisineType: z.string().optional(),
   streetAddress: z.string().optional(),
   city: z.string().optional(),
   province: z.string().optional(),
@@ -53,6 +57,11 @@ const onboardingSchema = z.object({
   contactName: z.string().optional(),
   contactEmail: z.string().email().optional().or(z.literal('')),
   contactPhone: z.string().optional(),
+  businessHours: z.string().optional(),
+  websiteUrl: z.string().url().optional().or(z.literal('')),
+  facebookUrl: z.string().url().optional().or(z.literal('')),
+  instagramUrl: z.string().url().optional().or(z.literal('')),
+  twitterUrl: z.string().url().optional().or(z.literal('')),
   hasAdditionalBranches: z.boolean().optional(),
   logoUrl: z.string().optional(),
 });
@@ -620,6 +629,7 @@ export function registerAdminApiRoutes(router: Router): void {
         const tempPassword = crypto.randomBytes(16).toString('hex');
         const hashedPassword = await bcrypt.hash(tempPassword, 12);
         
+        // Create in legacy users table (for FK relationships)
         staffUser = await storage.createUser({
           email,
           name,
@@ -627,6 +637,19 @@ export function registerAdminApiRoutes(router: Router): void {
           password: hashedPassword,
           userType: 'restaurant_admin',
         });
+        
+        // Also create in new restaurant_staff table (for portal authentication)
+        try {
+          await storage.createStaff({
+            email,
+            name,
+            phone: phone || null,
+            password: hashedPassword,
+          });
+        } catch (staffErr) {
+          console.log("[Staff Create] Could not create in restaurant_staff table:", staffErr);
+          // Continue even if staff creation fails - legacy users table is the source of truth
+        }
       }
       
       const portalUser = await storage.addPortalUser({
@@ -878,6 +901,12 @@ export function registerAdminApiRoutes(router: Router): void {
         return res.status(404).json({ error: "Voucher type not found" });
       }
 
+      // Prevent changing from all_branches to specific_branches
+      // Expanding from specific to all is allowed (benefits diners)
+      if (voucherType.redemptionScope === "all_branches" && req.body.redemptionScope === "specific_branches") {
+        return res.status(400).json({ error: "Cannot restrict a voucher from all branches to specific branches, as this would negatively affect diners who expect to use it at any location." });
+      }
+
       const updated = await storage.updateVoucherType(voucherTypeId, req.body);
       
       await storage.createActivityLog({
@@ -917,6 +946,15 @@ export function registerAdminApiRoutes(router: Router): void {
       const { voucherTypeId } = req.params;
 
       const voucherType = await storage.getVoucherType(voucherTypeId);
+      if (!voucherType || voucherType.restaurantId !== restaurantId) {
+        return res.status(404).json({ error: "Voucher type not found" });
+      }
+
+      // Prevent deletion if any diner has earned vouchers from this type
+      const hasVouchers = await storage.hasVouchersForType(voucherTypeId);
+      if (hasVouchers) {
+        return res.status(400).json({ error: "This voucher cannot be deleted because diners have already started earning points towards it. You can deactivate it instead." });
+      }
 
       await storage.deleteVoucherType(voucherTypeId);
       
@@ -1133,6 +1171,229 @@ export function registerAdminApiRoutes(router: Router): void {
     }
   });
 
+  router.get("/api/admin/reconciliation/insights", async (req, res) => {
+    try {
+      const { restaurantId, error } = await getAdminRestaurantId(req);
+      if (error) return res.status(error.status).json({ error: error.message });
+
+      const batches = await storage.getReconciliationBatchesByRestaurant(restaurantId!);
+      if (batches.length === 0) {
+        return res.json({
+          totalBatches: 0,
+          totalMatchedRecords: 0,
+          totalUnmatchedRecords: 0,
+          matchRate: 0,
+          totalReconciled: 0,
+          totalRecordedRevenue: 0,
+          totalCSVRevenue: 0,
+          totalVariance: 0,
+          averageTransactionValue: 0,
+          uniqueDiners: 0,
+          topDiners: [],
+          revenueByDate: [],
+          transactionsByDiner: [],
+          varianceDistribution: [],
+          batchSummaries: [],
+          topMenuItems: [],
+          menuItemsByDiner: [],
+        });
+      }
+
+      let totalMatchedRecords = 0;
+      let totalUnmatchedRecords = 0;
+      let totalReconciled = 0;
+      let totalRecordedRevenue = 0;
+      let totalCSVRevenue = 0;
+      let totalVariance = 0;
+      const dinerSpending: Record<string, { label: string; totalSpent: number; transactionCount: number }> = {};
+      const dateRevenue: Record<string, { recorded: number; csv: number; count: number }> = {};
+      const varianceBuckets = { zero: 0, smallPos: 0, largePos: 0, smallNeg: 0, largeNeg: 0 };
+      const batchSummaries: Array<{ fileName: string; uploadedAt: string; matched: number; total: number; matchRate: number }> = [];
+      const menuItemCounts: Record<string, { count: number; totalRevenue: number }> = {};
+      const dinerMenuItems: Record<string, Record<string, { count: number; totalAmount: number }>> = {};
+
+      let dinerCounter = 0;
+      const dinerLabelMap = new Map<string, string>();
+
+      for (const batch of batches) {
+        batchSummaries.push({
+          fileName: batch.fileName,
+          uploadedAt: batch.uploadedAt?.toISOString() || '',
+          matched: batch.matchedRecords,
+          total: batch.totalRecords,
+          matchRate: batch.totalRecords > 0 ? Math.round((batch.matchedRecords / batch.totalRecords) * 1000) / 10 : 0,
+        });
+
+        totalMatchedRecords += batch.matchedRecords;
+        totalUnmatchedRecords += batch.unmatchedRecords;
+        totalReconciled += batch.totalRecords;
+
+        const records = await storage.getReconciliationRecordsByBatch(batch.id);
+
+        for (const record of records) {
+          if (!record.isMatched) continue;
+
+          const transaction = await storage.getTransactionByBillId(restaurantId!, record.billId);
+          if (!transaction) continue;
+
+          const recordedAmt = parseFloat(transaction.amountSpent) || 0;
+          totalRecordedRevenue += recordedAmt;
+
+          let csvAmt = 0;
+          if (record.csvAmount) {
+            const cleaned = record.csvAmount.replace(/[R$,\s]/g, '').replace(',', '.');
+            csvAmt = parseFloat(cleaned) || 0;
+          }
+          totalCSVRevenue += csvAmt;
+
+          const variance = csvAmt - recordedAmt;
+          totalVariance += variance;
+
+          if (Math.abs(variance) < 0.01) varianceBuckets.zero++;
+          else if (variance > 0 && variance <= 50) varianceBuckets.smallPos++;
+          else if (variance > 50) varianceBuckets.largePos++;
+          else if (variance < 0 && variance >= -50) varianceBuckets.smallNeg++;
+          else varianceBuckets.largeNeg++;
+
+          const dinerId = transaction.dinerId;
+          if (!dinerLabelMap.has(dinerId)) {
+            dinerCounter++;
+            dinerLabelMap.set(dinerId, `User ${dinerCounter}`);
+          }
+          const dinerLabel = dinerLabelMap.get(dinerId)!;
+
+          if (!dinerSpending[dinerId]) {
+            dinerSpending[dinerId] = { label: dinerLabel, totalSpent: 0, transactionCount: 0 };
+          }
+          dinerSpending[dinerId].totalSpent += recordedAmt;
+          dinerSpending[dinerId].transactionCount++;
+
+          const dateKey = record.csvDate || transaction.transactionDate?.toISOString().split('T')[0] || 'Unknown';
+          if (!dateRevenue[dateKey]) {
+            dateRevenue[dateKey] = { recorded: 0, csv: 0, count: 0 };
+          }
+          dateRevenue[dateKey].recorded += recordedAmt;
+          dateRevenue[dateKey].csv += csvAmt;
+          dateRevenue[dateKey].count++;
+
+          const csvObj = typeof record.csvData === 'string' ? JSON.parse(record.csvData) : record.csvData;
+          if (csvObj) {
+            for (let mi = 1; mi <= 10; mi++) {
+              const itemName = csvObj[`menu_item_${mi}`]?.toString().trim();
+              if (!itemName) continue;
+              const itemAmtStr = csvObj[`menu_item_${mi}_amount`]?.toString().replace(/[R$,\s]/g, '').replace(',', '.') || '0';
+              const itemAmt = parseFloat(itemAmtStr) || 0;
+
+              if (!menuItemCounts[itemName]) {
+                menuItemCounts[itemName] = { count: 0, totalRevenue: 0 };
+              }
+              menuItemCounts[itemName].count++;
+              menuItemCounts[itemName].totalRevenue += itemAmt;
+
+              if (!dinerMenuItems[dinerId]) {
+                dinerMenuItems[dinerId] = {};
+              }
+              if (!dinerMenuItems[dinerId][itemName]) {
+                dinerMenuItems[dinerId][itemName] = { count: 0, totalAmount: 0 };
+              }
+              dinerMenuItems[dinerId][itemName].count++;
+              dinerMenuItems[dinerId][itemName].totalAmount += itemAmt;
+            }
+          }
+        }
+      }
+
+      const uniqueDiners = Object.keys(dinerSpending).length;
+      const averageTransactionValue = totalMatchedRecords > 0 ? totalRecordedRevenue / totalMatchedRecords : 0;
+      const matchRate = totalReconciled > 0 ? Math.round((totalMatchedRecords / totalReconciled) * 1000) / 10 : 0;
+
+      const topDiners = Object.values(dinerSpending)
+        .sort((a, b) => b.totalSpent - a.totalSpent)
+        .slice(0, 10)
+        .map(d => ({
+          label: d.label,
+          totalSpent: Math.round(d.totalSpent * 100) / 100,
+          transactionCount: d.transactionCount,
+          avgSpend: Math.round((d.totalSpent / d.transactionCount) * 100) / 100,
+        }));
+
+      const revenueByDate = Object.entries(dateRevenue)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([date, data]) => ({
+          date,
+          recorded: Math.round(data.recorded * 100) / 100,
+          csv: Math.round(data.csv * 100) / 100,
+          count: data.count,
+        }));
+
+      const transactionsByDiner = Object.values(dinerSpending)
+        .sort((a, b) => b.transactionCount - a.transactionCount)
+        .slice(0, 10)
+        .map(d => ({
+          label: d.label,
+          transactionCount: d.transactionCount,
+          totalSpent: Math.round(d.totalSpent * 100) / 100,
+        }));
+
+      const varianceDistribution = [
+        { range: 'Exact Match', count: varianceBuckets.zero },
+        { range: 'Under R50', count: varianceBuckets.smallPos },
+        { range: 'Over R50', count: varianceBuckets.largePos },
+        { range: '-R50 to R0', count: varianceBuckets.smallNeg },
+        { range: 'Below -R50', count: varianceBuckets.largeNeg },
+      ];
+
+      const topMenuItems = Object.entries(menuItemCounts)
+        .sort(([, a], [, b]) => b.count - a.count || b.totalRevenue - a.totalRevenue)
+        .map(([name, data]) => ({
+          name,
+          count: data.count,
+          totalRevenue: Math.round(data.totalRevenue * 100) / 100,
+          avgPrice: data.count > 0 ? Math.round((data.totalRevenue / data.count) * 100) / 100 : 0,
+        }));
+
+      const menuItemsByDiner = Object.entries(dinerMenuItems)
+        .map(([dinerId, items]) => ({
+          label: dinerLabelMap.get(dinerId) || dinerId,
+          items: Object.entries(items)
+            .sort(([, a], [, b]) => b.count - a.count)
+            .map(([name, data]) => ({
+              name,
+              count: data.count,
+              totalAmount: Math.round(data.totalAmount * 100) / 100,
+            })),
+        }))
+        .sort((a, b) => {
+          const aTotal = a.items.reduce((s, i) => s + i.count, 0);
+          const bTotal = b.items.reduce((s, i) => s + i.count, 0);
+          return bTotal - aTotal;
+        });
+
+      res.json({
+        totalBatches: batches.length,
+        totalMatchedRecords,
+        totalUnmatchedRecords,
+        matchRate,
+        totalReconciled,
+        totalRecordedRevenue: Math.round(totalRecordedRevenue * 100) / 100,
+        totalCSVRevenue: Math.round(totalCSVRevenue * 100) / 100,
+        totalVariance: Math.round(totalVariance * 100) / 100,
+        averageTransactionValue: Math.round(averageTransactionValue * 100) / 100,
+        uniqueDiners,
+        topDiners,
+        revenueByDate,
+        transactionsByDiner,
+        varianceDistribution,
+        batchSummaries,
+        topMenuItems,
+        menuItemsByDiner,
+      });
+    } catch (error) {
+      console.error("Reconciliation insights error:", error);
+      res.status(500).json({ error: "Failed to generate insights" });
+    }
+  });
+
   router.post("/api/admin/diners/invite", smsRateLimiter, async (req, res) => {
     try {
       const { restaurantId, error } = await getAdminRestaurantId(req);
@@ -1274,6 +1535,29 @@ export function registerAdminApiRoutes(router: Router): void {
     } catch (error) {
       console.error("Get diner registrations error:", error);
       res.status(500).json({ error: "Failed to fetch diner registrations" });
+    }
+  });
+
+  router.get("/api/admin/subscription", async (req, res) => {
+    try {
+      const { restaurantId, error } = await getAdminRestaurantId(req);
+      if (error) return res.status(error.status).json({ error: error.message });
+
+      const subscription = await storage.getRestaurantSubscription(restaurantId!);
+      if (!subscription) {
+        return res.json({ isSubscribed: false, plan: "free" });
+      }
+      const now = new Date();
+      const isActive = subscription.isSubscribed && (!subscription.expiresAt || subscription.expiresAt > now);
+      res.json({
+        isSubscribed: isActive,
+        plan: subscription.plan,
+        subscribedAt: subscription.subscribedAt,
+        expiresAt: subscription.expiresAt,
+      });
+    } catch (error) {
+      console.error("Get subscription error:", error);
+      res.status(500).json({ error: "Failed to fetch subscription status" });
     }
   });
 }

@@ -133,7 +133,7 @@ export default function AdminUsers() {
     <AdminLayout>
       <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
         <div className="flex flex-col gap-2">
-          <h1 className="text-3xl font-serif font-bold text-foreground">Portal Users</h1>
+          <h1 className="text-3xl font-sans font-bold text-foreground">Portal Users</h1>
           <p className="text-muted-foreground">Manage team members who can access the restaurant portal.</p>
         </div>
 

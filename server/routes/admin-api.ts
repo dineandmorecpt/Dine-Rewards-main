@@ -1344,7 +1344,7 @@ export function registerAdminApiRoutes(router: Router): void {
       ];
 
       const topMenuItems = Object.entries(menuItemCounts)
-        .sort(([, a], [, b]) => b.count - a.count)
+        .sort(([, a], [, b]) => b.count - a.count || b.totalRevenue - a.totalRevenue)
         .map(([name, data]) => ({
           name,
           count: data.count,

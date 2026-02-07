@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -28,12 +29,20 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Minus,
+  X,
 } from "lucide-react";
 
 const COLORS = ["#22c55e", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6"];
 
+type DetailPanel = 'matched' | 'revenue' | 'diners' | 'avg' | 'pos' | 'recorded' | 'variance' | null;
+
 export default function AdminInsights() {
   const { restaurant } = useAuth();
+  const [activePanel, setActivePanel] = useState<DetailPanel>(null);
+
+  const togglePanel = (panel: DetailPanel) => {
+    setActivePanel(prev => prev === panel ? null : panel);
+  };
 
   const { data: insights, isLoading } = useQuery({
     queryKey: ["reconciliation-insights", restaurant?.id],
@@ -119,7 +128,11 @@ export default function AdminInsights() {
 
         {/* Summary Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card data-testid="card-matched-records">
+          <Card
+            data-testid="card-matched-records"
+            className={`cursor-pointer transition-all hover:shadow-md ${activePanel === 'matched' ? 'ring-2 ring-primary' : ''}`}
+            onClick={() => togglePanel('matched')}
+          >
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-muted-foreground">Matched Records</span>
@@ -132,7 +145,11 @@ export default function AdminInsights() {
             </CardContent>
           </Card>
 
-          <Card data-testid="card-reconciled-revenue">
+          <Card
+            data-testid="card-reconciled-revenue"
+            className={`cursor-pointer transition-all hover:shadow-md ${activePanel === 'revenue' ? 'ring-2 ring-primary' : ''}`}
+            onClick={() => togglePanel('revenue')}
+          >
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-muted-foreground">Reconciled Revenue</span>
@@ -143,7 +160,11 @@ export default function AdminInsights() {
             </CardContent>
           </Card>
 
-          <Card data-testid="card-unique-diners">
+          <Card
+            data-testid="card-unique-diners"
+            className={`cursor-pointer transition-all hover:shadow-md ${activePanel === 'diners' ? 'ring-2 ring-primary' : ''}`}
+            onClick={() => togglePanel('diners')}
+          >
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-muted-foreground">Unique Diners</span>
@@ -154,7 +175,11 @@ export default function AdminInsights() {
             </CardContent>
           </Card>
 
-          <Card data-testid="card-avg-transaction">
+          <Card
+            data-testid="card-avg-transaction"
+            className={`cursor-pointer transition-all hover:shadow-md ${activePanel === 'avg' ? 'ring-2 ring-primary' : ''}`}
+            onClick={() => togglePanel('avg')}
+          >
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-muted-foreground">Avg Transaction</span>
@@ -168,7 +193,11 @@ export default function AdminInsights() {
 
         {/* Variance & POS Comparison */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <Card data-testid="card-pos-revenue">
+          <Card
+            data-testid="card-pos-revenue"
+            className={`cursor-pointer transition-all hover:shadow-md ${activePanel === 'pos' ? 'ring-2 ring-primary' : ''}`}
+            onClick={() => togglePanel('pos')}
+          >
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-muted-foreground">POS Revenue (CSV)</span>
@@ -178,7 +207,11 @@ export default function AdminInsights() {
             </CardContent>
           </Card>
 
-          <Card data-testid="card-recorded-revenue">
+          <Card
+            data-testid="card-recorded-revenue"
+            className={`cursor-pointer transition-all hover:shadow-md ${activePanel === 'recorded' ? 'ring-2 ring-primary' : ''}`}
+            onClick={() => togglePanel('recorded')}
+          >
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-muted-foreground">Recorded Revenue</span>
@@ -188,7 +221,11 @@ export default function AdminInsights() {
             </CardContent>
           </Card>
 
-          <Card data-testid="card-total-variance">
+          <Card
+            data-testid="card-total-variance"
+            className={`cursor-pointer transition-all hover:shadow-md ${activePanel === 'variance' ? 'ring-2 ring-primary' : ''}`}
+            onClick={() => togglePanel('variance')}
+          >
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-muted-foreground">Total Variance</span>
@@ -206,6 +243,249 @@ export default function AdminInsights() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Detail Panel */}
+        {activePanel && (
+          <Card className="animate-in fade-in slide-in-from-top-2 duration-300" data-testid="card-detail-panel">
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <div>
+                <CardTitle className="text-lg">
+                  {activePanel === 'matched' && 'Matched Records Breakdown'}
+                  {activePanel === 'revenue' && 'Revenue Breakdown by Date'}
+                  {activePanel === 'diners' && 'Diner Spending Summary'}
+                  {activePanel === 'avg' && 'Transaction Value Breakdown'}
+                  {activePanel === 'pos' && 'POS Revenue by Date'}
+                  {activePanel === 'recorded' && 'Recorded Revenue by Date'}
+                  {activePanel === 'variance' && 'Variance by Date'}
+                </CardTitle>
+                <CardDescription>
+                  {activePanel === 'matched' && 'Match rates across all uploaded batches'}
+                  {activePanel === 'revenue' && 'How revenue is distributed across transaction dates'}
+                  {activePanel === 'diners' && 'All unique diners with their spending and visit counts'}
+                  {activePanel === 'avg' && 'Per-diner average transaction values'}
+                  {activePanel === 'pos' && 'POS amounts from CSV files by date'}
+                  {activePanel === 'recorded' && 'Recorded transaction amounts by date'}
+                  {activePanel === 'variance' && 'Difference between POS and recorded amounts by date'}
+                </CardDescription>
+              </div>
+              <button onClick={() => setActivePanel(null)} className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-muted" data-testid="button-close-panel">
+                <X className="h-5 w-5" />
+              </button>
+            </CardHeader>
+            <CardContent>
+              {/* Matched Records Detail */}
+              {activePanel === 'matched' && (
+                <div className="rounded-md border overflow-x-auto">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="border-b bg-muted/40">
+                        <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">File Name</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Total</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Matched</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Unmatched</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Match Rate</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {insights.batchSummaries.map((b: any, i: number) => (
+                        <tr key={i} className="hover:bg-muted/30">
+                          <td className="px-4 py-3 text-sm">{b.fileName}</td>
+                          <td className="px-4 py-3 text-sm text-right">{b.total}</td>
+                          <td className="px-4 py-3 text-sm text-right font-medium text-green-600">{b.matched}</td>
+                          <td className="px-4 py-3 text-sm text-right text-muted-foreground">{b.total - b.matched}</td>
+                          <td className="px-4 py-3 text-right">
+                            <Badge variant={b.matchRate >= 80 ? "default" : b.matchRate >= 50 ? "secondary" : "destructive"} className="text-xs">
+                              {b.matchRate}%
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))}
+                      <tr className="bg-muted/20 font-medium">
+                        <td className="px-4 py-3 text-sm">Total</td>
+                        <td className="px-4 py-3 text-sm text-right">{insights.totalReconciled}</td>
+                        <td className="px-4 py-3 text-sm text-right text-green-600">{insights.totalMatchedRecords}</td>
+                        <td className="px-4 py-3 text-sm text-right text-muted-foreground">{insights.totalUnmatchedRecords}</td>
+                        <td className="px-4 py-3 text-right">
+                          <Badge variant="outline" className="text-xs">{insights.matchRate}%</Badge>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Revenue / POS / Recorded Detail */}
+              {(activePanel === 'revenue' || activePanel === 'pos' || activePanel === 'recorded') && (
+                <div className="rounded-md border overflow-x-auto">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="border-b bg-muted/40">
+                        <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Date</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Transactions</th>
+                        {(activePanel === 'revenue' || activePanel === 'recorded') && (
+                          <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Recorded</th>
+                        )}
+                        {(activePanel === 'revenue' || activePanel === 'pos') && (
+                          <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">POS (CSV)</th>
+                        )}
+                        {activePanel === 'revenue' && (
+                          <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Difference</th>
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {insights.revenueByDate.map((d: any, i: number) => (
+                        <tr key={i} className="hover:bg-muted/30">
+                          <td className="px-4 py-3 text-sm">{d.date}</td>
+                          <td className="px-4 py-3 text-sm text-right">{d.count}</td>
+                          {(activePanel === 'revenue' || activePanel === 'recorded') && (
+                            <td className="px-4 py-3 text-sm text-right font-mono">{formatCurrency(d.recorded)}</td>
+                          )}
+                          {(activePanel === 'revenue' || activePanel === 'pos') && (
+                            <td className="px-4 py-3 text-sm text-right font-mono">{formatCurrency(d.csv)}</td>
+                          )}
+                          {activePanel === 'revenue' && (
+                            <td className={`px-4 py-3 text-sm text-right font-mono ${d.csv - d.recorded > 0 ? 'text-amber-600' : d.csv - d.recorded < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                              {formatCurrency(d.csv - d.recorded)}
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                      <tr className="bg-muted/20 font-medium">
+                        <td className="px-4 py-3 text-sm">Total</td>
+                        <td className="px-4 py-3 text-sm text-right">{insights.totalMatchedRecords}</td>
+                        {(activePanel === 'revenue' || activePanel === 'recorded') && (
+                          <td className="px-4 py-3 text-sm text-right font-mono">{formatCurrency(insights.totalRecordedRevenue)}</td>
+                        )}
+                        {(activePanel === 'revenue' || activePanel === 'pos') && (
+                          <td className="px-4 py-3 text-sm text-right font-mono">{formatCurrency(insights.totalCSVRevenue)}</td>
+                        )}
+                        {activePanel === 'revenue' && (
+                          <td className={`px-4 py-3 text-sm text-right font-mono ${insights.totalVariance > 0 ? 'text-amber-600' : insights.totalVariance < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                            {formatCurrency(insights.totalVariance)}
+                          </td>
+                        )}
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Unique Diners Detail */}
+              {activePanel === 'diners' && (
+                <div className="rounded-md border overflow-x-auto">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="border-b bg-muted/40">
+                        <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Diner</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Visits</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Total Spent</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Avg per Visit</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {insights.topDiners.map((d: any, i: number) => (
+                        <tr key={i} className="hover:bg-muted/30">
+                          <td className="px-4 py-3 text-sm font-medium">{d.label}</td>
+                          <td className="px-4 py-3 text-sm text-right">{d.transactionCount}</td>
+                          <td className="px-4 py-3 text-sm text-right font-mono">{formatCurrency(d.totalSpent)}</td>
+                          <td className="px-4 py-3 text-sm text-right font-mono">{formatCurrency(d.avgSpend)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Average Transaction Detail */}
+              {activePanel === 'avg' && (
+                <div className="rounded-md border overflow-x-auto">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="border-b bg-muted/40">
+                        <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Diner</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Visits</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Total Spent</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Avg per Visit</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">vs Overall Avg</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {insights.topDiners.map((d: any, i: number) => {
+                        const diff = d.avgSpend - insights.averageTransactionValue;
+                        return (
+                          <tr key={i} className="hover:bg-muted/30">
+                            <td className="px-4 py-3 text-sm font-medium">{d.label}</td>
+                            <td className="px-4 py-3 text-sm text-right">{d.transactionCount}</td>
+                            <td className="px-4 py-3 text-sm text-right font-mono">{formatCurrency(d.totalSpent)}</td>
+                            <td className="px-4 py-3 text-sm text-right font-mono">{formatCurrency(d.avgSpend)}</td>
+                            <td className={`px-4 py-3 text-sm text-right font-mono ${diff > 0 ? 'text-green-600' : diff < 0 ? 'text-red-600' : ''}`}>
+                              {diff > 0 ? '+' : ''}{formatCurrency(diff)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      <tr className="bg-muted/20 font-medium">
+                        <td className="px-4 py-3 text-sm" colSpan={3}>Overall Average</td>
+                        <td className="px-4 py-3 text-sm text-right font-mono">{formatCurrency(insights.averageTransactionValue)}</td>
+                        <td className="px-4 py-3 text-sm text-right">-</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Variance Detail */}
+              {activePanel === 'variance' && (
+                <div className="space-y-4">
+                  <div className="rounded-md border overflow-x-auto">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr className="border-b bg-muted/40">
+                          <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Date</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Recorded</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">POS (CSV)</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Variance</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {insights.revenueByDate.map((d: any, i: number) => {
+                          const v = d.csv - d.recorded;
+                          return (
+                            <tr key={i} className="hover:bg-muted/30">
+                              <td className="px-4 py-3 text-sm">{d.date}</td>
+                              <td className="px-4 py-3 text-sm text-right font-mono">{formatCurrency(d.recorded)}</td>
+                              <td className="px-4 py-3 text-sm text-right font-mono">{formatCurrency(d.csv)}</td>
+                              <td className={`px-4 py-3 text-sm text-right font-mono font-medium ${v > 0 ? 'text-amber-600' : v < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                {v > 0 ? '+' : ''}{formatCurrency(v)}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        <tr className="bg-muted/20 font-medium">
+                          <td className="px-4 py-3 text-sm">Total</td>
+                          <td className="px-4 py-3 text-sm text-right font-mono">{formatCurrency(insights.totalRecordedRevenue)}</td>
+                          <td className="px-4 py-3 text-sm text-right font-mono">{formatCurrency(insights.totalCSVRevenue)}</td>
+                          <td className={`px-4 py-3 text-sm text-right font-mono font-medium ${insights.totalVariance > 0 ? 'text-amber-600' : insights.totalVariance < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                            {insights.totalVariance > 0 ? '+' : ''}{formatCurrency(insights.totalVariance)}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                    {insights.varianceDistribution.map((d: any, i: number) => (
+                      <div key={i} className="bg-muted/30 rounded-lg p-3 text-center">
+                        <p className="text-xl font-bold">{d.count}</p>
+                        <p className="text-xs text-muted-foreground">{d.range}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Top 5 Spenders */}
         <Card data-testid="card-top-diners">

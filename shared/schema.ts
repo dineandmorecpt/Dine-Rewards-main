@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, boolean, timestamp, decimal, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, boolean, timestamp, decimal, uniqueIndex, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -313,7 +313,8 @@ export const reconciliationBatches = pgTable("reconciliation_batches", {
   totalRecords: integer("total_records").notNull().default(0),
   matchedRecords: integer("matched_records").notNull().default(0),
   unmatchedRecords: integer("unmatched_records").notNull().default(0),
-  status: text("status").notNull().default("pending"), // 'pending' | 'processing' | 'completed' | 'failed'
+  status: text("status").notNull().default("pending"),
+  csvHeaders: jsonb("csv_headers"),
   uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
   processedAt: timestamp("processed_at"),
 });
@@ -330,8 +331,9 @@ export const reconciliationRecords = pgTable("reconciliation_records", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   batchId: varchar("batch_id").notNull().references(() => reconciliationBatches.id),
   billId: text("bill_id").notNull(),
-  csvAmount: text("csv_amount"), // Amount from CSV (optional)
-  csvDate: text("csv_date"), // Date from CSV (optional)
+  csvAmount: text("csv_amount"),
+  csvDate: text("csv_date"),
+  csvData: jsonb("csv_data"),
   isMatched: boolean("is_matched").notNull().default(false),
   matchedVoucherId: varchar("matched_voucher_id").references(() => vouchers.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),

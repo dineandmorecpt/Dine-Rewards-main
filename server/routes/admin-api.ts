@@ -1537,4 +1537,27 @@ export function registerAdminApiRoutes(router: Router): void {
       res.status(500).json({ error: "Failed to fetch diner registrations" });
     }
   });
+
+  router.get("/api/admin/subscription", async (req, res) => {
+    try {
+      const { restaurantId, error } = await getAdminRestaurantId(req);
+      if (error) return res.status(error.status).json({ error: error.message });
+
+      const subscription = await storage.getRestaurantSubscription(restaurantId!);
+      if (!subscription) {
+        return res.json({ isSubscribed: false, plan: "free" });
+      }
+      const now = new Date();
+      const isActive = subscription.isSubscribed && (!subscription.expiresAt || subscription.expiresAt > now);
+      res.json({
+        isSubscribed: isActive,
+        plan: subscription.plan,
+        subscribedAt: subscription.subscribedAt,
+        expiresAt: subscription.expiresAt,
+      });
+    } catch (error) {
+      console.error("Get subscription error:", error);
+      res.status(500).json({ error: "Failed to fetch subscription status" });
+    }
+  });
 }

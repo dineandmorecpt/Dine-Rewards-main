@@ -56,7 +56,9 @@ import {
   type InsertRegistrationVoucherStatus,
   type RegistrationVoucherStatus,
   type InsertPhoneChangeRequest,
-  type PhoneChangeRequest
+  type PhoneChangeRequest,
+  type RestaurantSubscription,
+  restaurantSubscriptions,
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/node-postgres";
 import crypto from "crypto";
@@ -320,6 +322,9 @@ export interface IStorage {
   markPhoneChangeVerified(id: string): Promise<void>;
   expirePhoneChangeRequest(id: string): Promise<void>;
   updateUserPhone(userId: string, phone: string): Promise<User>;
+
+  // Restaurant Subscription Management
+  getRestaurantSubscription(restaurantId: string): Promise<RestaurantSubscription | undefined>;
 }
 
 export class DbStorage implements IStorage {
@@ -1479,6 +1484,13 @@ export class DbStorage implements IStorage {
       .set({ phone })
       .where(eq(users.id, userId))
       .returning();
+    return result[0];
+  }
+
+  async getRestaurantSubscription(restaurantId: string): Promise<RestaurantSubscription | undefined> {
+    const result = await db.select().from(restaurantSubscriptions)
+      .where(eq(restaurantSubscriptions.restaurantId, restaurantId))
+      .limit(1);
     return result[0];
   }
 }

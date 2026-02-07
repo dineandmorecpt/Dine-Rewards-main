@@ -74,20 +74,40 @@ export default function AdminReconciliation() {
   });
 
   const generateReport = (batch: any, records: any[]) => {
-    const headers = ['Date', 'Bill ID', 'Customer Phone', 'Recorded Amount', 'POS Amount', 'Variance', 'Status', 'Voucher Code'];
-    const rows = records.map((r: any) => {
-      const varianceNum = r.variance ? parseFloat(r.variance) : null;
-      return [
-        r.csvDate || '',
-        r.billId,
-        r.userPhone || '',
-        r.recordedAmount ? `R${parseFloat(r.recordedAmount).toFixed(2)}` : '',
-        r.csvAmount || '',
-        varianceNum !== null ? `R${varianceNum.toFixed(2)}` : '',
-        r.isMatched ? 'Matched' : 'Unmatched',
-        r.voucherCode || ''
-      ];
-    });
+    const csvHeaders: string[] = batch.csvHeaders || [];
+    const hasCSVData = csvHeaders.length > 0 && records.some((r: any) => r.csvData);
+
+    let headers: string[];
+    let rows: any[][];
+
+    if (hasCSVData) {
+      headers = [...csvHeaders, 'Status', 'Variance', 'Voucher Code'];
+      rows = records.map((r: any) => {
+        const csvData = r.csvData || {};
+        const varianceNum = r.variance ? parseFloat(r.variance) : null;
+        return [
+          ...csvHeaders.map((h: string) => csvData[h] || ''),
+          r.isMatched ? 'Matched' : 'Unmatched',
+          varianceNum !== null ? `R${varianceNum.toFixed(2)}` : '',
+          r.voucherCode || ''
+        ];
+      });
+    } else {
+      headers = ['Date', 'Bill ID', 'Customer Phone', 'Recorded Amount', 'POS Amount', 'Variance', 'Status', 'Voucher Code'];
+      rows = records.map((r: any) => {
+        const varianceNum = r.variance ? parseFloat(r.variance) : null;
+        return [
+          r.csvDate || '',
+          r.billId,
+          r.userPhone || '',
+          r.recordedAmount ? `R${parseFloat(r.recordedAmount).toFixed(2)}` : '',
+          r.csvAmount || '',
+          varianceNum !== null ? `R${varianceNum.toFixed(2)}` : '',
+          r.isMatched ? 'Matched' : 'Unmatched',
+          r.voucherCode || ''
+        ];
+      });
+    }
 
     const summaryRows = [
       [],
@@ -279,68 +299,140 @@ export default function AdminReconciliation() {
                 </div>
               </div>
 
-              {/* Records Table */}
-              <div className="rounded-md border overflow-x-auto">
-                <div className="min-w-[800px]">
-                  <div className="grid grid-cols-7 border-b bg-muted/40 p-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    <div>Date</div>
-                    <div>Bill ID</div>
-                    <div>Customer</div>
-                    <div className="text-right">Recorded</div>
-                    <div className="text-right">POS (CSV)</div>
-                    <div className="text-right">Variance</div>
-                    <div>Status</div>
-                  </div>
-                  <div className="divide-y max-h-[400px] overflow-y-auto">
-                    {batchDetails.data.records.map((record: any) => {
-                      const varianceNum = record.variance ? parseFloat(record.variance) : null;
-                      const hasVariance = varianceNum !== null && varianceNum !== 0;
-                      
-                      return (
-                        <div key={record.id} className="grid grid-cols-7 items-center p-3 text-sm min-w-[800px]">
-                          <div className="text-xs text-muted-foreground">
-                            {record.csvDate || '-'}
-                          </div>
-                          <div className="font-mono text-xs">{record.billId}</div>
-                          <div className="text-xs">
-                            {record.userPhone || '-'}
-                          </div>
-                          <div className="text-right font-mono text-xs">
-                            {record.recordedAmount ? `R${parseFloat(record.recordedAmount).toFixed(2)}` : '-'}
-                          </div>
-                          <div className="text-right font-mono text-xs">
-                            {record.csvAmount || '-'}
-                          </div>
-                          <div className={`text-right font-mono text-xs ${
-                            hasVariance 
-                              ? varianceNum! < 0 
-                                ? 'text-red-600 font-medium' 
-                                : 'text-amber-600 font-medium'
-                              : 'text-green-600'
-                          }`}>
-                            {varianceNum !== null 
-                              ? varianceNum === 0 
-                                ? 'R0.00'
-                                : `${varianceNum > 0 ? '+' : ''}R${varianceNum.toFixed(2)}`
-                              : '-'}
-                          </div>
-                          <div>
-                            {record.isMatched ? (
-                              <Badge variant="default" className="gap-1 bg-green-600 text-xs">
-                                <FileCheck className="h-3 w-3" /> Matched
-                              </Badge>
-                            ) : (
-                              <Badge variant="secondary" className="gap-1 text-xs">
-                                <FileX className="h-3 w-3" /> Unmatched
-                              </Badge>
-                            )}
-                          </div>
+              {/* Records Table - Dynamic CSV Columns */}
+              {(() => {
+                const csvHeaders: string[] = batchDetails.data.batch.csvHeaders || [];
+                const hasCSVData = csvHeaders.length > 0 && batchDetails.data.records.some((r: any) => r.csvData);
+                
+                if (hasCSVData) {
+                  const extraColumns = ['Status', 'Variance'];
+                  const allColumns = [...csvHeaders, ...extraColumns];
+                  
+                  return (
+                    <div className="rounded-md border overflow-x-auto">
+                      <div style={{ minWidth: `${Math.max(allColumns.length * 140, 800)}px` }}>
+                        <div
+                          className="border-b bg-muted/40 p-3 text-xs font-medium uppercase tracking-wider text-muted-foreground"
+                          style={{ display: 'grid', gridTemplateColumns: `repeat(${allColumns.length}, minmax(100px, 1fr))` }}
+                        >
+                          {allColumns.map((header, i) => (
+                            <div key={i}>{header}</div>
+                          ))}
                         </div>
-                      );
-                    })}
+                        <div className="divide-y max-h-[400px] overflow-y-auto">
+                          {batchDetails.data.records.map((record: any) => {
+                            const csvData = record.csvData || {};
+                            const varianceNum = record.variance ? parseFloat(record.variance) : null;
+                            const hasVariance = varianceNum !== null && varianceNum !== 0;
+                            
+                            return (
+                              <div
+                                key={record.id}
+                                className="items-center p-3 text-sm"
+                                style={{ display: 'grid', gridTemplateColumns: `repeat(${allColumns.length}, minmax(100px, 1fr))`, minWidth: `${Math.max(allColumns.length * 140, 800)}px` }}
+                              >
+                                {csvHeaders.map((header, i) => (
+                                  <div key={i} className="text-xs truncate pr-2" title={csvData[header] || '-'}>
+                                    {csvData[header] || '-'}
+                                  </div>
+                                ))}
+                                <div>
+                                  {record.isMatched ? (
+                                    <Badge variant="default" className="gap-1 bg-green-600 text-xs">
+                                      <FileCheck className="h-3 w-3" /> Matched
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="secondary" className="gap-1 text-xs">
+                                      <FileX className="h-3 w-3" /> Unmatched
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className={`font-mono text-xs ${
+                                  hasVariance 
+                                    ? varianceNum! < 0 
+                                      ? 'text-red-600 font-medium' 
+                                      : 'text-amber-600 font-medium'
+                                    : 'text-green-600'
+                                }`}>
+                                  {varianceNum !== null 
+                                    ? varianceNum === 0 
+                                      ? 'R0.00'
+                                      : `${varianceNum > 0 ? '+' : ''}R${varianceNum.toFixed(2)}`
+                                    : '-'}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+                
+                return (
+                  <div className="rounded-md border overflow-x-auto">
+                    <div className="min-w-[800px]">
+                      <div className="grid grid-cols-7 border-b bg-muted/40 p-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                        <div>Date</div>
+                        <div>Bill ID</div>
+                        <div>Customer</div>
+                        <div className="text-right">Recorded</div>
+                        <div className="text-right">POS (CSV)</div>
+                        <div className="text-right">Variance</div>
+                        <div>Status</div>
+                      </div>
+                      <div className="divide-y max-h-[400px] overflow-y-auto">
+                        {batchDetails.data.records.map((record: any) => {
+                          const varianceNum = record.variance ? parseFloat(record.variance) : null;
+                          const hasVariance = varianceNum !== null && varianceNum !== 0;
+                          
+                          return (
+                            <div key={record.id} className="grid grid-cols-7 items-center p-3 text-sm min-w-[800px]">
+                              <div className="text-xs text-muted-foreground">
+                                {record.csvDate || '-'}
+                              </div>
+                              <div className="font-mono text-xs">{record.billId}</div>
+                              <div className="text-xs">
+                                {record.userPhone || '-'}
+                              </div>
+                              <div className="text-right font-mono text-xs">
+                                {record.recordedAmount ? `R${parseFloat(record.recordedAmount).toFixed(2)}` : '-'}
+                              </div>
+                              <div className="text-right font-mono text-xs">
+                                {record.csvAmount || '-'}
+                              </div>
+                              <div className={`text-right font-mono text-xs ${
+                                hasVariance 
+                                  ? varianceNum! < 0 
+                                    ? 'text-red-600 font-medium' 
+                                    : 'text-amber-600 font-medium'
+                                  : 'text-green-600'
+                              }`}>
+                                {varianceNum !== null 
+                                  ? varianceNum === 0 
+                                    ? 'R0.00'
+                                    : `${varianceNum > 0 ? '+' : ''}R${varianceNum.toFixed(2)}`
+                                  : '-'}
+                              </div>
+                              <div>
+                                {record.isMatched ? (
+                                  <Badge variant="default" className="gap-1 bg-green-600 text-xs">
+                                    <FileCheck className="h-3 w-3" /> Matched
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="secondary" className="gap-1 text-xs">
+                                    <FileX className="h-3 w-3" /> Unmatched
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
+                );
+              })()}
             </CardContent>
           </Card>
         )}

@@ -136,13 +136,20 @@ export class ReconciliationService implements IReconciliationService {
     });
 
     let matchedCount = 0;
+    let unmatchedCount = 0;
     const enrichedRecords: EnrichedReconciliationRecord[] = [];
 
     for (const csvRecord of csvRecords) {
-      const voucher = await this.storage.getVoucherByBillId(restaurantId, csvRecord.billId);
+      const transaction = await this.storage.getTransactionByBillId(restaurantId, csvRecord.billId);
       
-      const isMatched = !!voucher;
-      if (isMatched) matchedCount++;
+      if (!transaction) {
+        unmatchedCount++;
+        continue;
+      }
+
+      matchedCount++;
+
+      const voucher = await this.storage.getVoucherByBillId(restaurantId, csvRecord.billId);
 
       const record = await this.storage.createReconciliationRecord({
         batchId: batch.id,
@@ -150,19 +157,32 @@ export class ReconciliationService implements IReconciliationService {
         csvAmount: csvRecord.amount || null,
         csvDate: csvRecord.date || null,
         csvData: csvRecord.allData,
-        isMatched,
+        isMatched: true,
         matchedVoucherId: voucher?.id || null
       });
+
+      const user = await this.storage.getUser(transaction.dinerId);
+
+      let variance: string | undefined;
+      if (csvRecord.amount && transaction.amountSpent) {
+        const csvClean = csvRecord.amount.replace(/[R$,\s]/g, '').replace(',', '.');
+        const csvNum = parseFloat(csvClean);
+        const recordedNum = parseFloat(transaction.amountSpent);
+        if (!isNaN(csvNum) && !isNaN(recordedNum)) {
+          variance = (csvNum - recordedNum).toFixed(2);
+        }
+      }
 
       enrichedRecords.push({
         ...record,
         voucherCode: voucher?.code ?? undefined,
         voucherTitle: voucher?.title ?? undefined,
-        redeemedAt: voucher?.redeemedAt
+        redeemedAt: voucher?.redeemedAt,
+        recordedAmount: transaction.amountSpent,
+        userPhone: user?.phone ?? undefined,
+        variance
       });
     }
-
-    const unmatchedCount = csvRecords.length - matchedCount;
 
     const updatedBatch = await this.storage.updateReconciliationBatch(batch.id, {
       matchedRecords: matchedCount,

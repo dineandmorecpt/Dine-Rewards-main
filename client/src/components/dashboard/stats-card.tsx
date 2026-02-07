@@ -39,7 +39,7 @@ export function StatsCard({
       <CardContent>
         <div className="flex items-end justify-between">
           <div>
-            <div className="text-3xl font-bold font-serif tracking-tight">{value}</div>
+            <div className="text-3xl font-bold font-sans tracking-tight">{value}</div>
             {trend && (
               <p className={cn("text-xs flex items-center mt-1 font-medium", 
                 trend.positive ? "text-emerald-600" : "text-rose-600"

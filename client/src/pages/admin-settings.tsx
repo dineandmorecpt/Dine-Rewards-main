@@ -234,7 +234,7 @@ function AdminSettingsContent() {
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div>
-        <h1 className="text-3xl font-serif font-bold text-foreground">Settings</h1>
+        <h1 className="text-3xl font-sans font-bold text-foreground">Settings</h1>
         <p className="text-muted-foreground mt-1">Configure your restaurant's loyalty program and manage team access.</p>
       </div>
 

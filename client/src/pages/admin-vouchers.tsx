@@ -795,7 +795,7 @@ function AdminVouchersContent() {
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-serif font-bold text-foreground">Rewards & Campaigns</h1>
+          <h1 className="text-3xl font-sans font-bold text-foreground">Rewards & Campaigns</h1>
           <p className="text-muted-foreground mt-1">Manage your loyalty rewards and marketing campaigns.</p>
         </div>
       </div>
@@ -1216,7 +1216,7 @@ function AdminVouchersContent() {
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <div>
-                  <h2 className="text-xl font-medium font-serif">Voucher Types</h2>
+                  <h2 className="text-xl font-medium font-sans">Voucher Types</h2>
                   <p className="text-sm text-muted-foreground">Define the reward options diners can choose when they earn voucher credits.</p>
                 </div>
                 {canCreateVoucher ? (
@@ -1255,7 +1255,7 @@ function AdminVouchersContent() {
                       <div className={cn("absolute top-0 left-0 right-0 h-1", vt.isActive ? "bg-primary" : "bg-muted")} />
                       <CardHeader className="pb-2">
                         <div className="flex justify-between items-start gap-2">
-                          <CardTitle className="text-lg font-serif">{vt.name}</CardTitle>
+                          <CardTitle className="text-lg font-sans">{vt.name}</CardTitle>
                           <Badge variant={vt.isActive ? "default" : "secondary"}>
                             {vt.isActive ? "Active" : "Inactive"}
                           </Badge>

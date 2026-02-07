@@ -50,7 +50,7 @@ export default function DinerHistory() {
     <DinerLayout>
       <div className="space-y-4 sm:space-y-6 lg:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
         <div className="flex flex-col gap-1 sm:gap-2">
-          <h1 className="text-xl sm:text-2xl lg:text-3xl font-serif font-bold text-foreground">Activity History</h1>
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-sans font-bold text-foreground">Activity History</h1>
           <p className="text-sm sm:text-base text-muted-foreground">Your complete activity log across all restaurants.</p>
         </div>
 

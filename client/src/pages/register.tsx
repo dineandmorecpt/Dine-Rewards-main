@@ -420,7 +420,7 @@ export default function Register() {
             <CardHeader className="text-center">
               <img src={logoImage} alt="Dine&More" className="h-24 w-auto mx-auto mb-4" />
               <Phone className="h-10 w-10 text-primary mx-auto mb-2" />
-              <CardTitle className="text-2xl font-serif">Join Dine&More Rewards</CardTitle>
+              <CardTitle className="text-2xl font-sans">Join Dine&More Rewards</CardTitle>
               <CardDescription>
                 Enter your mobile number to get started. We'll send you a verification code.
               </CardDescription>
@@ -474,7 +474,7 @@ export default function Register() {
             <CardHeader className="text-center">
               <img src={logoImage} alt="Dine&More" className="h-20 w-auto mx-auto mb-4" />
               <ShieldCheck className="h-10 w-10 text-primary mx-auto mb-2" />
-              <CardTitle className="text-2xl font-serif">Enter Verification Code</CardTitle>
+              <CardTitle className="text-2xl font-sans">Enter Verification Code</CardTitle>
               <CardDescription>
                 We sent a 6-digit code to {phone}
               </CardDescription>
@@ -549,7 +549,7 @@ export default function Register() {
           <CardHeader className="text-center">
             <img src={logoImage} alt="Dine&More" className="h-24 w-auto mx-auto mb-4" />
             <CheckCircle2 className="h-8 w-8 text-green-500 mx-auto mb-2" />
-            <CardTitle className="text-2xl font-serif">Complete Your Profile</CardTitle>
+            <CardTitle className="text-2xl font-sans">Complete Your Profile</CardTitle>
             <CardDescription>
               Phone verified! Now finish setting up your account.
             </CardDescription>
@@ -764,7 +764,7 @@ export default function Register() {
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <img src={logoImage} alt="Dine&More" className="h-20 w-auto mx-auto mb-4" />
-            <CardTitle className="text-2xl font-serif">Verify Your Number</CardTitle>
+            <CardTitle className="text-2xl font-sans">Verify Your Number</CardTitle>
             <CardDescription>
               To join {invitation.data?.restaurantName}'s rewards program, please verify your mobile number.
             </CardDescription>
@@ -820,7 +820,7 @@ export default function Register() {
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <img src={logoImage} alt="Dine&More" className="h-20 w-auto mx-auto mb-4" />
-            <CardTitle className="text-2xl font-serif">Enter Code</CardTitle>
+            <CardTitle className="text-2xl font-sans">Enter Code</CardTitle>
             <CardDescription>
               We sent a 6-digit code to {invitation.data?.phone}
             </CardDescription>
@@ -905,7 +905,7 @@ export default function Register() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <img src={logoImage} alt="Dine&More" className="h-20 w-auto mx-auto mb-4" />
-          <CardTitle className="text-2xl font-serif">Complete Your Profile</CardTitle>
+          <CardTitle className="text-2xl font-sans">Complete Your Profile</CardTitle>
           <CardDescription>
             Phone verified! Now complete your profile to join {invitation.data?.restaurantName}.
           </CardDescription>

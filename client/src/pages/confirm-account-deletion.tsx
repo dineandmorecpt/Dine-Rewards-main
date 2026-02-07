@@ -91,7 +91,7 @@ export default function ConfirmAccountDeletion() {
       <div className="min-h-screen bg-gradient-to-b from-background to-muted flex items-center justify-center p-4">
         <div className="w-full max-w-md bg-card rounded-2xl shadow-lg p-8 text-center">
           <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-serif font-bold mb-4">Account Deleted</h1>
+          <h1 className="text-2xl font-sans font-bold mb-4">Account Deleted</h1>
           <p className="text-muted-foreground mb-6">
             Your account has been successfully deleted. Your data will be retained for 90 days before permanent removal.
           </p>
@@ -113,7 +113,7 @@ export default function ConfirmAccountDeletion() {
       <div className="min-h-screen bg-gradient-to-b from-background to-muted flex items-center justify-center p-4">
         <div className="w-full max-w-md bg-card rounded-2xl shadow-lg p-8 text-center">
           <XCircle className="h-16 w-16 text-destructive mx-auto mb-4" />
-          <h1 className="text-2xl font-serif font-bold mb-4">Invalid Link</h1>
+          <h1 className="text-2xl font-sans font-bold mb-4">Invalid Link</h1>
           <p className="text-muted-foreground mb-6">{errorMessage}</p>
           <Link href="/">
             <Button variant="outline" className="w-full">
@@ -133,7 +133,7 @@ export default function ConfirmAccountDeletion() {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-destructive/10 rounded-full mb-4">
             <AlertTriangle className="h-8 w-8 text-destructive" />
           </div>
-          <h1 className="text-2xl font-serif font-bold text-destructive">Confirm Account Deletion</h1>
+          <h1 className="text-2xl font-sans font-bold text-destructive">Confirm Account Deletion</h1>
           <p className="text-muted-foreground mt-2">This is your final confirmation</p>
         </div>
 

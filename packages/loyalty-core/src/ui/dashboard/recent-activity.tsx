@@ -43,7 +43,7 @@ export function RecentActivity() {
     <Card className="col-span-1 shadow-sm border-none">
       <CardHeader className="flex flex-row items-center justify-between">
         <div className="space-y-1">
-          <CardTitle className="font-serif text-xl">Recent Diners</CardTitle>
+          <CardTitle className="font-sans text-xl">Recent Diners</CardTitle>
           <CardDescription>
             Latest visits from your rewards members
           </CardDescription>

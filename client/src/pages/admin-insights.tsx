@@ -64,7 +64,7 @@ export default function AdminInsights() {
       <AdminLayout>
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
           <div>
-            <h1 className="text-3xl font-serif font-bold text-foreground">Insights</h1>
+            <h1 className="text-3xl font-sans font-bold text-foreground">Insights</h1>
             <p className="text-muted-foreground mt-1">Loading reconciliation insights...</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -87,7 +87,7 @@ export default function AdminInsights() {
       <AdminLayout>
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
           <div>
-            <h1 className="text-3xl font-serif font-bold text-foreground">Insights</h1>
+            <h1 className="text-3xl font-sans font-bold text-foreground">Insights</h1>
             <p className="text-muted-foreground mt-1">Diner analytics based on reconciled POS data.</p>
           </div>
           <Card>
@@ -120,7 +120,7 @@ export default function AdminInsights() {
     <AdminLayout>
       <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
         <div>
-          <h1 className="text-3xl font-serif font-bold text-foreground" data-testid="text-insights-title">Insights</h1>
+          <h1 className="text-3xl font-sans font-bold text-foreground" data-testid="text-insights-title">Insights</h1>
           <p className="text-muted-foreground mt-1">
             Diner analytics based on reconciled POS data across {insights.totalBatches} upload{insights.totalBatches !== 1 ? 's' : ''}.
           </p>

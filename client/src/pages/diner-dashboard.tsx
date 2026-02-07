@@ -396,7 +396,7 @@ export default function DinerDashboard() {
 
         <div className="flex flex-col gap-3 sm:gap-4">
           <div>
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-serif font-bold text-foreground leading-tight">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-sans font-bold text-foreground leading-tight">
               Welcome back, {user?.name?.split(' ')[0] || 'Guest'}
             </h1>
             <p className="text-sm sm:text-base text-muted-foreground mt-0.5">Manage your loyalty points and vouchers.</p>
@@ -470,7 +470,7 @@ export default function DinerDashboard() {
                   <div className={`h-2 w-full ${selectedRestaurant.restaurantColor}`} />
                   <CardHeader className="flex flex-row items-center justify-between p-4 pb-2">
                     <div className="min-w-0 flex-1">
-                      <CardTitle className="text-xl font-bold font-serif truncate">{selectedRestaurant.restaurantName}</CardTitle>
+                      <CardTitle className="text-xl font-bold font-sans truncate">{selectedRestaurant.restaurantName}</CardTitle>
                       {selectedRestaurant.branchName && selectedRestaurant.loyaltyScope === "branch" && (
                         <p className="text-xs text-muted-foreground mt-0.5">{selectedRestaurant.branchName} branch</p>
                       )}
@@ -654,7 +654,7 @@ export default function DinerDashboard() {
                       <div className="flex justify-between items-start gap-2">
                         <div className="min-w-0 flex-1">
                           <p className="text-[10px] sm:text-xs text-muted-foreground font-medium uppercase tracking-wider truncate">{voucher.restaurantName}</p>
-                          <CardTitle className="mt-1 text-base sm:text-lg font-serif leading-tight">{voucher.title}</CardTitle>
+                          <CardTitle className="mt-1 text-base sm:text-lg font-sans leading-tight">{voucher.title}</CardTitle>
                         </div>
                         <Badge 
                           variant={voucher.status === "active" ? "default" : "secondary"} 
@@ -695,7 +695,7 @@ export default function DinerDashboard() {
         <Dialog open={presentCodeOpen} onOpenChange={setPresentCodeOpen}>
           <DialogContent className="w-[calc(100%-24px)] max-w-md mx-auto rounded-lg">
             <DialogHeader>
-              <DialogTitle className="text-center font-serif text-xl sm:text-2xl">Present to Staff</DialogTitle>
+              <DialogTitle className="text-center font-sans text-xl sm:text-2xl">Present to Staff</DialogTitle>
               <DialogDescription className="text-center text-xs sm:text-sm">
                 Show this code to redeem your voucher
               </DialogDescription>
@@ -742,7 +742,7 @@ export default function DinerDashboard() {
         <Dialog open={showMyQRCode} onOpenChange={setShowMyQRCode}>
           <DialogContent className="w-[calc(100%-24px)] max-w-sm mx-auto rounded-lg">
             <DialogHeader className="text-center">
-              <DialogTitle className="font-serif text-lg sm:text-xl flex items-center justify-center gap-2">
+              <DialogTitle className="font-sans text-lg sm:text-xl flex items-center justify-center gap-2">
                 <QrCode className="h-5 w-5" />
                 My QR Code
               </DialogTitle>
@@ -780,7 +780,7 @@ export default function DinerDashboard() {
         }}>
           <DialogContent className="w-[calc(100%-24px)] max-w-sm mx-auto rounded-lg">
             <DialogHeader className="text-center">
-              <DialogTitle className="font-serif text-lg sm:text-xl flex items-center justify-center gap-2">
+              <DialogTitle className="font-sans text-lg sm:text-xl flex items-center justify-center gap-2">
                 <Gift className="h-5 w-5 text-rose-600" />
                 Redeem Voucher
               </DialogTitle>
@@ -792,7 +792,7 @@ export default function DinerDashboard() {
               <div className="flex flex-col items-center py-4 sm:py-6 space-y-4">
                 <div className="text-center">
                   <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider">{selectedVoucher.restaurantName}</p>
-                  <p className="text-lg sm:text-xl font-serif font-semibold mt-1">{selectedVoucher.title}</p>
+                  <p className="text-lg sm:text-xl font-sans font-semibold mt-1">{selectedVoucher.title}</p>
                 </div>
                 <div className="bg-white p-4 rounded-xl shadow-sm border">
                   <QRCodeSVG 

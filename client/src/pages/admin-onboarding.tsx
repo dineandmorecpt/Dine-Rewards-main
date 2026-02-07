@@ -342,7 +342,7 @@ export default function AdminOnboarding() {
               <div className="mx-auto w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mb-4">
                 <CheckCircle2 className="h-6 w-6 text-green-600" />
               </div>
-              <CardTitle className="text-2xl font-serif">Restaurant is Live!</CardTitle>
+              <CardTitle className="text-2xl font-sans">Restaurant is Live!</CardTitle>
               <CardDescription>
                 Your restaurant has been set up and is ready to accept diners.
               </CardDescription>
@@ -373,7 +373,7 @@ export default function AdminOnboarding() {
               Complete Later &rarr;
             </Button>
           </div>
-          <h1 className="text-3xl font-serif font-bold">Restaurant Onboarding</h1>
+          <h1 className="text-3xl font-sans font-bold">Restaurant Onboarding</h1>
           <p className="text-muted-foreground">Complete your restaurant profile to get started</p>
         </div>
 

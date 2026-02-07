@@ -150,7 +150,7 @@ export default function AdminReconciliation() {
     <AdminLayout>
       <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
         <div>
-          <h1 className="text-3xl font-serif font-bold text-foreground">Reconciliation</h1>
+          <h1 className="text-3xl font-sans font-bold text-foreground">Reconciliation</h1>
           <p className="text-muted-foreground mt-1">
             Upload POS exports to match redeemed vouchers with transactions and generate reports.
           </p>

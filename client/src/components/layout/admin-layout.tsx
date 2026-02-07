@@ -13,7 +13,8 @@ import {
   Building2,
   ChevronDown,
   Users,
-  Lightbulb
+  Lightbulb,
+  Crown
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -73,8 +74,8 @@ function AdminLayoutContent({ children }: AdminLayoutProps) {
     { name: "Reconciliation", href: "/admin/reconciliation", icon: FileCheck },
     { name: "Insights", href: "/admin/insights", icon: Lightbulb },
     { name: "Activity Logs", href: "/admin/activity-logs", icon: Activity },
-    { name: "Reservations", href: null, icon: CalendarDays, comingSoon: true },
-    { name: "Campaigns", href: null, icon: Megaphone, comingSoon: true },
+    { name: "Reservations", href: null, icon: CalendarDays, premium: true },
+    { name: "Campaigns", href: null, icon: Megaphone, premium: true },
     { name: "Business Profile", href: "/admin/profile", icon: Building2 },
     { name: "Settings", href: "/admin/settings", icon: Settings },
   ];
@@ -148,7 +149,7 @@ function AdminLayoutContent({ children }: AdminLayoutProps) {
         {navigation.map((item) => {
           const isActive = location === item.href;
           
-          if (item.comingSoon) {
+          if (item.premium) {
             return (
               <div
                 key={item.name}
@@ -156,8 +157,9 @@ function AdminLayoutContent({ children }: AdminLayoutProps) {
               >
                 <item.icon className="h-5 w-5 text-sidebar-foreground/30" />
                 {item.name}
-                <Badge variant="outline" className="ml-auto text-[10px] px-1.5 py-0 h-4 border-sidebar-foreground/20 text-sidebar-foreground/40">
-                  Soon
+                <Badge variant="outline" className="ml-auto text-[10px] px-1.5 py-0 h-4 border-amber-400/60 text-amber-500 gap-0.5">
+                  <Crown className="h-2.5 w-2.5" />
+                  Premium
                 </Badge>
               </div>
             );

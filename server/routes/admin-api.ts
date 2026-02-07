@@ -1194,6 +1194,8 @@ export function registerAdminApiRoutes(router: Router): void {
           transactionsByDiner: [],
           varianceDistribution: [],
           batchSummaries: [],
+          topMenuItems: [],
+          menuItemsByDiner: [],
         });
       }
 
@@ -1207,6 +1209,8 @@ export function registerAdminApiRoutes(router: Router): void {
       const dateRevenue: Record<string, { recorded: number; csv: number; count: number }> = {};
       const varianceBuckets = { zero: 0, smallPos: 0, largePos: 0, smallNeg: 0, largeNeg: 0 };
       const batchSummaries: Array<{ fileName: string; uploadedAt: string; matched: number; total: number; matchRate: number }> = [];
+      const menuItemCounts: Record<string, { count: number; totalRevenue: number }> = {};
+      const dinerMenuItems: Record<string, Record<string, { count: number; totalAmount: number }>> = {};
 
       let dinerCounter = 0;
       const dinerLabelMap = new Map<string, string>();
@@ -1271,6 +1275,31 @@ export function registerAdminApiRoutes(router: Router): void {
           dateRevenue[dateKey].recorded += recordedAmt;
           dateRevenue[dateKey].csv += csvAmt;
           dateRevenue[dateKey].count++;
+
+          const csvObj = typeof record.csvData === 'string' ? JSON.parse(record.csvData) : record.csvData;
+          if (csvObj) {
+            for (let mi = 1; mi <= 10; mi++) {
+              const itemName = csvObj[`menu_item_${mi}`]?.toString().trim();
+              if (!itemName) continue;
+              const itemAmtStr = csvObj[`menu_item_${mi}_amount`]?.toString().replace(/[R$,\s]/g, '').replace(',', '.') || '0';
+              const itemAmt = parseFloat(itemAmtStr) || 0;
+
+              if (!menuItemCounts[itemName]) {
+                menuItemCounts[itemName] = { count: 0, totalRevenue: 0 };
+              }
+              menuItemCounts[itemName].count++;
+              menuItemCounts[itemName].totalRevenue += itemAmt;
+
+              if (!dinerMenuItems[dinerId]) {
+                dinerMenuItems[dinerId] = {};
+              }
+              if (!dinerMenuItems[dinerId][itemName]) {
+                dinerMenuItems[dinerId][itemName] = { count: 0, totalAmount: 0 };
+              }
+              dinerMenuItems[dinerId][itemName].count++;
+              dinerMenuItems[dinerId][itemName].totalAmount += itemAmt;
+            }
+          }
         }
       }
 
@@ -1314,6 +1343,32 @@ export function registerAdminApiRoutes(router: Router): void {
         { range: 'Below -R50', count: varianceBuckets.largeNeg },
       ];
 
+      const topMenuItems = Object.entries(menuItemCounts)
+        .sort(([, a], [, b]) => b.count - a.count)
+        .map(([name, data]) => ({
+          name,
+          count: data.count,
+          totalRevenue: Math.round(data.totalRevenue * 100) / 100,
+          avgPrice: data.count > 0 ? Math.round((data.totalRevenue / data.count) * 100) / 100 : 0,
+        }));
+
+      const menuItemsByDiner = Object.entries(dinerMenuItems)
+        .map(([dinerId, items]) => ({
+          label: dinerLabelMap.get(dinerId) || dinerId,
+          items: Object.entries(items)
+            .sort(([, a], [, b]) => b.count - a.count)
+            .map(([name, data]) => ({
+              name,
+              count: data.count,
+              totalAmount: Math.round(data.totalAmount * 100) / 100,
+            })),
+        }))
+        .sort((a, b) => {
+          const aTotal = a.items.reduce((s, i) => s + i.count, 0);
+          const bTotal = b.items.reduce((s, i) => s + i.count, 0);
+          return bTotal - aTotal;
+        });
+
       res.json({
         totalBatches: batches.length,
         totalMatchedRecords,
@@ -1330,6 +1385,8 @@ export function registerAdminApiRoutes(router: Router): void {
         transactionsByDiner,
         varianceDistribution,
         batchSummaries,
+        topMenuItems,
+        menuItemsByDiner,
       });
     } catch (error) {
       console.error("Reconciliation insights error:", error);

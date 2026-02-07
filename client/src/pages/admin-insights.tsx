@@ -30,9 +30,56 @@ import {
   ArrowDownRight,
   Minus,
   X,
+  UtensilsCrossed,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 const COLORS = ["#22c55e", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6"];
+
+function DinerMenuItemsPanel({ diner, formatCurrency }: { diner: any; formatCurrency: (v: number) => string }) {
+  const [expanded, setExpanded] = useState(false);
+  const totalItems = diner.items.reduce((s: number, i: any) => s + i.count, 0);
+  const totalSpent = diner.items.reduce((s: number, i: any) => s + i.totalAmount, 0);
+
+  return (
+    <div className="border rounded-lg overflow-hidden" data-testid={`panel-diner-menu-${diner.label}`}>
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors text-left"
+      >
+        <div className="flex items-center gap-3">
+          <span className="font-medium text-sm">{diner.label}</span>
+          <Badge variant="secondary" className="text-xs">{totalItems} items</Badge>
+          <span className="text-sm text-muted-foreground font-mono">{formatCurrency(totalSpent)}</span>
+        </div>
+        {expanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+      </button>
+      {expanded && (
+        <div className="border-t overflow-x-auto">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="bg-muted/40">
+                <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Item</th>
+                <th className="px-4 py-2 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Times Ordered</th>
+                <th className="px-4 py-2 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Total Spent</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {diner.items.map((item: any, j: number) => (
+                <tr key={j} className="hover:bg-muted/20">
+                  <td className="px-4 py-2 text-sm">{item.name}</td>
+                  <td className="px-4 py-2 text-sm text-right">{item.count}</td>
+                  <td className="px-4 py-2 text-sm text-right font-mono">{formatCurrency(item.totalAmount)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
 
 type DetailPanel = 'matched' | 'revenue' | 'diners' | 'avg' | 'pos' | 'recorded' | 'variance' | null;
 
@@ -598,6 +645,83 @@ export default function AdminInsights() {
               </ResponsiveContainer>
             ) : (
               <p className="text-sm text-muted-foreground text-center py-8">No visit data available</p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Top Menu Items */}
+        <Card data-testid="card-top-menu-items">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <UtensilsCrossed className="h-5 w-5 text-primary" />
+              Top Menu Items
+            </CardTitle>
+            <CardDescription>Most ordered items from reconciled POS data</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {insights.topMenuItems && insights.topMenuItems.length > 0 ? (
+              <div className="space-y-4">
+                <ResponsiveContainer width="100%" height={350}>
+                  <BarChart data={insights.topMenuItems.slice(0, 10)} margin={{ left: 10, right: 10, bottom: 60 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="name" className="text-xs" tick={{ fontSize: 11 }} interval={0} angle={-35} />
+                    <YAxis className="text-xs" />
+                    <Tooltip
+                      formatter={(value: number, name: string) => [name === "count" ? value : `R${value.toFixed(2)}`, name === "count" ? "Times Ordered" : "Total Revenue"]}
+                      contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }}
+                    />
+                    <Bar dataKey="count" fill="hsl(var(--primary))" name="Times Ordered" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+                <div className="rounded-md border overflow-x-auto">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="border-b bg-muted/40">
+                        <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">#</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Item</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Times Ordered</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Total Revenue</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Avg Price</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {insights.topMenuItems.map((item: any, i: number) => (
+                        <tr key={i} className="hover:bg-muted/30">
+                          <td className="px-4 py-3 text-sm text-muted-foreground">{i + 1}</td>
+                          <td className="px-4 py-3 text-sm font-medium">{item.name}</td>
+                          <td className="px-4 py-3 text-sm text-right">{item.count}</td>
+                          <td className="px-4 py-3 text-sm text-right font-mono">{formatCurrency(item.totalRevenue)}</td>
+                          <td className="px-4 py-3 text-sm text-right font-mono">{formatCurrency(item.avgPrice)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-8">No menu item data available in reconciled records</p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Menu Items by Diner */}
+        <Card data-testid="card-menu-items-by-diner">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Users className="h-5 w-5 text-purple-500" />
+              Menu Items by Diner
+            </CardTitle>
+            <CardDescription>What each diner ordered from reconciled POS data</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {insights.menuItemsByDiner && insights.menuItemsByDiner.length > 0 ? (
+              <div className="space-y-3">
+                {insights.menuItemsByDiner.map((diner: any, i: number) => (
+                  <DinerMenuItemsPanel key={i} diner={diner} formatCurrency={formatCurrency} />
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-8">No per-diner menu item data available</p>
             )}
           </CardContent>
         </Card>

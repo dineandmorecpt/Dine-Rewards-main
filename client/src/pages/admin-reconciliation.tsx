@@ -313,33 +313,30 @@ export default function AdminReconciliation() {
                   
                   return (
                     <div className="rounded-md border overflow-x-auto">
-                      <div style={{ minWidth: `${Math.max(allColumns.length * 140, 800)}px` }}>
-                        <div
-                          className="border-b bg-muted/40 p-3 text-xs font-medium uppercase tracking-wider text-muted-foreground"
-                          style={{ display: 'grid', gridTemplateColumns: `repeat(${allColumns.length}, minmax(100px, 1fr))` }}
-                        >
-                          {allColumns.map((header, i) => (
-                            <div key={i}>{header}</div>
-                          ))}
-                        </div>
-                        <div className="divide-y max-h-[400px] overflow-y-auto">
+                      <table className="w-full border-collapse">
+                        <thead>
+                          <tr className="border-b bg-muted/40">
+                            {allColumns.map((header, i) => (
+                              <th key={i} className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground whitespace-nowrap">
+                                {header}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
                           {batchDetails.data.records.map((record: any) => {
                             const csvData = record.csvData || {};
                             const varianceNum = record.variance ? parseFloat(record.variance) : null;
                             const hasVariance = varianceNum !== null && varianceNum !== 0;
                             
                             return (
-                              <div
-                                key={record.id}
-                                className="items-center p-3 text-sm"
-                                style={{ display: 'grid', gridTemplateColumns: `repeat(${allColumns.length}, minmax(100px, 1fr))`, minWidth: `${Math.max(allColumns.length * 140, 800)}px` }}
-                              >
-                                {csvHeaders.map((header, i) => (
-                                  <div key={i} className="text-xs truncate pr-2" title={csvData[header] || '-'}>
+                              <tr key={record.id} className="hover:bg-muted/30">
+                                {csvHeaders.map((header: string, i: number) => (
+                                  <td key={i} className="px-4 py-3 text-xs whitespace-nowrap">
                                     {csvData[header] || '-'}
-                                  </div>
+                                  </td>
                                 ))}
-                                <div>
+                                <td className="px-4 py-3 whitespace-nowrap">
                                   {record.isMatched ? (
                                     <Badge variant="default" className="gap-1 bg-green-600 text-xs">
                                       <FileCheck className="h-3 w-3" /> Matched
@@ -349,8 +346,8 @@ export default function AdminReconciliation() {
                                       <FileX className="h-3 w-3" /> Unmatched
                                     </Badge>
                                   )}
-                                </div>
-                                <div className={`font-mono text-xs ${
+                                </td>
+                                <td className={`px-4 py-3 font-mono text-xs whitespace-nowrap ${
                                   hasVariance 
                                     ? varianceNum! < 0 
                                       ? 'text-red-600 font-medium' 
@@ -362,49 +359,51 @@ export default function AdminReconciliation() {
                                       ? 'R0.00'
                                       : `${varianceNum > 0 ? '+' : ''}R${varianceNum.toFixed(2)}`
                                     : '-'}
-                                </div>
-                              </div>
+                                </td>
+                              </tr>
                             );
                           })}
-                        </div>
-                      </div>
+                        </tbody>
+                      </table>
                     </div>
                   );
                 }
                 
                 return (
                   <div className="rounded-md border overflow-x-auto">
-                    <div className="min-w-[800px]">
-                      <div className="grid grid-cols-7 border-b bg-muted/40 p-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                        <div>Date</div>
-                        <div>Bill ID</div>
-                        <div>Customer</div>
-                        <div className="text-right">Recorded</div>
-                        <div className="text-right">POS (CSV)</div>
-                        <div className="text-right">Variance</div>
-                        <div>Status</div>
-                      </div>
-                      <div className="divide-y max-h-[400px] overflow-y-auto">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr className="border-b bg-muted/40">
+                          <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground whitespace-nowrap">Date</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground whitespace-nowrap">Bill ID</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground whitespace-nowrap">Customer</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground whitespace-nowrap">Recorded</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground whitespace-nowrap">POS (CSV)</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground whitespace-nowrap">Variance</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground whitespace-nowrap">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
                         {batchDetails.data.records.map((record: any) => {
                           const varianceNum = record.variance ? parseFloat(record.variance) : null;
                           const hasVariance = varianceNum !== null && varianceNum !== 0;
                           
                           return (
-                            <div key={record.id} className="grid grid-cols-7 items-center p-3 text-sm min-w-[800px]">
-                              <div className="text-xs text-muted-foreground">
+                            <tr key={record.id} className="hover:bg-muted/30">
+                              <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
                                 {record.csvDate || '-'}
-                              </div>
-                              <div className="font-mono text-xs">{record.billId}</div>
-                              <div className="text-xs">
+                              </td>
+                              <td className="px-4 py-3 font-mono text-xs whitespace-nowrap">{record.billId}</td>
+                              <td className="px-4 py-3 text-xs whitespace-nowrap">
                                 {record.userPhone || '-'}
-                              </div>
-                              <div className="text-right font-mono text-xs">
+                              </td>
+                              <td className="px-4 py-3 text-right font-mono text-xs whitespace-nowrap">
                                 {record.recordedAmount ? `R${parseFloat(record.recordedAmount).toFixed(2)}` : '-'}
-                              </div>
-                              <div className="text-right font-mono text-xs">
+                              </td>
+                              <td className="px-4 py-3 text-right font-mono text-xs whitespace-nowrap">
                                 {record.csvAmount || '-'}
-                              </div>
-                              <div className={`text-right font-mono text-xs ${
+                              </td>
+                              <td className={`px-4 py-3 text-right font-mono text-xs whitespace-nowrap ${
                                 hasVariance 
                                   ? varianceNum! < 0 
                                     ? 'text-red-600 font-medium' 
@@ -416,8 +415,8 @@ export default function AdminReconciliation() {
                                     ? 'R0.00'
                                     : `${varianceNum > 0 ? '+' : ''}R${varianceNum.toFixed(2)}`
                                   : '-'}
-                              </div>
-                              <div>
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap">
                                 {record.isMatched ? (
                                   <Badge variant="default" className="gap-1 bg-green-600 text-xs">
                                     <FileCheck className="h-3 w-3" /> Matched
@@ -427,12 +426,12 @@ export default function AdminReconciliation() {
                                     <FileX className="h-3 w-3" /> Unmatched
                                   </Badge>
                                 )}
-                              </div>
-                            </div>
+                              </td>
+                            </tr>
                           );
                         })}
-                      </div>
-                    </div>
+                      </tbody>
+                    </table>
                   </div>
                 );
               })()}

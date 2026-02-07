@@ -662,16 +662,28 @@ export default function AdminInsights() {
             {insights.topMenuItems && insights.topMenuItems.length > 0 ? (
               <div className="space-y-4">
                 <ResponsiveContainer width="100%" height={350}>
-                  <BarChart data={insights.topMenuItems.slice(0, 10)} margin={{ left: 10, right: 10, bottom: 60 }}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis dataKey="name" className="text-xs" tick={{ fontSize: 11 }} interval={0} angle={-35} />
-                    <YAxis className="text-xs" />
+                  <PieChart>
+                    <Pie
+                      data={insights.topMenuItems.slice(0, 3)}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={70}
+                      outerRadius={120}
+                      dataKey="count"
+                      nameKey="name"
+                      label={({ name, count }: any) => `${name}: ${count}`}
+                      labelLine={false}
+                    >
+                      {insights.topMenuItems.slice(0, 3).map((_: any, index: number) => (
+                        <Cell key={index} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
                     <Tooltip
-                      formatter={(value: number, name: string) => [name === "count" ? value : `R${value.toFixed(2)}`, name === "count" ? "Times Ordered" : "Total Revenue"]}
+                      formatter={(value: number) => [value, "Times Ordered"]}
                       contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }}
                     />
-                    <Bar dataKey="count" fill="hsl(var(--primary))" name="Times Ordered" radius={[4, 4, 0, 0]} />
-                  </BarChart>
+                    <Legend />
+                  </PieChart>
                 </ResponsiveContainer>
                 <div className="rounded-md border overflow-x-auto">
                   <table className="w-full border-collapse">
@@ -685,7 +697,7 @@ export default function AdminInsights() {
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {insights.topMenuItems.map((item: any, i: number) => (
+                      {insights.topMenuItems.slice(0, 3).map((item: any, i: number) => (
                         <tr key={i} className="hover:bg-muted/30">
                           <td className="px-4 py-3 text-sm text-muted-foreground">{i + 1}</td>
                           <td className="px-4 py-3 text-sm font-medium">{item.name}</td>

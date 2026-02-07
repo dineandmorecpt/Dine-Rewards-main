@@ -12,7 +12,8 @@ import {
   Activity,
   Building2,
   ChevronDown,
-  Users
+  Users,
+  Lightbulb
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -70,6 +71,7 @@ function AdminLayoutContent({ children }: AdminLayoutProps) {
     { name: "Vouchers", href: "/admin/vouchers", icon: Ticket },
     { name: "Users", href: "/admin/users", icon: Users },
     { name: "Reconciliation", href: "/admin/reconciliation", icon: FileCheck },
+    { name: "Insights", href: "/admin/insights", icon: Lightbulb },
     { name: "Activity Logs", href: "/admin/activity-logs", icon: Activity },
     { name: "Reservations", href: null, icon: CalendarDays, comingSoon: true },
     { name: "Campaigns", href: null, icon: Megaphone, comingSoon: true },

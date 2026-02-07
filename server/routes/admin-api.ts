@@ -1171,6 +1171,172 @@ export function registerAdminApiRoutes(router: Router): void {
     }
   });
 
+  router.get("/api/admin/reconciliation/insights", async (req, res) => {
+    try {
+      const { restaurantId, error } = await getAdminRestaurantId(req);
+      if (error) return res.status(error.status).json({ error: error.message });
+
+      const batches = await storage.getReconciliationBatchesByRestaurant(restaurantId!);
+      if (batches.length === 0) {
+        return res.json({
+          totalBatches: 0,
+          totalMatchedRecords: 0,
+          totalUnmatchedRecords: 0,
+          matchRate: 0,
+          totalReconciled: 0,
+          totalRecordedRevenue: 0,
+          totalCSVRevenue: 0,
+          totalVariance: 0,
+          averageTransactionValue: 0,
+          uniqueDiners: 0,
+          topDiners: [],
+          revenueByDate: [],
+          transactionsByDiner: [],
+          varianceDistribution: [],
+          batchSummaries: [],
+        });
+      }
+
+      let totalMatchedRecords = 0;
+      let totalUnmatchedRecords = 0;
+      let totalReconciled = 0;
+      let totalRecordedRevenue = 0;
+      let totalCSVRevenue = 0;
+      let totalVariance = 0;
+      const dinerSpending: Record<string, { label: string; totalSpent: number; transactionCount: number }> = {};
+      const dateRevenue: Record<string, { recorded: number; csv: number; count: number }> = {};
+      const varianceBuckets = { zero: 0, smallPos: 0, largePos: 0, smallNeg: 0, largeNeg: 0 };
+      const batchSummaries: Array<{ fileName: string; uploadedAt: string; matched: number; total: number; matchRate: number }> = [];
+
+      let dinerCounter = 0;
+      const dinerLabelMap = new Map<string, string>();
+
+      for (const batch of batches) {
+        batchSummaries.push({
+          fileName: batch.fileName,
+          uploadedAt: batch.uploadedAt?.toISOString() || '',
+          matched: batch.matchedRecords,
+          total: batch.totalRecords,
+          matchRate: batch.totalRecords > 0 ? Math.round((batch.matchedRecords / batch.totalRecords) * 1000) / 10 : 0,
+        });
+
+        totalMatchedRecords += batch.matchedRecords;
+        totalUnmatchedRecords += batch.unmatchedRecords;
+        totalReconciled += batch.totalRecords;
+
+        const records = await storage.getReconciliationRecordsByBatch(batch.id);
+
+        for (const record of records) {
+          if (!record.isMatched) continue;
+
+          const transaction = await storage.getTransactionByBillId(restaurantId!, record.billId);
+          if (!transaction) continue;
+
+          const recordedAmt = parseFloat(transaction.amountSpent) || 0;
+          totalRecordedRevenue += recordedAmt;
+
+          let csvAmt = 0;
+          if (record.csvAmount) {
+            const cleaned = record.csvAmount.replace(/[R$,\s]/g, '').replace(',', '.');
+            csvAmt = parseFloat(cleaned) || 0;
+          }
+          totalCSVRevenue += csvAmt;
+
+          const variance = csvAmt - recordedAmt;
+          totalVariance += variance;
+
+          if (Math.abs(variance) < 0.01) varianceBuckets.zero++;
+          else if (variance > 0 && variance <= 50) varianceBuckets.smallPos++;
+          else if (variance > 50) varianceBuckets.largePos++;
+          else if (variance < 0 && variance >= -50) varianceBuckets.smallNeg++;
+          else varianceBuckets.largeNeg++;
+
+          const dinerId = transaction.dinerId;
+          if (!dinerLabelMap.has(dinerId)) {
+            dinerCounter++;
+            dinerLabelMap.set(dinerId, `User ${dinerCounter}`);
+          }
+          const dinerLabel = dinerLabelMap.get(dinerId)!;
+
+          if (!dinerSpending[dinerId]) {
+            dinerSpending[dinerId] = { label: dinerLabel, totalSpent: 0, transactionCount: 0 };
+          }
+          dinerSpending[dinerId].totalSpent += recordedAmt;
+          dinerSpending[dinerId].transactionCount++;
+
+          const dateKey = record.csvDate || transaction.transactionDate?.toISOString().split('T')[0] || 'Unknown';
+          if (!dateRevenue[dateKey]) {
+            dateRevenue[dateKey] = { recorded: 0, csv: 0, count: 0 };
+          }
+          dateRevenue[dateKey].recorded += recordedAmt;
+          dateRevenue[dateKey].csv += csvAmt;
+          dateRevenue[dateKey].count++;
+        }
+      }
+
+      const uniqueDiners = Object.keys(dinerSpending).length;
+      const averageTransactionValue = totalMatchedRecords > 0 ? totalRecordedRevenue / totalMatchedRecords : 0;
+      const matchRate = totalReconciled > 0 ? Math.round((totalMatchedRecords / totalReconciled) * 1000) / 10 : 0;
+
+      const topDiners = Object.values(dinerSpending)
+        .sort((a, b) => b.totalSpent - a.totalSpent)
+        .slice(0, 10)
+        .map(d => ({
+          label: d.label,
+          totalSpent: Math.round(d.totalSpent * 100) / 100,
+          transactionCount: d.transactionCount,
+          avgSpend: Math.round((d.totalSpent / d.transactionCount) * 100) / 100,
+        }));
+
+      const revenueByDate = Object.entries(dateRevenue)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([date, data]) => ({
+          date,
+          recorded: Math.round(data.recorded * 100) / 100,
+          csv: Math.round(data.csv * 100) / 100,
+          count: data.count,
+        }));
+
+      const transactionsByDiner = Object.values(dinerSpending)
+        .sort((a, b) => b.transactionCount - a.transactionCount)
+        .slice(0, 10)
+        .map(d => ({
+          label: d.label,
+          transactionCount: d.transactionCount,
+          totalSpent: Math.round(d.totalSpent * 100) / 100,
+        }));
+
+      const varianceDistribution = [
+        { range: 'Exact Match', count: varianceBuckets.zero },
+        { range: 'Under R50', count: varianceBuckets.smallPos },
+        { range: 'Over R50', count: varianceBuckets.largePos },
+        { range: '-R50 to R0', count: varianceBuckets.smallNeg },
+        { range: 'Below -R50', count: varianceBuckets.largeNeg },
+      ];
+
+      res.json({
+        totalBatches: batches.length,
+        totalMatchedRecords,
+        totalUnmatchedRecords,
+        matchRate,
+        totalReconciled,
+        totalRecordedRevenue: Math.round(totalRecordedRevenue * 100) / 100,
+        totalCSVRevenue: Math.round(totalCSVRevenue * 100) / 100,
+        totalVariance: Math.round(totalVariance * 100) / 100,
+        averageTransactionValue: Math.round(averageTransactionValue * 100) / 100,
+        uniqueDiners,
+        topDiners,
+        revenueByDate,
+        transactionsByDiner,
+        varianceDistribution,
+        batchSummaries,
+      });
+    } catch (error) {
+      console.error("Reconciliation insights error:", error);
+      res.status(500).json({ error: "Failed to generate insights" });
+    }
+  });
+
   router.post("/api/admin/diners/invite", smsRateLimiter, async (req, res) => {
     try {
       const { restaurantId, error } = await getAdminRestaurantId(req);

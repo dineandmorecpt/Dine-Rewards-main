@@ -33,6 +33,10 @@ import {
   UtensilsCrossed,
   ChevronDown,
   ChevronUp,
+  Crown,
+  LayoutDashboard,
+  Download,
+  Megaphone,
 } from "lucide-react";
 
 const COLORS = ["#22c55e", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6"];
@@ -533,6 +537,46 @@ export default function AdminInsights() {
             </CardContent>
           </Card>
         )}
+
+        {/* Premium Actions */}
+        <div className="flex flex-wrap items-center gap-3" data-testid="premium-actions-bar">
+          <button
+            disabled
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-muted bg-muted/30 text-muted-foreground cursor-not-allowed opacity-60"
+            data-testid="button-create-view"
+          >
+            <LayoutDashboard className="h-4 w-4" />
+            <span className="text-sm font-medium">Create View</span>
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-400 text-amber-500 gap-1">
+              <Crown className="h-3 w-3" />
+              Premium
+            </Badge>
+          </button>
+          <button
+            disabled
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-muted bg-muted/30 text-muted-foreground cursor-not-allowed opacity-60"
+            data-testid="button-export-data"
+          >
+            <Download className="h-4 w-4" />
+            <span className="text-sm font-medium">Export Data</span>
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-400 text-amber-500 gap-1">
+              <Crown className="h-3 w-3" />
+              Premium
+            </Badge>
+          </button>
+          <button
+            disabled
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-muted bg-muted/30 text-muted-foreground cursor-not-allowed opacity-60"
+            data-testid="button-create-campaign"
+          >
+            <Megaphone className="h-4 w-4" />
+            <span className="text-sm font-medium">Create Campaign</span>
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-400 text-amber-500 gap-1">
+              <Crown className="h-3 w-3" />
+              Premium
+            </Badge>
+          </button>
+        </div>
 
         {/* Top 5 Spenders */}
         <Card data-testid="card-top-diners">

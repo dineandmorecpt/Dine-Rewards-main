@@ -76,6 +76,17 @@ export class ReconciliationService implements IReconciliationService {
     const restaurantNameIndex = headersLower.findIndex(h =>
       h === 'restaurant' || h === 'restaurant_name' || h === 'restaurant name' || h === 'store' || h === 'store_name' || h === 'outlet' || h === 'outlet_name' || h === 'branch' || h === 'branch_name'
     );
+    const customerNameIndices = headersLower.reduce((indices: number[], h, i) => {
+      if (h === 'customer' || h === 'customer_name' || h === 'customer name' || 
+          h === 'name' || h === 'user' || h === 'user_name' || h === 'user name' || 
+          h === 'guest' || h === 'guest_name' || h === 'guest name' ||
+          h === 'diner' || h === 'diner_name' || h === 'diner name' ||
+          h === 'client' || h === 'client_name' || h === 'client name' ||
+          h === 'member' || h === 'member_name' || h === 'member name') {
+        indices.push(i);
+      }
+      return indices;
+    }, []);
 
     if (billIdIndex === -1) {
       throw new Error("CSV must contain a column for Bill ID (e.g., 'bill_id', 'billid', 'invoice_id')");
@@ -84,6 +95,8 @@ export class ReconciliationService implements IReconciliationService {
     const displayHeaders = rawHeaders.map(h => h.trim());
 
     const records: CsvRecord[] = [];
+    const userNameMap = new Map<string, string>();
+    let userCounter = 0;
     
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i].trim();
@@ -100,6 +113,14 @@ export class ReconciliationService implements IReconciliationService {
         let value = j < values.length ? values[j] : '';
         if (restaurantName && j === restaurantNameIndex) {
           value = restaurantName;
+        }
+        if (customerNameIndices.includes(j) && value) {
+          const normalizedName = value.trim().toLowerCase();
+          if (!userNameMap.has(normalizedName)) {
+            userCounter++;
+            userNameMap.set(normalizedName, `User ${userCounter}`);
+          }
+          value = userNameMap.get(normalizedName)!;
         }
         allData[header] = value;
       }
@@ -161,8 +182,6 @@ export class ReconciliationService implements IReconciliationService {
         matchedVoucherId: voucher?.id || null
       });
 
-      const user = await this.storage.getUser(transaction.dinerId);
-
       let variance: string | undefined;
       if (csvRecord.amount && transaction.amountSpent) {
         const csvClean = csvRecord.amount.replace(/[R$,\s]/g, '').replace(',', '.');
@@ -179,7 +198,7 @@ export class ReconciliationService implements IReconciliationService {
         voucherTitle: voucher?.title ?? undefined,
         redeemedAt: voucher?.redeemedAt,
         recordedAmount: transaction.amountSpent,
-        userPhone: user?.phone ?? undefined,
+        userPhone: `User ${matchedCount}`,
         variance
       });
     }
@@ -212,25 +231,19 @@ export class ReconciliationService implements IReconciliationService {
 
     const records = await this.storage.getReconciliationRecordsByBatch(batchId);
     
+    let userIndex = 0;
     const enrichedRecords: EnrichedReconciliationRecord[] = await Promise.all(
       records.map(async (record) => {
         let enriched: EnrichedReconciliationRecord = { ...record };
         
-        // Get transaction by billId to get recorded amount and user info
         const transaction = await this.storage.getTransactionByBillId(batch.restaurantId, record.billId);
         if (transaction) {
           enriched.recordedAmount = transaction.amountSpent;
           
-          // Get user phone
-          const user = await this.storage.getUser(transaction.dinerId);
-          if (user?.phone) {
-            enriched.userPhone = user.phone;
-          }
+          userIndex++;
+          enriched.userPhone = `User ${userIndex}`;
           
-          // Calculate variance if both amounts exist (CSV amount - Recorded amount)
-          // Positive variance = POS shows more than recorded, Negative = POS shows less
           if (record.csvAmount && transaction.amountSpent) {
-            // Normalize CSV amount: remove currency symbols, spaces, and handle comma decimals
             const csvClean = record.csvAmount.replace(/[R$,\s]/g, '').replace(',', '.');
             const csvNum = parseFloat(csvClean);
             const recordedNum = parseFloat(transaction.amountSpent);

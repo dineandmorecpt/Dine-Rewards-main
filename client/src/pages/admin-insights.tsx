@@ -207,7 +207,7 @@ export default function AdminInsights() {
           </Card>
         </div>
 
-        {/* Top Spenders - Full Width */}
+        {/* Top 5 Spenders */}
         <Card data-testid="card-top-diners">
           <CardHeader>
             <CardTitle className="text-lg">Top 5 Spenders</CardTitle>
@@ -233,72 +233,70 @@ export default function AdminInsights() {
           </CardContent>
         </Card>
 
-        {/* Charts Row: Variance & Revenue */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card data-testid="card-variance-distribution">
-            <CardHeader>
-              <CardTitle className="text-lg">Variance Distribution</CardTitle>
-              <CardDescription>How POS amounts compare to recorded amounts</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {insights.varianceDistribution.some((d: any) => d.count > 0) ? (
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={insights.varianceDistribution.filter((d: any) => d.count > 0)}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={100}
-                      dataKey="count"
-                      nameKey="range"
-                      label={({ range, count }: any) => `${range}: ${count}`}
-                      labelLine={false}
-                    >
-                      {insights.varianceDistribution.filter((d: any) => d.count > 0).map((_: any, index: number) => (
-                        <Cell key={index} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }} />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <p className="text-sm text-muted-foreground text-center py-8">No variance data available</p>
-              )}
-            </CardContent>
-          </Card>
+        {/* Variance Distribution */}
+        <Card data-testid="card-variance-distribution">
+          <CardHeader>
+            <CardTitle className="text-lg">Variance Distribution</CardTitle>
+            <CardDescription>How POS amounts compare to recorded amounts</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {insights.varianceDistribution.some((d: any) => d.count > 0) ? (
+              <ResponsiveContainer width="100%" height={350}>
+                <PieChart>
+                  <Pie
+                    data={insights.varianceDistribution.filter((d: any) => d.count > 0)}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={70}
+                    outerRadius={120}
+                    dataKey="count"
+                    nameKey="range"
+                    label={({ range, count }: any) => `${range}: ${count}`}
+                    labelLine={false}
+                  >
+                    {insights.varianceDistribution.filter((d: any) => d.count > 0).map((_: any, index: number) => (
+                      <Cell key={index} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }} />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-8">No variance data available</p>
+            )}
+          </CardContent>
+        </Card>
 
-          <Card data-testid="card-revenue-by-date">
-            <CardHeader>
-              <CardTitle className="text-lg">Revenue by Date</CardTitle>
-              <CardDescription>Recorded vs POS revenue per transaction date</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {insights.revenueByDate.length > 0 ? (
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={insights.revenueByDate} margin={{ left: 10, right: 10 }}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis dataKey="date" className="text-xs" tick={{ fontSize: 11 }} />
-                    <YAxis tickFormatter={(v: number) => `R${v}`} className="text-xs" />
-                    <Tooltip
-                      formatter={(value: number, name: string) => [formatCurrency(value), name === "recorded" ? "Recorded" : "POS (CSV)"]}
-                      contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }}
-                    />
-                    <Bar dataKey="recorded" fill="hsl(var(--primary))" name="Recorded" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="csv" fill="#3b82f6" name="POS (CSV)" radius={[4, 4, 0, 0]} />
-                    <Legend />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <p className="text-sm text-muted-foreground text-center py-8">No date-based data available</p>
-              )}
-            </CardContent>
-          </Card>
+        {/* Revenue by Date */}
+        <Card data-testid="card-revenue-by-date">
+          <CardHeader>
+            <CardTitle className="text-lg">Revenue by Date</CardTitle>
+            <CardDescription>Recorded vs POS revenue per transaction date</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {insights.revenueByDate.length > 0 ? (
+              <ResponsiveContainer width="100%" height={350}>
+                <BarChart data={insights.revenueByDate} margin={{ left: 10, right: 10, bottom: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis dataKey="date" className="text-xs" tick={{ fontSize: 11 }} />
+                  <YAxis tickFormatter={(v: number) => `R${v}`} className="text-xs" />
+                  <Tooltip
+                    formatter={(value: number, name: string) => [formatCurrency(value), name === "recorded" ? "Recorded" : "POS (CSV)"]}
+                    contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }}
+                  />
+                  <Bar dataKey="recorded" fill="hsl(var(--primary))" name="Recorded" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="csv" fill="#3b82f6" name="POS (CSV)" radius={[4, 4, 0, 0]} />
+                  <Legend />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-8">No date-based data available</p>
+            )}
+          </CardContent>
+        </Card>
 
-        </div>
-
-        {/* Visit Frequency - Full Width */}
+        {/* Visit Frequency */}
         <Card data-testid="card-visit-frequency">
           <CardHeader>
             <CardTitle className="text-lg">Visit Frequency</CardTitle>
@@ -306,7 +304,7 @@ export default function AdminInsights() {
           </CardHeader>
           <CardContent>
             {insights.transactionsByDiner.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
+              <ResponsiveContainer width="100%" height={350}>
                 <BarChart data={insights.transactionsByDiner.slice(0, 5)} margin={{ left: 10, right: 10, bottom: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis dataKey="label" className="text-xs" tick={{ fontSize: 12 }} />

@@ -215,7 +215,7 @@ export default function AdminInsights() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-muted-foreground">Recorded Revenue</span>
-                <DollarSign className="h-5 w-5 text-green-500" />
+                <span className="text-green-500 font-bold text-lg">R</span>
               </div>
               <p className="text-2xl font-bold">{formatCurrency(insights.totalRecordedRevenue)}</p>
             </CardContent>

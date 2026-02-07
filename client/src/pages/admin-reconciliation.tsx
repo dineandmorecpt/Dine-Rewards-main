@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Upload, FileUp, FileCheck, FileX, Download, ChevronRight, FileSpreadsheet } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { getAuthHeaders } from "@/lib/queryClient";
 
 export default function AdminReconciliation() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -19,7 +20,8 @@ export default function AdminReconciliation() {
     queryKey: ['reconciliation-batches', restaurantId],
     queryFn: async () => {
       const res = await fetch(`/api/admin/reconciliation/batches`, {
-        credentials: 'include'
+        credentials: 'include',
+        headers: getAuthHeaders()
       });
       if (!res.ok) throw new Error('Failed to fetch batches');
       return res.json();
@@ -32,7 +34,8 @@ export default function AdminReconciliation() {
     queryFn: async () => {
       if (!selectedBatchId) return null;
       const res = await fetch(`/api/admin/reconciliation/batches/${selectedBatchId}`, {
-        credentials: 'include'
+        credentials: 'include',
+        headers: getAuthHeaders()
       });
       if (!res.ok) throw new Error('Failed to fetch batch details');
       return res.json();
@@ -45,7 +48,7 @@ export default function AdminReconciliation() {
       const content = await file.text();
       const res = await fetch(`/api/admin/reconciliation/upload`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ fileName: file.name, csvContent: content }),
         credentials: 'include'
       });

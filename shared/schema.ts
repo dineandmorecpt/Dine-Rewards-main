@@ -495,3 +495,22 @@ export const insertPhoneChangeRequestSchema = createInsertSchema(phoneChangeRequ
 });
 export type InsertPhoneChangeRequest = z.infer<typeof insertPhoneChangeRequestSchema>;
 export type PhoneChangeRequest = typeof phoneChangeRequests.$inferSelect;
+
+export const restaurantSubscriptions = pgTable("restaurant_subscriptions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id),
+  isSubscribed: boolean("is_subscribed").notNull().default(false),
+  plan: text("plan").default("free"),
+  subscribedAt: timestamp("subscribed_at"),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertRestaurantSubscriptionSchema = createInsertSchema(restaurantSubscriptions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertRestaurantSubscription = z.infer<typeof insertRestaurantSubscriptionSchema>;
+export type RestaurantSubscription = typeof restaurantSubscriptions.$inferSelect;

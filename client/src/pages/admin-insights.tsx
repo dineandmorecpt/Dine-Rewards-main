@@ -207,33 +207,34 @@ export default function AdminInsights() {
           </Card>
         </div>
 
-        {/* Charts Row 1: Top Spenders & Revenue by Date */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card data-testid="card-top-diners">
-            <CardHeader>
-              <CardTitle className="text-lg">Top Spenders</CardTitle>
-              <CardDescription>Highest spending diners from reconciled data</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {insights.topDiners.length > 0 ? (
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={insights.topDiners} layout="vertical" margin={{ left: 10, right: 20 }}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis type="number" tickFormatter={(v: number) => `R${v}`} className="text-xs" />
-                    <YAxis dataKey="label" type="category" width={60} className="text-xs" />
-                    <Tooltip
-                      formatter={(value: number) => [formatCurrency(value), "Total Spent"]}
-                      contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }}
-                    />
-                    <Bar dataKey="totalSpent" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <p className="text-sm text-muted-foreground text-center py-8">No diner data available</p>
-              )}
-            </CardContent>
-          </Card>
+        {/* Top Spenders - Full Width */}
+        <Card data-testid="card-top-diners">
+          <CardHeader>
+            <CardTitle className="text-lg">Top 5 Spenders</CardTitle>
+            <CardDescription>Highest spending diners from reconciled data</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {insights.topDiners.length > 0 ? (
+              <ResponsiveContainer width="100%" height={350}>
+                <BarChart data={insights.topDiners.slice(0, 5)} margin={{ left: 10, right: 10, bottom: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis dataKey="label" className="text-xs" tick={{ fontSize: 12 }} />
+                  <YAxis tickFormatter={(v: number) => `R${v}`} className="text-xs" />
+                  <Tooltip
+                    formatter={(value: number) => [formatCurrency(value), "Total Spent"]}
+                    contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }}
+                  />
+                  <Bar dataKey="totalSpent" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-8">No diner data available</p>
+            )}
+          </CardContent>
+        </Card>
 
+        {/* Charts Row: Variance & Revenue */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card data-testid="card-variance-distribution">
             <CardHeader>
               <CardTitle className="text-lg">Variance Distribution</CardTitle>
@@ -267,10 +268,7 @@ export default function AdminInsights() {
               )}
             </CardContent>
           </Card>
-        </div>
 
-        {/* Charts Row 2: Revenue by Date & Visit Frequency */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card data-testid="card-revenue-by-date">
             <CardHeader>
               <CardTitle className="text-lg">Revenue by Date</CardTitle>
@@ -298,31 +296,33 @@ export default function AdminInsights() {
             </CardContent>
           </Card>
 
-          <Card data-testid="card-visit-frequency">
-            <CardHeader>
-              <CardTitle className="text-lg">Visit Frequency</CardTitle>
-              <CardDescription>Number of reconciled transactions per diner</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {insights.transactionsByDiner.length > 0 ? (
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={insights.transactionsByDiner} layout="vertical" margin={{ left: 10, right: 20 }}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis type="number" className="text-xs" />
-                    <YAxis dataKey="label" type="category" width={60} className="text-xs" />
-                    <Tooltip
-                      formatter={(value: number, name: string) => [name === "transactionCount" ? value : formatCurrency(value), name === "transactionCount" ? "Visits" : "Total Spent"]}
-                      contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }}
-                    />
-                    <Bar dataKey="transactionCount" fill="#8b5cf6" name="Visits" radius={[0, 4, 4, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <p className="text-sm text-muted-foreground text-center py-8">No visit data available</p>
-              )}
-            </CardContent>
-          </Card>
         </div>
+
+        {/* Visit Frequency - Full Width */}
+        <Card data-testid="card-visit-frequency">
+          <CardHeader>
+            <CardTitle className="text-lg">Visit Frequency</CardTitle>
+            <CardDescription>Number of reconciled transactions per diner</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {insights.transactionsByDiner.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={insights.transactionsByDiner.slice(0, 5)} margin={{ left: 10, right: 10, bottom: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis dataKey="label" className="text-xs" tick={{ fontSize: 12 }} />
+                  <YAxis className="text-xs" />
+                  <Tooltip
+                    formatter={(value: number, name: string) => [name === "transactionCount" ? value : formatCurrency(value), name === "transactionCount" ? "Visits" : "Total Spent"]}
+                    contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }}
+                  />
+                  <Bar dataKey="transactionCount" fill="#8b5cf6" name="Visits" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-8">No visit data available</p>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Batch History Table */}
         <Card data-testid="card-batch-history">

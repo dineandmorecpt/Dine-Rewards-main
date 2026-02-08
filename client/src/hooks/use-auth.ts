@@ -9,6 +9,7 @@ interface User {
   lastName?: string;
   phone?: string;
   userType: 'diner' | 'admin' | 'restaurant_admin';
+  phoneVerified?: boolean;
 }
 
 interface Restaurant {

@@ -19,6 +19,7 @@ export const diners = pgTable("diners", {
   province: text("province"), // South African province
   accessToken: text("access_token").unique(), // Persistent token for auto-login (valid for 90 days)
   accessTokenExpiresAt: timestamp("access_token_expires_at"), // When the access token expires
+  phoneVerified: boolean("phone_verified").notNull().default(false),
   activeVoucherCode: text("active_voucher_code"), // Temporary presentation code for redemption (generated on tap)
   activeVoucherId: text("active_voucher_id"), // ID of voucher being presented for redemption
   activeVoucherCodeSetAt: timestamp("active_voucher_code_set_at"), // When the code was presented (valid for 15 mins)
@@ -74,6 +75,7 @@ export const users = pgTable("users", {
   province: text("province"), // South African province
   accessToken: text("access_token").unique(), // Persistent token for auto-login (valid for 90 days)
   accessTokenExpiresAt: timestamp("access_token_expires_at"), // When the access token expires
+  phoneVerified: boolean("phone_verified").notNull().default(false),
   activeVoucherCode: text("active_voucher_code"), // Temporary presentation code for redemption (generated on tap)
   activeVoucherId: text("active_voucher_id"), // ID of voucher being presented for redemption
   activeVoucherCodeSetAt: timestamp("active_voucher_code_set_at"), // When the code was presented (valid for 15 mins)

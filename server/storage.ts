@@ -323,6 +323,9 @@ export interface IStorage {
   expirePhoneChangeRequest(id: string): Promise<void>;
   updateUserPhone(userId: string, phone: string): Promise<User>;
 
+  // Phone Verification
+  markUserPhoneVerified(userId: string): Promise<void>;
+
   // Restaurant Subscription Management
   getRestaurantSubscription(restaurantId: string): Promise<RestaurantSubscription | undefined>;
 }
@@ -1485,6 +1488,22 @@ export class DbStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     return result[0];
+  }
+
+  async markUserPhoneVerified(userId: string): Promise<void> {
+    await db.update(users)
+      .set({ phoneVerified: true })
+      .where(eq(users.id, userId));
+    
+    const user = await this.getUser(userId);
+    if (user && user.email) {
+      const diner = await this.getDinerByEmail(user.email);
+      if (diner) {
+        await db.update(diners)
+          .set({ phoneVerified: true })
+          .where(eq(diners.id, diner.id));
+      }
+    }
   }
 
   async getRestaurantSubscription(restaurantId: string): Promise<RestaurantSubscription | undefined> {

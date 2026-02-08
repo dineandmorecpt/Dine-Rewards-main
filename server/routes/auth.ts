@@ -314,6 +314,7 @@ export function registerAuthRoutes(router: Router): void {
           lastName: user.lastName,
           phone: user.phone,
           userType: user.userType,
+          phoneVerified: user.phoneVerified ?? false,
         },
         restaurant: restaurant ? {
           id: restaurant.id,
@@ -632,51 +633,7 @@ export function registerAuthRoutes(router: Router): void {
         });
       }
 
-      const { name, lastName, email, phone, password, gender, dateOfBirth, province, restaurantId, verificationToken } = parseResult.data;
-
-      // Check verification via token first (more reliable), then fall back to session
-      let isPhoneVerified = false;
-      
-      // Method 1: Check verification token
-      if (verificationToken) {
-        const storedVerification = verifiedPhoneStore.get(verificationToken);
-        if (storedVerification) {
-          if (new Date() > storedVerification.expiresAt) {
-            verifiedPhoneStore.delete(verificationToken);
-            console.log("Register-diner: Verification token expired", { phone });
-          } else if (storedVerification.phone === phone) {
-            isPhoneVerified = true;
-            verifiedPhoneStore.delete(verificationToken); // Single use
-            console.log("Register-diner: Verified via token", { phone });
-          } else {
-            console.log("Register-diner: Token phone mismatch", { 
-              tokenPhone: storedVerification.phone, 
-              submittedPhone: phone 
-            });
-          }
-        } else {
-          console.log("Register-diner: Verification token not found", { token: verificationToken?.substring(0, 8) });
-        }
-      }
-      
-      // Method 2: Fall back to session
-      if (!isPhoneVerified && req.session.verifiedPhone === phone) {
-        isPhoneVerified = true;
-        console.log("Register-diner: Verified via session", { phone });
-      }
-
-      console.log("Register-diner verification result:", {
-        sessionId: req.session.id,
-        sessionVerifiedPhone: req.session.verifiedPhone,
-        submittedPhone: phone,
-        hasToken: !!verificationToken,
-        isPhoneVerified
-      });
-
-      if (!isPhoneVerified) {
-        console.error("Register-diner FAILED: Phone not verified", { phone, hasToken: !!verificationToken });
-        return res.status(400).json({ error: "Phone number must be verified before registration" });
-      }
+      const { name, lastName, email, phone, password, gender, dateOfBirth, province, restaurantId } = parseResult.data;
 
       // Check for existing DINER accounts in the new diners table
       const existingEmail = await storage.getDinerByEmail(email);
@@ -691,7 +648,7 @@ export function registerAuthRoutes(router: Router): void {
 
       const hashedPassword = await bcrypt.hash(password, 12);
 
-      // Create diner in the new diners table
+      // Create diner in the new diners table (phone unverified - verified post-login)
       const diner = await storage.createDiner({
         name,
         lastName,
@@ -701,6 +658,7 @@ export function registerAuthRoutes(router: Router): void {
         gender,
         dateOfBirth,
         province,
+        phoneVerified: false,
       });
       
       // For backward compatibility, also create in users table
@@ -714,6 +672,7 @@ export function registerAuthRoutes(router: Router): void {
         gender,
         dateOfBirth,
         province,
+        phoneVerified: false,
       });
 
       // If registered via restaurant QR code, create initial points balance for that restaurant
@@ -1141,6 +1100,103 @@ export function registerAuthRoutes(router: Router): void {
     } catch (error: any) {
       console.error("Request invitation OTP error:", error);
       res.status(500).json({ error: "Failed to send verification code" });
+    }
+  });
+
+  // ============================================================================
+  // POST-LOGIN PHONE VERIFICATION (onboarding step after account creation)
+  // ============================================================================
+  router.post("/api/auth/request-phone-verification", smsRateLimiter, async (req, res) => {
+    try {
+      const userId = getAuthUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user || user.userType !== 'diner') {
+        return res.status(403).json({ error: "Only diner accounts can verify phone" });
+      }
+
+      if (!user.phone) {
+        return res.status(400).json({ error: "No phone number on file" });
+      }
+
+      if (user.phoneVerified) {
+        return res.json({ success: true, message: "Phone already verified" });
+      }
+
+      const phone = user.phone;
+      const smsLimitCheck = checkSMSRateLimit(phone);
+      if (!smsLimitCheck.allowed) {
+        return res.status(429).json({ 
+          error: smsLimitCheck.error,
+          retryAfterSeconds: smsLimitCheck.retryAfterSeconds
+        });
+      }
+
+      const otp = crypto.randomInt(100000, 1000000).toString();
+      const expiresAt = new Date();
+      expiresAt.setMinutes(expiresAt.getMinutes() + 5);
+      otpStore.set(`phoneverify_${userId}`, { otp, expiresAt });
+
+      const smsResult = await sendSMS(phone, `Your Dine&More verification code is: ${otp}. Valid for 5 minutes.`);
+      
+      if (smsResult.success) {
+        recordSMSSent(phone);
+      }
+
+      res.json({
+        success: true,
+        smsSent: smsResult.success,
+        message: smsResult.success 
+          ? "Verification code sent to your phone" 
+          : "Could not send SMS. Please try again.",
+      });
+    } catch (error: any) {
+      console.error("Request phone verification error:", error);
+      res.status(500).json({ error: "Failed to send verification code" });
+    }
+  });
+
+  router.post("/api/auth/verify-phone-otp", async (req, res) => {
+    try {
+      const userId = getAuthUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const { otp } = req.body;
+      if (!otp || typeof otp !== 'string' || otp.length !== 6) {
+        return res.status(422).json({ error: "A 6-digit verification code is required" });
+      }
+
+      const storedOtp = otpStore.get(`phoneverify_${userId}`);
+      if (!storedOtp) {
+        return res.status(400).json({ error: "No verification code found. Please request a new one." });
+      }
+
+      if (new Date() > storedOtp.expiresAt) {
+        otpStore.delete(`phoneverify_${userId}`);
+        return res.status(400).json({ error: "Verification code has expired. Please request a new one." });
+      }
+
+      if (storedOtp.otp !== otp) {
+        return res.status(401).json({ error: "Invalid verification code" });
+      }
+
+      otpStore.delete(`phoneverify_${userId}`);
+
+      // Mark phone as verified in both users and diners tables
+      await storage.markUserPhoneVerified(userId);
+
+      res.json({
+        success: true,
+        message: "Phone number verified successfully",
+      });
+    } catch (error: any) {
+      console.error("Verify phone OTP error:", error);
+      res.status(500).json({ error: "Verification failed" });
     }
   });
 

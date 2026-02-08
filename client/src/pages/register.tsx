@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useSearch, useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,8 +8,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { Captcha } from "@/components/ui/captcha";
-import { Gift, Loader2, CheckCircle2, AlertCircle, Phone, ShieldCheck } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { setStoredAuth } from "@/lib/queryClient";
 import logoImage from "@/assets/logo.png";
 
 const GENDER_OPTIONS = [
@@ -36,15 +37,10 @@ export default function Register() {
   const token = searchParams.get('token') || '';
   const restaurantId = searchParams.get('restaurantId') || '';
   
-  // URL-based verification token (most reliable - survives all refreshes)
-  const urlVerificationToken = searchParams.get('vt') || '';
-  const urlVerifiedPhone = searchParams.get('vp') || '';
-  
   const [name, setName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
-  // Priority: URL param > localStorage > empty
-  const [phone, setPhone] = useState(() => urlVerifiedPhone || localStorage.getItem('dinemore_reg_phone') || "");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [gender, setGender] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
@@ -58,53 +54,6 @@ export default function Register() {
   const [verificationStep, setVerificationStep] = useState<"phone" | "otp" | "details">("phone");
   const [otp, setOtp] = useState("");
   const [otpError, setOtpError] = useState("");
-  
-  // Self-registration phone verification state
-  // Priority: URL param (vt) > localStorage > empty
-  // If URL has verification token, skip to details step
-  const [selfVerificationStep, setSelfVerificationStep] = useState<"phone" | "otp" | "details">(() => {
-    if (urlVerificationToken) return 'details';
-    const savedStep = localStorage.getItem('dinemore_reg_step');
-    return (savedStep === 'otp' || savedStep === 'details') ? savedStep : 'phone';
-  });
-  const [selfOtp, setSelfOtp] = useState("");
-  const [selfOtpError, setSelfOtpError] = useState("");
-  // Priority: URL param > localStorage > empty
-  const [verificationToken, setVerificationToken] = useState(() => {
-    return urlVerificationToken || localStorage.getItem('dinemore_verification_token') || "";
-  });
-  
-  // Persist verification token and step to localStorage AND URL
-  const saveVerificationToken = (newToken: string, verifiedPhone: string) => {
-    setVerificationToken(newToken);
-    localStorage.setItem('dinemore_verification_token', newToken);
-    
-    // Also add to URL for maximum reliability (survives localStorage clearing)
-    const newParams = new URLSearchParams(searchString);
-    newParams.set('vt', newToken);
-    newParams.set('vp', verifiedPhone);
-    if (restaurantId) newParams.set('restaurantId', restaurantId);
-    
-    // Use navigate to update URL without page reload
-    navigate(`/register?${newParams.toString()}`, { replace: true });
-  };
-  
-  const saveSelfVerificationStep = (step: "phone" | "otp" | "details") => {
-    setSelfVerificationStep(step);
-    localStorage.setItem('dinemore_reg_step', step);
-  };
-  
-  const clearVerificationState = () => {
-    setVerificationToken("");
-    setSelfVerificationStep("phone");
-    localStorage.removeItem('dinemore_verification_token');
-    localStorage.removeItem('dinemore_reg_step');
-    localStorage.removeItem('dinemore_reg_phone');
-    // Clear URL params too
-    const newParams = new URLSearchParams();
-    if (restaurantId) newParams.set('restaurantId', restaurantId);
-    navigate(`/register${newParams.toString() ? '?' + newParams.toString() : ''}`, { replace: true });
-  };
   
   // Captcha token for bot protection
   const [captchaToken, setCaptchaToken] = useState("");
@@ -190,77 +139,8 @@ export default function Register() {
     },
   });
 
-  // Request OTP for self-registration phone verification
-  const requestSelfOtp = useMutation({
-    mutationFn: async (phoneNumber: string) => {
-      const res = await fetch('/api/auth/request-registration-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: "include",
-        body: JSON.stringify({ phone: phoneNumber }),
-      });
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || "Failed to send verification code");
-      }
-      return res.json();
-    },
-    onSuccess: () => {
-      saveSelfVerificationStep("otp");
-      setSelfOtpError("");
-    },
-  });
-
-  // Verify self-registration OTP
-  const verifySelfOtp = useMutation({
-    mutationFn: async ({ phoneNumber, otpCode }: { phoneNumber: string; otpCode: string }) => {
-      const res = await fetch('/api/auth/verify-registration-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: "include",
-        body: JSON.stringify({ phone: phoneNumber, otp: otpCode }),
-      });
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || "Invalid verification code");
-      }
-      return res.json();
-    },
-    onSuccess: (data) => {
-      // Store the verification token and verified phone from server
-      // Persist to localStorage AND URL to survive page refreshes in Replit webview
-      console.log("OTP verification success, saving token:", {
-        hasToken: !!data.verificationToken,
-        tokenPreview: data.verificationToken ? data.verificationToken.substring(0, 8) + "..." : "none",
-        verifiedPhone: data.verifiedPhone
-      });
-      
-      const verifiedPhone = data.verifiedPhone || phone;
-      
-      if (data.verificationToken) {
-        // Save to state, localStorage, AND URL for maximum reliability
-        saveVerificationToken(data.verificationToken, verifiedPhone);
-        // Verify it was saved to localStorage
-        const savedToken = localStorage.getItem('dinemore_verification_token');
-        console.log("Token saved:", {
-          localStorage: savedToken === data.verificationToken,
-          urlWillHave: true
-        });
-      }
-      if (verifiedPhone) {
-        setPhone(verifiedPhone);
-        localStorage.setItem('dinemore_reg_phone', verifiedPhone);
-      }
-      saveSelfVerificationStep("details");
-      setSelfOtpError("");
-    },
-    onError: (error: Error) => {
-      setSelfOtpError(error.message);
-    },
-  });
-
   const selfRegister = useMutation({
-    mutationFn: async (data: { name: string; lastName: string; email: string; phone: string; password: string; gender: string; dateOfBirth: string; province: string; restaurantId?: string; verificationToken?: string }) => {
+    mutationFn: async (data: { name: string; lastName: string; email: string; phone: string; password: string; gender: string; dateOfBirth: string; province: string; restaurantId?: string }) => {
       const res = await fetch('/api/auth/register-diner', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -273,10 +153,11 @@ export default function Register() {
       }
       return res.json();
     },
-    onSuccess: () => {
-      // Clear localStorage on successful registration
-      clearVerificationState();
-      setRegistrationComplete(true);
+    onSuccess: (data) => {
+      if (data.user) {
+        setStoredAuth(data.user.id, data.user.userType);
+      }
+      navigate('/diner/dashboard');
     },
   });
 
@@ -350,34 +231,16 @@ export default function Register() {
     }
     setDateOfBirthError("");
     
-    // Priority for token: URL param > localStorage > React state
-    // URL is most reliable as it survives all browser storage restrictions
-    const currentParams = new URLSearchParams(window.location.search);
-    const urlToken = currentParams.get('vt') || '';
-    const urlPhone = currentParams.get('vp') || '';
-    
-    const freshToken = urlToken || localStorage.getItem('dinemore_verification_token') || verificationToken;
-    const freshPhone = urlPhone || localStorage.getItem('dinemore_reg_phone') || phone;
-    
-    console.log("Self-register submit:", {
-      hasUrlToken: !!urlToken,
-      hasLocalStorageToken: !!localStorage.getItem('dinemore_verification_token'),
-      hasStateToken: !!verificationToken,
-      freshToken: freshToken ? freshToken.substring(0, 8) + "..." : "none",
-      phone: freshPhone
-    });
-    
     selfRegister.mutate({
       name,
       lastName,
       email,
-      phone: freshPhone,
+      phone,
       password,
       gender,
       dateOfBirth,
       province,
       restaurantId: restaurantId || undefined,
-      verificationToken: freshToken || undefined,
     });
   };
 
@@ -412,154 +275,18 @@ export default function Register() {
   }
 
   if (!token) {
-    // Step 1: Phone entry for self-registration
-    if (selfVerificationStep === "phone") {
-      return (
-        <div className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-emerald-50 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800 flex items-center justify-center p-4">
-          <Card className="w-full max-w-md">
-            <CardHeader className="text-center">
-              <img src={logoImage} alt="Dine&More" className="h-24 w-auto mx-auto mb-4" />
-              <Phone className="h-10 w-10 text-primary mx-auto mb-2" />
-              <CardTitle className="text-2xl font-sans">Join Dine&More Rewards</CardTitle>
-              <CardDescription>
-                Enter your mobile number to get started. We'll send you a verification code.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="phone">Mobile Number</Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="e.g., 0821234567"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  data-testid="input-self-phone"
-                />
-              </div>
-
-              {requestSelfOtp.isError && (
-                <div className="p-3 bg-destructive/10 text-destructive text-sm rounded-md">
-                  {(requestSelfOtp.error as Error).message}
-                </div>
-              )}
-            </CardContent>
-            <CardFooter>
-              <Button
-                className="w-full"
-                disabled={!phone.trim() || requestSelfOtp.isPending}
-                onClick={() => requestSelfOtp.mutate(phone)}
-                data-testid="button-send-otp"
-              >
-                {requestSelfOtp.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Sending...
-                  </>
-                ) : (
-                  "Send Verification Code"
-                )}
-              </Button>
-            </CardFooter>
-          </Card>
-        </div>
-      );
-    }
-
-    // Step 2: OTP verification for self-registration
-    if (selfVerificationStep === "otp") {
-      return (
-        <div className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-emerald-50 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800 flex items-center justify-center p-4">
-          <Card className="w-full max-w-md">
-            <CardHeader className="text-center">
-              <img src={logoImage} alt="Dine&More" className="h-20 w-auto mx-auto mb-4" />
-              <ShieldCheck className="h-10 w-10 text-primary mx-auto mb-2" />
-              <CardTitle className="text-2xl font-sans">Enter Verification Code</CardTitle>
-              <CardDescription>
-                We sent a 6-digit code to {phone}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex justify-center">
-                <InputOTP
-                  maxLength={6}
-                  value={selfOtp}
-                  onChange={(value) => {
-                    setSelfOtp(value);
-                    setSelfOtpError("");
-                  }}
-                  data-testid="input-self-otp"
-                >
-                  <InputOTPGroup>
-                    <InputOTPSlot index={0} />
-                    <InputOTPSlot index={1} />
-                    <InputOTPSlot index={2} />
-                    <InputOTPSlot index={3} />
-                    <InputOTPSlot index={4} />
-                    <InputOTPSlot index={5} />
-                  </InputOTPGroup>
-                </InputOTP>
-              </div>
-
-              {selfOtpError && (
-                <div className="p-3 bg-destructive/10 text-destructive text-sm rounded-md text-center">
-                  {selfOtpError}
-                </div>
-              )}
-
-              <Button
-                variant="link"
-                className="w-full"
-                onClick={() => {
-                  setSelfOtp("");
-                  setSelfOtpError("");
-                  clearVerificationState();
-                }}
-                data-testid="button-go-back-phone"
-              >
-                Go back to change phone number
-              </Button>
-            </CardContent>
-            <CardFooter>
-              <Button
-                className="w-full"
-                disabled={selfOtp.length !== 6 || verifySelfOtp.isPending}
-                onClick={() => verifySelfOtp.mutate({ phoneNumber: phone, otpCode: selfOtp })}
-                data-testid="button-verify-otp"
-              >
-                {verifySelfOtp.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Verifying...
-                  </>
-                ) : (
-                  "Verify Code"
-                )}
-              </Button>
-            </CardFooter>
-          </Card>
-        </div>
-      );
-    }
-
-    // Step 3: Complete profile for self-registration
     return (
       <div className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-emerald-50 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800 flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <img src={logoImage} alt="Dine&More" className="h-24 w-auto mx-auto mb-4" />
-            <CheckCircle2 className="h-8 w-8 text-green-500 mx-auto mb-2" />
-            <CardTitle className="text-2xl font-sans">Complete Your Profile</CardTitle>
+            <CardTitle className="text-2xl font-sans">Join Dine&More Rewards</CardTitle>
             <CardDescription>
-              Phone verified! Now finish setting up your account.
+              Create your account to start earning points on your next visit.
             </CardDescription>
           </CardHeader>
           <form onSubmit={handleSelfRegisterSubmit}>
             <CardContent className="space-y-4">
-              <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-md text-sm text-center">
-                <span className="text-green-600 dark:text-green-400">Verified phone: {phone}</span>
-              </div>
-
               <div className="space-y-2">
                 <Label htmlFor="name">First Name</Label>
                 <Input
@@ -598,6 +325,19 @@ export default function Register() {
               </div>
 
               <div className="space-y-2">
+                <Label htmlFor="phone">Mobile Number</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  placeholder="e.g., 0821234567"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  required
+                  data-testid="input-register-phone"
+                />
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
                 <Input
                   id="password"
@@ -608,9 +348,23 @@ export default function Register() {
                   required
                   data-testid="input-register-password"
                 />
-                <p className="text-xs text-muted-foreground">
-                  At least 8 characters with uppercase, lowercase, number, and special character
-                </p>
+                <div className="text-xs space-y-0.5">
+                  <p className={password.length >= 8 ? "text-green-600" : "text-muted-foreground"}>
+                    {password.length >= 8 ? "✓" : "○"} At least 8 characters
+                  </p>
+                  <p className={/[A-Z]/.test(password) ? "text-green-600" : "text-muted-foreground"}>
+                    {/[A-Z]/.test(password) ? "✓" : "○"} One uppercase letter
+                  </p>
+                  <p className={/[a-z]/.test(password) ? "text-green-600" : "text-muted-foreground"}>
+                    {/[a-z]/.test(password) ? "✓" : "○"} One lowercase letter
+                  </p>
+                  <p className={/[0-9]/.test(password) ? "text-green-600" : "text-muted-foreground"}>
+                    {/[0-9]/.test(password) ? "✓" : "○"} One number
+                  </p>
+                  <p className={/[^A-Za-z0-9]/.test(password) ? "text-green-600" : "text-muted-foreground"}>
+                    {/[^A-Za-z0-9]/.test(password) ? "✓" : "○"} One special character
+                  </p>
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -690,20 +444,6 @@ export default function Register() {
                   {(selfRegister.error as Error).message}
                 </div>
               )}
-
-              <Button
-                variant="link"
-                className="w-full"
-                type="button"
-                onClick={() => {
-                  setSelfOtp("");
-                  setSelfOtpError("");
-                  clearVerificationState();
-                }}
-                data-testid="button-go-back-otp"
-              >
-                Go back to change phone number
-              </Button>
             </CardContent>
             <CardFooter>
               <Button

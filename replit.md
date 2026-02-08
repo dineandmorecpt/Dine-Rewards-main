@@ -105,8 +105,8 @@ import { getAuthHeaders } from "@/lib/queryClient";
 ### Core Features
 - **User Management**: Restaurant admins can view and manage diners, and owners can manage staff with role-based access.
 - **Profile Management**: Admins manage business profiles, while diners can manage their personal profiles and view transaction history.
-- **Phone Number Verification**: Secure OTP-based verification for phone number changes.
-- **Diner Registration**: An invitation-based, OTP-verified registration flow for diners.
+- **Phone Number Verification**: Post-login OTP-based verification modal for new diner accounts. Also supports phone number changes for existing users.
+- **Diner Registration**: Two paths: (1) Self-registration via single-form signup (no pre-verification required, phone verified post-login), (2) Invitation-based registration via restaurant invite tokens (unchanged).
 - **Account Deletion**: A two-step confirmation process with email verification and data archiving for compliance.
 
 ## External Dependencies

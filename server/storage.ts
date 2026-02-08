@@ -191,6 +191,15 @@ export interface IStorage {
     }
   ): Promise<Restaurant>;
   
+  // Restaurant Discovery
+  updateRestaurantDiscovery(
+    id: string,
+    data: {
+      dinerDiscoveryEnabled: boolean;
+      dinerDiscoveryAcceptedAt?: Date | null;
+    }
+  ): Promise<Restaurant>;
+
   // Restaurant Onboarding
   updateRestaurantOnboarding(
     id: string,
@@ -890,6 +899,20 @@ export class DbStorage implements IStorage {
   ): Promise<Restaurant> {
     const result = await db.update(restaurants)
       .set(settings)
+      .where(eq(restaurants.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async updateRestaurantDiscovery(
+    id: string,
+    data: {
+      dinerDiscoveryEnabled: boolean;
+      dinerDiscoveryAcceptedAt?: Date | null;
+    }
+  ): Promise<Restaurant> {
+    const result = await db.update(restaurants)
+      .set(data)
       .where(eq(restaurants.id, id))
       .returning();
     return result[0];

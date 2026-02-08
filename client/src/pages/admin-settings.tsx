@@ -9,9 +9,10 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Users, Gift, Settings, Save, UserPlus, Trash2, Mail, Download, QrCode, Building2, Edit } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Users, Gift, Settings, Save, UserPlus, Trash2, Mail, Download, QrCode, Building2, Edit, Globe, ShieldCheck, AlertTriangle, Loader2, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useBranch } from "@/hooks/use-branch";
 import { QRCodeCanvas } from "qrcode.react";
@@ -23,6 +24,219 @@ function getAuthHeaders(): Record<string, string> {
     return { "X-User-Id": auth.userId, "X-User-Type": auth.userType };
   }
   return {};
+}
+
+function DinerDiscoverySection() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+
+  const discoveryQuery = useQuery({
+    queryKey: ['/api/admin/discovery'],
+    queryFn: async () => {
+      const res = await fetch('/api/admin/discovery', { credentials: "include", headers: getAuthHeaders() });
+      if (!res.ok) throw new Error('Failed to fetch discovery settings');
+      return res.json();
+    },
+  });
+
+  const toggleDiscovery = useMutation({
+    mutationFn: async ({ enabled, termsAccepted: accepted }: { enabled: boolean; termsAccepted: boolean }) => {
+      const res = await fetch('/api/admin/discovery', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        credentials: 'include',
+        body: JSON.stringify({ enabled, termsAccepted: accepted }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to update discovery settings');
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/discovery'] });
+      toast({
+        title: data.dinerDiscoveryEnabled ? "Discovery Enabled" : "Discovery Disabled",
+        description: data.dinerDiscoveryEnabled
+          ? "Your restaurant is now visible to all Dine&More diners."
+          : "Your restaurant has been removed from diner discovery.",
+      });
+      setShowTermsModal(false);
+      setTermsAccepted(false);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const isEnabled = discoveryQuery.data?.dinerDiscoveryEnabled ?? false;
+  const acceptedAt = discoveryQuery.data?.dinerDiscoveryAcceptedAt;
+
+  const handleToggle = (checked: boolean) => {
+    if (checked) {
+      setShowTermsModal(true);
+    } else {
+      toggleDiscovery.mutate({ enabled: false, termsAccepted: false });
+    }
+  };
+
+  const handleAcceptAndEnable = () => {
+    if (!termsAccepted) return;
+    toggleDiscovery.mutate({ enabled: true, termsAccepted: true });
+  };
+
+  return (
+    <>
+      <div className="grid gap-6 max-w-2xl">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Globe className="h-5 w-5" />
+              Diner Discovery
+            </CardTitle>
+            <CardDescription>
+              Make your restaurant visible to all Dine&More diners as a new rewards partner.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+              <div className="space-y-1">
+                <p className="font-medium">List as Rewards Partner</p>
+                <p className="text-sm text-muted-foreground">
+                  {isEnabled
+                    ? "Your restaurant is currently visible to all diners on Dine&More."
+                    : "Enable this to appear in the Dine&More diner directory as a rewards partner."}
+                </p>
+              </div>
+              <Switch
+                checked={isEnabled}
+                onCheckedChange={handleToggle}
+                disabled={toggleDiscovery.isPending || discoveryQuery.isLoading}
+                data-testid="switch-discovery-toggle"
+              />
+            </div>
+
+            {isEnabled && acceptedAt && (
+              <div className="flex items-start gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5 shrink-0" />
+                <div>
+                  <p className="font-medium text-green-800">Discovery Active</p>
+                  <p className="text-sm text-green-700">
+                    Terms accepted on {new Date(acceptedAt).toLocaleDateString('en-ZA', { year: 'numeric', month: 'long', day: 'numeric' })}. New diners may join your rewards programme through Dine&More.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {!isEnabled && (
+              <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+                <div>
+                  <p className="font-medium text-amber-800">Important Information</p>
+                  <p className="text-sm text-amber-700">
+                    When you enable discovery, your restaurant will be listed as a rewards partner to all diners on the Dine&More platform. New diners who join your rewards programme through this listing will be billed to your account. You will need to accept the terms and conditions before enabling.
+                  </p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Dialog open={showTermsModal} onOpenChange={(open) => {
+        if (!open) {
+          setShowTermsModal(false);
+          setTermsAccepted(false);
+        }
+      }}>
+        <DialogContent className="sm:max-w-lg" data-testid="modal-discovery-terms">
+          <DialogHeader className="text-center items-center">
+            <div className="mx-auto bg-rose-100 rounded-full p-3 mb-2">
+              <ShieldCheck className="h-8 w-8 text-rose-600" />
+            </div>
+            <DialogTitle className="text-xl">Diner Discovery Terms & Conditions</DialogTitle>
+            <DialogDescription className="text-center">
+              Please read and accept the following terms before enabling diner discovery.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="max-h-60 overflow-y-auto border rounded-lg p-4 space-y-3 text-sm text-muted-foreground bg-muted/30">
+            <p className="font-semibold text-foreground">1. Diner Registration Charges</p>
+            <p>
+              By enabling Diner Discovery, you agree that your restaurant will be listed as a rewards partner on the Dine&More platform, visible to all registered diners. Any new diners who register and join your rewards programme through this listing will be added to your account asynchronously.
+            </p>
+
+            <p className="font-semibold text-foreground">2. Billing for New Diner Registrations</p>
+            <p>
+              You acknowledge and accept that you will be charged for each new diner who joins your rewards programme through the Dine&More platform. These charges will be applied to your account as per the current pricing plan. Dine&More reserves the right to update pricing with prior notice.
+            </p>
+
+            <p className="font-semibold text-foreground">3. Asynchronous Registration</p>
+            <p>
+              Diners may register for your rewards programme at any time after discovering your restaurant on the platform. Registrations happen asynchronously and you will be notified of new diner sign-ups via your admin dashboard.
+            </p>
+
+            <p className="font-semibold text-foreground">4. Opt-Out</p>
+            <p>
+              You may disable Diner Discovery at any time from your settings. Disabling will remove your restaurant from the diner listing, but will not affect existing diner memberships or pending charges.
+            </p>
+
+            <p className="font-semibold text-foreground">5. Data and Privacy</p>
+            <p>
+              All diner data is handled in accordance with the Protection of Personal Information Act (POPIA). Restaurant information displayed to diners is limited to your business name, cuisine type, and branch locations.
+            </p>
+          </div>
+
+          <div className="flex items-start gap-3 pt-2">
+            <Checkbox
+              id="accept-terms"
+              checked={termsAccepted}
+              onCheckedChange={(checked) => setTermsAccepted(!!checked)}
+              data-testid="checkbox-accept-terms"
+            />
+            <Label htmlFor="accept-terms" className="text-sm leading-relaxed cursor-pointer">
+              I have read and accept the Diner Discovery Terms & Conditions. I understand that my restaurant will be charged for new diner registrations through the Dine&More platform.
+            </Label>
+          </div>
+
+          <DialogFooter className="flex flex-col gap-2 sm:flex-col">
+            <Button
+              onClick={handleAcceptAndEnable}
+              disabled={!termsAccepted || toggleDiscovery.isPending}
+              className="w-full"
+              data-testid="button-accept-enable"
+            >
+              {toggleDiscovery.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Enabling...
+                </>
+              ) : (
+                "Accept & Enable Discovery"
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setShowTermsModal(false);
+                setTermsAccepted(false);
+              }}
+              className="w-full text-muted-foreground"
+              data-testid="button-cancel-terms"
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
 }
 
 function AdminSettingsContent() {
@@ -239,9 +453,10 @@ function AdminSettingsContent() {
       </div>
 
       <Tabs defaultValue="voucher" className="w-full space-y-6">
-          <TabsList className="grid w-full grid-cols-3 max-w-[500px]">
+          <TabsList className="grid w-full grid-cols-4 max-w-[640px]">
             <TabsTrigger value="voucher">Voucher Config</TabsTrigger>
             <TabsTrigger value="users">User Management</TabsTrigger>
+            <TabsTrigger value="discovery">Discovery</TabsTrigger>
             <TabsTrigger value="qr">QR Codes</TabsTrigger>
           </TabsList>
 
@@ -718,6 +933,11 @@ function AdminSettingsContent() {
                 </CardHeader>
               </Card>
             )}
+          </TabsContent>
+
+          {/* DINER DISCOVERY TAB */}
+          <TabsContent value="discovery" className="space-y-6">
+            <DinerDiscoverySection />
           </TabsContent>
 
           {/* QR CODES TAB */}

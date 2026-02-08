@@ -107,6 +107,7 @@ import { getAuthHeaders } from "@/lib/queryClient";
 - **Profile Management**: Admins manage business profiles, while diners can manage their personal profiles and view transaction history.
 - **Phone Number Verification**: Post-login OTP-based verification modal for new diner accounts. Also supports phone number changes for existing users.
 - **Diner Registration**: Two paths: (1) Self-registration via single-form signup (no pre-verification required, phone verified post-login), (2) Invitation-based registration via restaurant invite tokens (unchanged).
+- **Diner Discovery**: Restaurant opt-in to be listed as a rewards partner visible to all Dine&More diners, with T&C acceptance and billing acknowledgement for new diner registrations.
 - **Account Deletion**: A two-step confirmation process with email verification and data archiving for compliance.
 
 ## External Dependencies

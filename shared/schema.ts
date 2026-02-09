@@ -136,6 +136,9 @@ export const restaurants = pgTable("restaurants", {
   instagramUrl: text("instagram_url"),
   twitterUrl: text("twitter_url"),
   businessHours: text("business_hours"), // JSON string with hours per day
+  // Diner Discovery - opt-in to be listed as a rewards partner visible to all diners
+  dinerDiscoveryEnabled: boolean("diner_discovery_enabled").notNull().default(false),
+  dinerDiscoveryAcceptedAt: timestamp("diner_discovery_accepted_at"), // T&C acceptance timestamp
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

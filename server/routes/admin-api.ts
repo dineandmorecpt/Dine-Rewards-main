@@ -1538,6 +1538,75 @@ export function registerAdminApiRoutes(router: Router): void {
     }
   });
 
+  router.get("/api/admin/discovery", async (req, res) => {
+    try {
+      const { restaurantId, error } = await getAdminRestaurantId(req);
+      if (error) return res.status(error.status).json({ error: error.message });
+
+      const restaurant = await storage.getRestaurant(restaurantId!);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+
+      res.json({
+        dinerDiscoveryEnabled: restaurant.dinerDiscoveryEnabled,
+        dinerDiscoveryAcceptedAt: restaurant.dinerDiscoveryAcceptedAt,
+      });
+    } catch (error) {
+      console.error("Get discovery settings error:", error);
+      res.status(500).json({ error: "Failed to fetch discovery settings" });
+    }
+  });
+
+  router.post("/api/admin/discovery", async (req, res) => {
+    try {
+      const userId = getAuthUserId(req);
+      const { restaurantId, error } = await getAdminRestaurantId(req);
+      if (error) return res.status(error.status).json({ error: error.message });
+
+      const { enabled, termsAccepted } = req.body;
+
+      if (typeof enabled !== 'boolean') {
+        return res.status(422).json({ error: "enabled must be a boolean" });
+      }
+
+      if (enabled && !termsAccepted) {
+        return res.status(422).json({ error: "You must accept the terms and conditions to enable diner discovery" });
+      }
+
+      const restaurant = await storage.getRestaurant(restaurantId!);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+
+      if (restaurant.onboardingStatus !== 'active') {
+        return res.status(422).json({ error: "Restaurant onboarding must be completed before enabling diner discovery" });
+      }
+
+      const updatedRestaurant = await storage.updateRestaurantDiscovery(restaurantId!, {
+        dinerDiscoveryEnabled: enabled,
+        dinerDiscoveryAcceptedAt: enabled ? new Date() : null,
+      });
+
+      await storage.createActivityLog({
+        restaurantId: restaurantId!,
+        userId: userId || null,
+        action: enabled ? 'discovery_enabled' : 'discovery_disabled',
+        targetType: 'restaurant',
+        targetId: restaurantId!,
+        details: enabled ? JSON.stringify({ termsAcceptedAt: new Date().toISOString() }) : null,
+      });
+
+      res.json({
+        dinerDiscoveryEnabled: updatedRestaurant.dinerDiscoveryEnabled,
+        dinerDiscoveryAcceptedAt: updatedRestaurant.dinerDiscoveryAcceptedAt,
+      });
+    } catch (error: any) {
+      console.error("Update discovery settings error:", error);
+      res.status(400).json({ error: error.message || "Failed to update discovery settings" });
+    }
+  });
+
   router.get("/api/admin/subscription", async (req, res) => {
     try {
       const { restaurantId, error } = await getAdminRestaurantId(req);

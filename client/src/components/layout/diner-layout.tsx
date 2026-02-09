@@ -41,12 +41,13 @@ export function DinerLayout({ children }: DinerLayoutProps) {
   const [verifyStep, setVerifyStep] = useState<"prompt" | "otp" | "success">("prompt");
   const [otp, setOtp] = useState("");
   const [otpError, setOtpError] = useState("");
+  const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    if (user && user.userType === 'diner' && user.phoneVerified === false) {
+    if (user && user.userType === 'diner' && user.phoneVerified === false && !dismissed) {
       setShowVerifyModal(true);
     }
-  }, [user]);
+  }, [user, dismissed]);
 
   const requestVerification = useMutation({
     mutationFn: async () => {
@@ -216,8 +217,13 @@ export function DinerLayout({ children }: DinerLayoutProps) {
         </div>
       </nav>
 
-      <Dialog open={showVerifyModal} onOpenChange={() => {}}>
-        <DialogContent className="sm:max-w-md [&>button]:hidden" data-testid="modal-phone-verify" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
+      <Dialog open={showVerifyModal} onOpenChange={(open) => {
+        if (!open) {
+          setDismissed(true);
+          setShowVerifyModal(false);
+        }
+      }}>
+        <DialogContent className="sm:max-w-md" data-testid="modal-phone-verify">
           {verifyStep === "prompt" && (
             <>
               <DialogHeader className="text-center items-center">
@@ -253,6 +259,17 @@ export function DinerLayout({ children }: DinerLayoutProps) {
                   ) : (
                     "Verify Now"
                   )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setDismissed(true);
+                    setShowVerifyModal(false);
+                  }}
+                  className="text-muted-foreground"
+                  data-testid="button-verify-later"
+                >
+                  I'll do this later
                 </Button>
               </div>
             </>

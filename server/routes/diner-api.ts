@@ -446,4 +446,23 @@ export function registerDinerApiRoutes(router: Router): void {
       res.status(500).json({ error: error.message || "Failed to join restaurant" });
     }
   });
+
+  router.get("/api/diner/content/:slug", async (req, res) => {
+    try {
+      const { slug } = req.params;
+      const page = await storage.getContentPageBySlug(slug);
+      if (!page) {
+        return res.status(404).json({ error: "Page not found" });
+      }
+      res.json({
+        title: page.title,
+        content: page.content,
+        updatedAt: page.updatedAt,
+        version: page.version,
+      });
+    } catch (error) {
+      console.error("Get content page error:", error);
+      res.status(500).json({ error: "Failed to fetch content" });
+    }
+  });
 }

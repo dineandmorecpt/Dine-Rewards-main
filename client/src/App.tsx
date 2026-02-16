@@ -19,6 +19,7 @@ import DinerDashboard from "@/pages/diner-dashboard";
 import DinerHistory from "@/pages/diner-history";
 import DinerProfile from "@/pages/diner-profile";
 import DinerFaq from "@/pages/diner-faq";
+import DinerTerms from "@/pages/diner-terms";
 import Register from "@/pages/register";
 import ForgotPassword from "@/pages/forgot-password";
 import ResetPassword from "@/pages/reset-password";
@@ -83,6 +84,9 @@ function Router() {
       </Route>
       <Route path="/diner/faq">
         <DinerGuard><DinerFaq /></DinerGuard>
+      </Route>
+      <Route path="/diner/terms">
+        <DinerGuard><DinerTerms /></DinerGuard>
       </Route>
 
       <Route component={NotFound} />

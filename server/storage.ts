@@ -59,6 +59,8 @@ import {
   type PhoneChangeRequest,
   type RestaurantSubscription,
   restaurantSubscriptions,
+  type ContentPage,
+  contentPages,
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/node-postgres";
 import crypto from "crypto";
@@ -337,6 +339,10 @@ export interface IStorage {
 
   // Restaurant Subscription Management
   getRestaurantSubscription(restaurantId: string): Promise<RestaurantSubscription | undefined>;
+
+  // Content Pages (CMS-ready)
+  getContentPageBySlug(slug: string): Promise<ContentPage | undefined>;
+  getContentPagesByPortal(portal: string): Promise<ContentPage[]>;
 }
 
 export class DbStorage implements IStorage {
@@ -1534,6 +1540,18 @@ export class DbStorage implements IStorage {
       .where(eq(restaurantSubscriptions.restaurantId, restaurantId))
       .limit(1);
     return result[0];
+  }
+
+  async getContentPageBySlug(slug: string): Promise<ContentPage | undefined> {
+    const result = await db.select().from(contentPages)
+      .where(and(eq(contentPages.slug, slug), eq(contentPages.isPublished, true)))
+      .limit(1);
+    return result[0];
+  }
+
+  async getContentPagesByPortal(portal: string): Promise<ContentPage[]> {
+    return db.select().from(contentPages)
+      .where(and(eq(contentPages.portal, portal), eq(contentPages.isPublished, true)));
   }
 }
 

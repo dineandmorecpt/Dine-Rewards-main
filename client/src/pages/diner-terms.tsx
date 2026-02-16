@@ -1,0 +1,92 @@
+import { DinerLayout } from "@/components/layout/diner-layout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { FileText } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { getAuthHeaders } from "@/lib/queryClient";
+
+export default function DinerTerms() {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["content", "terms-and-conditions"],
+    queryFn: async () => {
+      const res = await fetch("/api/diner/content/terms-and-conditions", {
+        credentials: "include",
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) throw new Error("Failed to load terms and conditions");
+      return res.json();
+    },
+  });
+
+  return (
+    <DinerLayout>
+      <div className="space-y-4 sm:space-y-6">
+        <div className="flex items-center gap-3">
+          <div className="bg-rose-100 rounded-full p-2">
+            <FileText className="h-5 w-5 text-rose-600" />
+          </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900" data-testid="text-terms-title">
+              Terms and Conditions
+            </h1>
+            {data?.updatedAt && (
+              <p className="text-xs text-muted-foreground" data-testid="text-terms-updated">
+                Last updated: {new Date(data.updatedAt).toLocaleDateString("en-ZA", { year: "numeric", month: "long", day: "numeric" })}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <Card>
+          <CardContent className="pt-6">
+            {isLoading && (
+              <div className="space-y-4" data-testid="skeleton-terms">
+                <Skeleton className="h-6 w-3/4" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-5/6" />
+                <Skeleton className="h-6 w-1/2 mt-4" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-4/5" />
+              </div>
+            )}
+
+            {error && (
+              <div className="text-center py-8" data-testid="text-terms-error">
+                <p className="text-muted-foreground">Unable to load terms and conditions. Please try again later.</p>
+              </div>
+            )}
+
+            {data?.content && (
+              <div
+                className="prose prose-sm sm:prose max-w-none prose-headings:text-gray-900 prose-p:text-gray-600 prose-li:text-gray-600 prose-strong:text-gray-800"
+                data-testid="text-terms-content"
+                dangerouslySetInnerHTML={{ __html: renderMarkdown(data.content) }}
+              />
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </DinerLayout>
+  );
+}
+
+function renderMarkdown(md: string): string {
+  return md
+    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+    .replace(/\*\*"(.+?)"\*\*/g, '<strong>"$1"</strong>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/^- (.+)$/gm, '<li>$1</li>')
+    .replace(/(<li>.*<\/li>\n?)+/g, (match) => `<ul>${match}</ul>`)
+    .replace(/^(\d+\.\d+)\. (.+)$/gm, '<p><strong>$1.</strong> $2</p>')
+    .replace(/\n\n/g, '</p><p>')
+    .replace(/^(?!<[hpul])(.*\S.*)$/gm, '<p>$1</p>')
+    .replace(/<p><\/p>/g, '')
+    .replace(/<p>(<h[123]>)/g, '$1')
+    .replace(/(<\/h[123]>)<\/p>/g, '$1')
+    .replace(/<p>(<ul>)/g, '$1')
+    .replace(/(<\/ul>)<\/p>/g, '$1');
+}

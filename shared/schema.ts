@@ -519,3 +519,23 @@ export const insertRestaurantSubscriptionSchema = createInsertSchema(restaurantS
 });
 export type InsertRestaurantSubscription = z.infer<typeof insertRestaurantSubscriptionSchema>;
 export type RestaurantSubscription = typeof restaurantSubscriptions.$inferSelect;
+
+export const contentPages = pgTable("content_pages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  slug: text("slug").notNull().unique(),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  portal: text("portal").notNull().default("diner"),
+  isPublished: boolean("is_published").notNull().default(true),
+  version: integer("version").notNull().default(1),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertContentPageSchema = createInsertSchema(contentPages).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertContentPage = z.infer<typeof insertContentPageSchema>;
+export type ContentPage = typeof contentPages.$inferSelect;

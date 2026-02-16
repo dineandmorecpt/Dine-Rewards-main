@@ -1,9 +1,27 @@
 import { DinerLayout } from "@/components/layout/diner-layout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FileText } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { FileText, Download } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { getAuthHeaders } from "@/lib/queryClient";
+
+function handleDownload(content: string, title: string) {
+  const plainText = content
+    .replace(/^#{1,3}\s+/gm, '')
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/^- /gm, '  - ');
+
+  const blob = new Blob([plainText], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${title.replace(/[^a-zA-Z0-9]+/g, "-").toLowerCase()}.txt`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
 
 export default function DinerTerms() {
   const { data, isLoading, error } = useQuery({
@@ -35,6 +53,18 @@ export default function DinerTerms() {
               </p>
             )}
           </div>
+          {data?.content && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="ml-auto"
+              data-testid="button-download-terms"
+              onClick={() => handleDownload(data.content, data.title)}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Download
+            </Button>
+          )}
         </div>
 
         <Card>

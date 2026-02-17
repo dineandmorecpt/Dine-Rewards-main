@@ -7,6 +7,7 @@ const services = createLoyaltyServices(storage);
 export interface FtpFetchResult {
   success: boolean;
   filesProcessed: string[];
+  filesSkipped: string[];
   errors: string[];
   timestamp: Date;
 }
@@ -21,6 +22,7 @@ export async function fetchAndProcessFtpFiles(restaurantId: string): Promise<Ftp
   const result: FtpFetchResult = {
     success: false,
     filesProcessed: [],
+    filesSkipped: [],
     errors: [],
     timestamp: new Date(),
   };
@@ -66,7 +68,18 @@ export async function fetchAndProcessFtpFiles(restaurantId: string): Promise<Ftp
 
     console.log(`[FTP] Found ${csvFiles.length} CSV file(s)`);
 
+    const existingBatches = await storage.getReconciliationBatchesByRestaurant(restaurantId);
+    const processedFileNames = new Set(existingBatches.map((b) => b.fileName));
+
     for (const file of csvFiles) {
+      const ftpFileName = `ftp-${file.name}`;
+
+      if (processedFileNames.has(ftpFileName)) {
+        console.log(`[FTP] Skipping already processed file: ${file.name}`);
+        result.filesSkipped.push(file.name);
+        continue;
+      }
+
       try {
         const chunks: Buffer[] = [];
         const writable = new (await import("stream")).Writable({

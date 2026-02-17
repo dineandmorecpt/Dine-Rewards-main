@@ -77,7 +77,7 @@ function generateAnalyticsId(): string {
 }
 import pkg from "pg";
 const { Pool } = pkg;
-import { eq, and, desc, sql, gte, inArray } from "drizzle-orm";
+import { eq, and, desc, sql, gte, inArray, isNotNull } from "drizzle-orm";
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -118,6 +118,8 @@ export interface IStorage {
   getRestaurantsByAdmin(adminUserId: string): Promise<Restaurant[]>;
   createRestaurant(restaurant: InsertRestaurant): Promise<Restaurant>;
   getAllRestaurants(): Promise<Restaurant[]>;
+  getRestaurantsWithFtpPath(): Promise<Restaurant[]>;
+  updateRestaurant(id: string, updates: Partial<InsertRestaurant>): Promise<Restaurant>;
   
   // Branch Management
   getBranch(id: string): Promise<Branch | undefined>;
@@ -575,6 +577,15 @@ export class DbStorage implements IStorage {
 
   async getAllRestaurants(): Promise<Restaurant[]> {
     return await db.select().from(restaurants);
+  }
+
+  async getRestaurantsWithFtpPath(): Promise<Restaurant[]> {
+    return await db.select().from(restaurants).where(isNotNull(restaurants.ftpPath));
+  }
+
+  async updateRestaurant(id: string, updates: Partial<InsertRestaurant>): Promise<Restaurant> {
+    const result = await db.update(restaurants).set(updates).where(eq(restaurants.id, id)).returning();
+    return result[0];
   }
 
   // Branch Methods

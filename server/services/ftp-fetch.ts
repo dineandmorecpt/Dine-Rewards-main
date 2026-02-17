@@ -18,7 +18,7 @@ export function getLastFetchResult(): FtpFetchResult | null {
   return lastFetchResult;
 }
 
-export async function fetchAndProcessFtpFiles(restaurantId: string): Promise<FtpFetchResult> {
+export async function fetchAndProcessFtpFiles(restaurantId: string, ftpPath?: string): Promise<FtpFetchResult> {
   const result: FtpFetchResult = {
     success: false,
     filesProcessed: [],
@@ -30,10 +30,16 @@ export async function fetchAndProcessFtpFiles(restaurantId: string): Promise<Ftp
   const host = process.env.FTP_HOST;
   const user = process.env.FTP_USERNAME;
   const password = process.env.FTP_PASSWORD;
-  const remotePath = process.env.FTP_PATH;
+  const remotePath = ftpPath || process.env.FTP_PATH;
 
-  if (!host || !user || !password || !remotePath) {
-    result.errors.push("FTP credentials not configured. Check FTP_HOST, FTP_USERNAME, FTP_PASSWORD, FTP_PATH secrets.");
+  if (!host || !user || !password) {
+    result.errors.push("FTP credentials not configured. Check FTP_HOST, FTP_USERNAME, FTP_PASSWORD secrets.");
+    lastFetchResult = result;
+    return result;
+  }
+
+  if (!remotePath) {
+    result.errors.push("No FTP path configured for this restaurant.");
     lastFetchResult = result;
     return result;
   }

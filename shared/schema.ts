@@ -139,6 +139,8 @@ export const restaurants = pgTable("restaurants", {
   // Diner Discovery - opt-in to be listed as a rewards partner visible to all diners
   dinerDiscoveryEnabled: boolean("diner_discovery_enabled").notNull().default(false),
   dinerDiscoveryAcceptedAt: timestamp("diner_discovery_accepted_at"), // T&C acceptance timestamp
+  // FTP integration - per-restaurant folder path for automated CSV imports
+  ftpPath: text("ftp_path"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

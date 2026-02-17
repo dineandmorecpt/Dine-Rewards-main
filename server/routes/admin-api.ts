@@ -1628,12 +1628,46 @@ export function registerAdminApiRoutes(router: Router): void {
       const { restaurantId, error } = await getAdminRestaurantId(req);
       if (error) return res.status(error.status).json({ error: error.message });
 
-      const result = await fetchAndProcessFtpFiles(restaurantId!);
+      const restaurant = await storage.getRestaurant(restaurantId!);
+      const ftpPath = restaurant?.ftpPath;
+
+      const result = await fetchAndProcessFtpFiles(restaurantId!, ftpPath || undefined);
       recordFetchResult(restaurantId!, result);
       res.json(result);
     } catch (error) {
       console.error("Manual FTP fetch error:", error);
       res.status(500).json({ error: "Failed to run FTP fetch" });
+    }
+  });
+
+  router.get("/api/admin/ftp-path", async (req, res) => {
+    try {
+      const { restaurantId, error } = await getAdminRestaurantId(req);
+      if (error) return res.status(error.status).json({ error: error.message });
+
+      const restaurant = await storage.getRestaurant(restaurantId!);
+      res.json({ ftpPath: restaurant?.ftpPath || null });
+    } catch (error) {
+      console.error("Get FTP path error:", error);
+      res.status(500).json({ error: "Failed to fetch FTP path" });
+    }
+  });
+
+  router.put("/api/admin/ftp-path", async (req, res) => {
+    try {
+      const { restaurantId, error } = await getAdminRestaurantId(req);
+      if (error) return res.status(error.status).json({ error: error.message });
+
+      const { ftpPath } = req.body;
+      if (ftpPath !== null && typeof ftpPath !== "string") {
+        return res.status(400).json({ error: "ftpPath must be a string or null" });
+      }
+
+      const updated = await storage.updateRestaurant(restaurantId!, { ftpPath: ftpPath || null });
+      res.json({ ftpPath: updated.ftpPath });
+    } catch (error) {
+      console.error("Update FTP path error:", error);
+      res.status(500).json({ error: "Failed to update FTP path" });
     }
   });
 

@@ -10,6 +10,7 @@ import { z } from "zod";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import rateLimit from "express-rate-limit";
+import { getSchedulerStatus, fetchAndProcessFtpFiles, recordFetchResult } from "../services/scheduler";
 
 const services = createLoyaltyServices(storage);
 
@@ -1606,6 +1607,33 @@ export function registerAdminApiRoutes(router: Router): void {
     } catch (error) {
       console.error("Get subscription error:", error);
       res.status(500).json({ error: "Failed to fetch subscription status" });
+    }
+  });
+
+  router.get("/api/admin/ftp-status", async (req, res) => {
+    try {
+      const { restaurantId, error } = await getAdminRestaurantId(req);
+      if (error) return res.status(error.status).json({ error: error.message });
+
+      const status = getSchedulerStatus(restaurantId!);
+      res.json(status);
+    } catch (error) {
+      console.error("Get FTP status error:", error);
+      res.status(500).json({ error: "Failed to fetch FTP status" });
+    }
+  });
+
+  router.post("/api/admin/ftp-fetch", async (req, res) => {
+    try {
+      const { restaurantId, error } = await getAdminRestaurantId(req);
+      if (error) return res.status(error.status).json({ error: error.message });
+
+      const result = await fetchAndProcessFtpFiles(restaurantId!);
+      recordFetchResult(restaurantId!, result);
+      res.json(result);
+    } catch (error) {
+      console.error("Manual FTP fetch error:", error);
+      res.status(500).json({ error: "Failed to run FTP fetch" });
     }
   });
 

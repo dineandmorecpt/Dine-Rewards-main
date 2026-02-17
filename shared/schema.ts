@@ -534,6 +534,21 @@ export const contentPages = pgTable("content_pages", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const cmsAdmins = pgTable("cms_admins", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: text("email").notNull().unique(),
+  password: text("password").notNull(),
+  name: text("name").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertCmsAdminSchema = createInsertSchema(cmsAdmins).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertCmsAdmin = z.infer<typeof insertCmsAdminSchema>;
+export type CmsAdmin = typeof cmsAdmins.$inferSelect;
+
 export const insertContentPageSchema = createInsertSchema(contentPages).omit({
   id: true,
   createdAt: true,

@@ -27,6 +27,7 @@ declare module "express-session" {
     verifiedPhone?: string; // Phone number verified via OTP during registration
     verifiedInvitationPhone?: string; // Phone verified via OTP during invitation registration
     verifiedInvitationToken?: string; // Token of the verified invitation
+    cms_admin_id?: string; // CMS super admin session
   }
 }
 

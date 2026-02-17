@@ -10,6 +10,7 @@ import { registerTransactionRoutes } from "./routes/transactions";
 import { registerReconciliationRoutes } from "./routes/reconciliation";
 import { registerInvitationRoutes } from "./routes/invitations";
 import { registerAdminApiRoutes } from "./routes/admin-api";
+import { registerCmsApiRoutes } from "./routes/cms-api";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -45,6 +46,9 @@ export async function registerRoutes(
   
   // Register admin API routes (consumer-specific, session-based for admins)
   registerAdminApiRoutes(app);
+
+  // Register CMS API routes (platform-level super admin panel)
+  registerCmsApiRoutes(app);
 
   return httpServer;
 }

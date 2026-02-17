@@ -102,6 +102,20 @@ import { getAuthHeaders } from "@/lib/queryClient";
 - Make API calls without `headers: getAuthHeaders()`
 - Modify authentication logic without thorough testing of both admin and diner portals
 
+### CMS Panel (`/dineandmore/cms`)
+Platform-level super admin panel for managing all restaurants and platform content. Completely separate from the restaurant admin and diner portals.
+
+**Access:** `/dineandmore/cms` - uses its own authentication system with the `cms_admins` database table.  
+**Default admin:** `admin@dineandmore.co.za` / `admin123` (seeded via POST `/api/cms/seed-admin`)
+
+**Features:**
+- **Dashboard**: Platform-wide stats (restaurant count, diner count, FTP configured, active restaurants)
+- **Restaurant Management**: List all restaurants, edit FTP folder paths per restaurant
+- **FTP Status**: Monitor automated CSV import status across all restaurants, trigger manual FTP fetches
+- **Content Pages**: Full CRUD for legal/content pages (terms, FAQs, etc.) with portal targeting, publish/draft status, versioning, and download
+
+**API Routes** (`/api/cms/*`): Defined in `server/routes/cms-api.ts`, authenticated via session-based `cms_admin_id`.
+
 ### Core Features
 - **User Management**: Restaurant admins can view and manage diners, and owners can manage staff with role-based access.
 - **Profile Management**: Admins manage business profiles, while diners can manage their personal profiles and view transaction history.

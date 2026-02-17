@@ -60,7 +60,11 @@ import {
   type RestaurantSubscription,
   restaurantSubscriptions,
   type ContentPage,
+  type InsertContentPage,
   contentPages,
+  type CmsAdmin,
+  type InsertCmsAdmin,
+  cmsAdmins,
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/node-postgres";
 import crypto from "crypto";
@@ -342,9 +346,22 @@ export interface IStorage {
   // Restaurant Subscription Management
   getRestaurantSubscription(restaurantId: string): Promise<RestaurantSubscription | undefined>;
 
-  // Content Pages (CMS-ready)
+  // Content Pages (CMS)
   getContentPageBySlug(slug: string): Promise<ContentPage | undefined>;
   getContentPagesByPortal(portal: string): Promise<ContentPage[]>;
+  getAllContentPages(): Promise<ContentPage[]>;
+  getContentPage(id: string): Promise<ContentPage | undefined>;
+  createContentPage(page: InsertContentPage): Promise<ContentPage>;
+  updateContentPage(id: string, updates: Partial<InsertContentPage>): Promise<ContentPage>;
+  deleteContentPage(id: string): Promise<void>;
+
+  // CMS Admin Management
+  getCmsAdminByEmail(email: string): Promise<CmsAdmin | undefined>;
+  getCmsAdmin(id: string): Promise<CmsAdmin | undefined>;
+  createCmsAdmin(admin: InsertCmsAdmin): Promise<CmsAdmin>;
+
+  // Platform stats
+  countAllRestaurants(): Promise<number>;
 }
 
 export class DbStorage implements IStorage {
@@ -1563,6 +1580,54 @@ export class DbStorage implements IStorage {
   async getContentPagesByPortal(portal: string): Promise<ContentPage[]> {
     return db.select().from(contentPages)
       .where(and(eq(contentPages.portal, portal), eq(contentPages.isPublished, true)));
+  }
+
+  async getAllContentPages(): Promise<ContentPage[]> {
+    return db.select().from(contentPages).orderBy(desc(contentPages.updatedAt));
+  }
+
+  async getContentPage(id: string): Promise<ContentPage | undefined> {
+    const result = await db.select().from(contentPages).where(eq(contentPages.id, id)).limit(1);
+    return result[0];
+  }
+
+  async createContentPage(page: any): Promise<ContentPage> {
+    const result = await db.insert(contentPages).values(page).returning();
+    return result[0];
+  }
+
+  async updateContentPage(id: string, updates: any): Promise<ContentPage> {
+    const result = await db.update(contentPages)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(contentPages.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteContentPage(id: string): Promise<void> {
+    await db.delete(contentPages).where(eq(contentPages.id, id));
+  }
+
+  async getCmsAdminByEmail(email: string): Promise<CmsAdmin | undefined> {
+    const result = await db.select().from(cmsAdmins)
+      .where(eq(sql`lower(${cmsAdmins.email})`, email.toLowerCase()))
+      .limit(1);
+    return result[0];
+  }
+
+  async getCmsAdmin(id: string): Promise<CmsAdmin | undefined> {
+    const result = await db.select().from(cmsAdmins).where(eq(cmsAdmins.id, id)).limit(1);
+    return result[0];
+  }
+
+  async createCmsAdmin(admin: InsertCmsAdmin): Promise<CmsAdmin> {
+    const result = await db.insert(cmsAdmins).values(admin).returning();
+    return result[0];
+  }
+
+  async countAllRestaurants(): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)::int` }).from(restaurants);
+    return result[0]?.count ?? 0;
   }
 }
 

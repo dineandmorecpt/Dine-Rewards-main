@@ -25,6 +25,12 @@ import Register from "@/pages/register";
 import ForgotPassword from "@/pages/forgot-password";
 import ResetPassword from "@/pages/reset-password";
 import ConfirmAccountDeletion from "@/pages/confirm-account-deletion";
+import CmsLogin from "@/pages/cms-login";
+import CmsDashboard from "@/pages/cms-dashboard";
+import CmsRestaurants from "@/pages/cms-restaurants";
+import CmsFtp from "@/pages/cms-ftp";
+import CmsContent from "@/pages/cms-content";
+import { CmsGuard } from "@/components/cms-guard";
 
 function Router() {
   return (
@@ -91,6 +97,20 @@ function Router() {
       </Route>
       <Route path="/diner/terms">
         <DinerGuard><DinerTerms /></DinerGuard>
+      </Route>
+
+      <Route path="/dineandmore/cms" component={CmsLogin} />
+      <Route path="/dineandmore/cms/dashboard">
+        <CmsGuard><CmsDashboard /></CmsGuard>
+      </Route>
+      <Route path="/dineandmore/cms/restaurants">
+        <CmsGuard><CmsRestaurants /></CmsGuard>
+      </Route>
+      <Route path="/dineandmore/cms/ftp">
+        <CmsGuard><CmsFtp /></CmsGuard>
+      </Route>
+      <Route path="/dineandmore/cms/content">
+        <CmsGuard><CmsContent /></CmsGuard>
       </Route>
 
       <Route component={NotFound} />

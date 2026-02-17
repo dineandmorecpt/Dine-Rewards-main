@@ -5,7 +5,7 @@ let schedulerTimer: ReturnType<typeof setTimeout> | null = null;
 let isRunning = false;
 const lastResultsByRestaurant: Map<string, FtpFetchResult> = new Map();
 
-const SCHEDULE_HOUR = 8;
+const SCHEDULE_HOUR = 20;
 const SCHEDULE_MINUTE = 15;
 
 function getNextRunTime(): Date {

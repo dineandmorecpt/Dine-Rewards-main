@@ -34,22 +34,22 @@ async function runScheduledFetch(): Promise<void> {
   console.log(`[Scheduler] Starting scheduled FTP fetch at ${new Date().toISOString()}`);
 
   try {
-    const restaurants = await storage.getAllRestaurants();
+    const FANCY_FRANKS_ID = "46599b72-a7dd-4098-ba1d-1a4ebe7929b7";
+    const restaurant = await storage.getRestaurant(FANCY_FRANKS_ID);
 
-    for (const restaurant of restaurants) {
-      try {
-        console.log(`[Scheduler] Processing FTP files for restaurant: ${restaurant.name}`);
-        const result = await fetchAndProcessFtpFiles(restaurant.id);
-        lastResultsByRestaurant.set(restaurant.id, result);
+    if (!restaurant) {
+      console.log("[Scheduler] Fancy Franks restaurant not found, skipping FTP fetch");
+      return;
+    }
 
-        if (result.success) {
-          console.log(`[Scheduler] FTP fetch for ${restaurant.name} completed. Files processed: ${result.filesProcessed.length}`);
-        } else {
-          console.log(`[Scheduler] FTP fetch for ${restaurant.name} completed with errors: ${result.errors.join(", ")}`);
-        }
-      } catch (error: any) {
-        console.error(`[Scheduler] FTP fetch failed for ${restaurant.name}: ${error.message}`);
-      }
+    console.log(`[Scheduler] Processing FTP files for restaurant: ${restaurant.name}`);
+    const result = await fetchAndProcessFtpFiles(restaurant.id);
+    lastResultsByRestaurant.set(restaurant.id, result);
+
+    if (result.success) {
+      console.log(`[Scheduler] FTP fetch for ${restaurant.name} completed. Files processed: ${result.filesProcessed.length}, skipped: ${result.filesSkipped.length}`);
+    } else {
+      console.log(`[Scheduler] FTP fetch for ${restaurant.name} completed with errors: ${result.errors.join(", ")}`);
     }
   } catch (error: any) {
     console.error(`[Scheduler] FTP fetch failed: ${error.message}`);

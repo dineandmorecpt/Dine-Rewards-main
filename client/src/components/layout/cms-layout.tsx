@@ -5,6 +5,8 @@ import {
   Building2,
   FolderSync,
   FileText,
+  Blocks,
+  Database,
   LogOut,
   Menu,
 } from "lucide-react";
@@ -21,7 +23,9 @@ const navItems = [
   { path: "/dineandmore/cms/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { path: "/dineandmore/cms/restaurants", label: "Restaurants", icon: Building2 },
   { path: "/dineandmore/cms/ftp", label: "FTP Status", icon: FolderSync },
-  { path: "/dineandmore/cms/content", label: "Content Pages", icon: FileText },
+  { path: "/dineandmore/cms/content-types", label: "Content Models", icon: Blocks },
+  { path: "/dineandmore/cms/content-items", label: "Content Items", icon: Database },
+  { path: "/dineandmore/cms/content", label: "Legacy Pages", icon: FileText },
 ];
 
 function NavContent({ onItemClick }: { onItemClick?: () => void }) {

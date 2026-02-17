@@ -65,6 +65,12 @@ import {
   type CmsAdmin,
   type InsertCmsAdmin,
   cmsAdmins,
+  type ContentType,
+  type InsertContentType,
+  contentTypes,
+  type ContentItem,
+  type InsertContentItem,
+  contentItems,
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/node-postgres";
 import crypto from "crypto";
@@ -346,7 +352,7 @@ export interface IStorage {
   // Restaurant Subscription Management
   getRestaurantSubscription(restaurantId: string): Promise<RestaurantSubscription | undefined>;
 
-  // Content Pages (CMS)
+  // Content Pages (Legacy CMS)
   getContentPageBySlug(slug: string): Promise<ContentPage | undefined>;
   getContentPagesByPortal(portal: string): Promise<ContentPage[]>;
   getAllContentPages(): Promise<ContentPage[]>;
@@ -354,6 +360,25 @@ export interface IStorage {
   createContentPage(page: InsertContentPage): Promise<ContentPage>;
   updateContentPage(id: string, updates: Partial<InsertContentPage>): Promise<ContentPage>;
   deleteContentPage(id: string): Promise<void>;
+
+  // Content Types (Headless CMS)
+  getAllContentTypes(): Promise<ContentType[]>;
+  getContentType(id: string): Promise<ContentType | undefined>;
+  getContentTypeByKey(key: string): Promise<ContentType | undefined>;
+  createContentType(type: InsertContentType): Promise<ContentType>;
+  updateContentType(id: string, updates: Partial<InsertContentType>): Promise<ContentType>;
+  deleteContentType(id: string): Promise<void>;
+
+  // Content Items (Headless CMS)
+  getAllContentItems(): Promise<ContentItem[]>;
+  getContentItemsByType(typeKey: string): Promise<ContentItem[]>;
+  getPublishedContentItemsByType(typeKey: string): Promise<ContentItem[]>;
+  getContentItem(id: string): Promise<ContentItem | undefined>;
+  getContentItemByTypeAndSlug(typeKey: string, slug: string): Promise<ContentItem | undefined>;
+  getPublishedContentItemByTypeAndSlug(typeKey: string, slug: string): Promise<ContentItem | undefined>;
+  createContentItem(item: InsertContentItem): Promise<ContentItem>;
+  updateContentItem(id: string, updates: Partial<InsertContentItem>): Promise<ContentItem>;
+  deleteContentItem(id: string): Promise<void>;
 
   // CMS Admin Management
   getCmsAdminByEmail(email: string): Promise<CmsAdmin | undefined>;
@@ -1607,6 +1632,109 @@ export class DbStorage implements IStorage {
   async deleteContentPage(id: string): Promise<void> {
     await db.delete(contentPages).where(eq(contentPages.id, id));
   }
+
+  // ============================================================================
+  // CONTENT TYPES (Headless CMS)
+  // ============================================================================
+
+  async getAllContentTypes(): Promise<ContentType[]> {
+    return db.select().from(contentTypes).orderBy(desc(contentTypes.updatedAt));
+  }
+
+  async getContentType(id: string): Promise<ContentType | undefined> {
+    const result = await db.select().from(contentTypes).where(eq(contentTypes.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getContentTypeByKey(key: string): Promise<ContentType | undefined> {
+    const result = await db.select().from(contentTypes).where(eq(contentTypes.key, key)).limit(1);
+    return result[0];
+  }
+
+  async createContentType(type: InsertContentType): Promise<ContentType> {
+    const result = await db.insert(contentTypes).values(type).returning();
+    return result[0];
+  }
+
+  async updateContentType(id: string, updates: Partial<InsertContentType>): Promise<ContentType> {
+    const result = await db.update(contentTypes)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(contentTypes.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteContentType(id: string): Promise<void> {
+    const type = await this.getContentType(id);
+    if (type) {
+      await db.delete(contentItems).where(eq(contentItems.typeKey, type.key));
+    }
+    await db.delete(contentTypes).where(eq(contentTypes.id, id));
+  }
+
+  // ============================================================================
+  // CONTENT ITEMS (Headless CMS)
+  // ============================================================================
+
+  async getAllContentItems(): Promise<ContentItem[]> {
+    return db.select().from(contentItems).orderBy(desc(contentItems.updatedAt));
+  }
+
+  async getContentItemsByType(typeKey: string): Promise<ContentItem[]> {
+    return db.select().from(contentItems)
+      .where(eq(contentItems.typeKey, typeKey))
+      .orderBy(desc(contentItems.updatedAt));
+  }
+
+  async getPublishedContentItemsByType(typeKey: string): Promise<ContentItem[]> {
+    return db.select().from(contentItems)
+      .where(and(eq(contentItems.typeKey, typeKey), eq(contentItems.status, "published")))
+      .orderBy(desc(contentItems.updatedAt));
+  }
+
+  async getContentItem(id: string): Promise<ContentItem | undefined> {
+    const result = await db.select().from(contentItems).where(eq(contentItems.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getContentItemByTypeAndSlug(typeKey: string, slug: string): Promise<ContentItem | undefined> {
+    const result = await db.select().from(contentItems)
+      .where(and(eq(contentItems.typeKey, typeKey), eq(contentItems.slug, slug)))
+      .limit(1);
+    return result[0];
+  }
+
+  async getPublishedContentItemByTypeAndSlug(typeKey: string, slug: string): Promise<ContentItem | undefined> {
+    const result = await db.select().from(contentItems)
+      .where(and(
+        eq(contentItems.typeKey, typeKey),
+        eq(contentItems.slug, slug),
+        eq(contentItems.status, "published")
+      ))
+      .limit(1);
+    return result[0];
+  }
+
+  async createContentItem(item: InsertContentItem): Promise<ContentItem> {
+    const result = await db.insert(contentItems).values(item).returning();
+    return result[0];
+  }
+
+  async updateContentItem(id: string, updates: Partial<InsertContentItem>): Promise<ContentItem> {
+    const result = await db.update(contentItems)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(contentItems.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteContentItem(id: string): Promise<void> {
+    await db.delete(contentItems).where(eq(contentItems.id, id));
+  }
+
+  // ============================================================================
+  // CMS ADMIN MANAGEMENT
+  // ============================================================================
 
   async getCmsAdminByEmail(email: string): Promise<CmsAdmin | undefined> {
     const result = await db.select().from(cmsAdmins)

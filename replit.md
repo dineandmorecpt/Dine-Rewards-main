@@ -109,12 +109,23 @@ Platform-level super admin panel for managing all restaurants and platform conte
 **Default admin:** `admin@dineandmore.co.za` / `admin123` (seeded via POST `/api/cms/seed-admin`)
 
 **Features:**
-- **Dashboard**: Platform-wide stats (restaurant count, diner count, FTP configured, active restaurants)
+- **Dashboard**: Platform-wide stats (restaurant count, diner count, FTP configured, active restaurants, content models, content items)
 - **Restaurant Management**: List all restaurants, edit FTP folder paths per restaurant
 - **FTP Status**: Monitor automated CSV import status across all restaurants, trigger manual FTP fetches
-- **Content Pages**: Full CRUD for legal/content pages (terms, FAQs, etc.) with portal targeting, publish/draft status, versioning, and download
+- **Content Models**: Define structured content types with typed field schemas (e.g., Promotion Banner, Reward Tier, Legal Page, FAQ Entry, Partner Logo, Announcement)
+- **Content Items**: CRUD for structured content entries as pure JSON data, with status (draft/published/archived), versioning, and type-aware dynamic forms
+- **Legacy Pages**: Backward-compatible content pages with portal targeting
 
-**API Routes** (`/api/cms/*`): Defined in `server/routes/cms-api.ts`, authenticated via session-based `cms_admin_id`.
+**Headless CMS Architecture:**
+The CMS follows a headless, service-oriented pattern:
+- **Content Modeling**: Content is defined by purpose, not location. Each content type has a key (e.g., `promotion_banner`), a human-readable name, and a typed field schema stored as JSONB.
+- **Structured Data**: Content items store data as pure JSON objects. The rewards platform pulls content via API and renders it natively (web, mobile, email).
+- **Separation of Concerns**: The CMS manages what the content IS; the consuming application decides who sees it and how to render it. No portal/audience field baked into the CMS.
+- **Public Headless API**: Read-only endpoints at `/api/content/:typeKey` and `/api/content/:typeKey/:slug` serve published content to any consumer without authentication.
+
+**API Routes:**
+- **CMS Admin** (`/api/cms/*`): Defined in `server/routes/cms-api.ts`, authenticated via session-based `cms_admin_id`.
+- **Public Content** (`/api/content/*`): Read-only, no auth required. Returns only published content items.
 
 ### Core Features
 - **User Management**: Restaurant admins can view and manage diners, and owners can manage staff with role-based access.

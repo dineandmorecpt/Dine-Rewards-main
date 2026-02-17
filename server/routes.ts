@@ -10,7 +10,7 @@ import { registerTransactionRoutes } from "./routes/transactions";
 import { registerReconciliationRoutes } from "./routes/reconciliation";
 import { registerInvitationRoutes } from "./routes/invitations";
 import { registerAdminApiRoutes } from "./routes/admin-api";
-import { registerCmsApiRoutes } from "./routes/cms-api";
+import { registerCmsApiRoutes, registerPublicContentApiRoutes } from "./routes/cms-api";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -49,6 +49,9 @@ export async function registerRoutes(
 
   // Register CMS API routes (platform-level super admin panel)
   registerCmsApiRoutes(app);
+
+  // Register public headless content API (no auth - consumed by rewards platform)
+  registerPublicContentApiRoutes(app);
 
   return httpServer;
 }

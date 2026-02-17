@@ -30,6 +30,8 @@ import CmsDashboard from "@/pages/cms-dashboard";
 import CmsRestaurants from "@/pages/cms-restaurants";
 import CmsFtp from "@/pages/cms-ftp";
 import CmsContent from "@/pages/cms-content";
+import CmsContentTypes from "@/pages/cms-content-types";
+import CmsContentItems from "@/pages/cms-content-items";
 import { CmsGuard } from "@/components/cms-guard";
 
 function Router() {
@@ -108,6 +110,12 @@ function Router() {
       </Route>
       <Route path="/dineandmore/cms/ftp">
         <CmsGuard><CmsFtp /></CmsGuard>
+      </Route>
+      <Route path="/dineandmore/cms/content-types">
+        <CmsGuard><CmsContentTypes /></CmsGuard>
+      </Route>
+      <Route path="/dineandmore/cms/content-items">
+        <CmsGuard><CmsContentItems /></CmsGuard>
       </Route>
       <Route path="/dineandmore/cms/content">
         <CmsGuard><CmsContent /></CmsGuard>

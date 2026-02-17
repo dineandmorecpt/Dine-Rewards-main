@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { CmsLayout } from "@/components/layout/cms-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, Users, FolderSync, CheckCircle, Loader2 } from "lucide-react";
+import { Building2, Users, FolderSync, CheckCircle, Loader2, Blocks, Database } from "lucide-react";
 
 export default function CmsDashboard() {
   const { data: stats, isLoading } = useQuery({
@@ -63,6 +63,26 @@ export default function CmsDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold" data-testid="text-active-count">{stats?.activeRestaurants ?? 0}</div>
+            </CardContent>
+          </Card>
+
+          <Card data-testid="card-content-types">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Content Models</CardTitle>
+              <Blocks className="w-4 h-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold" data-testid="text-content-types-count">{stats?.contentTypesCount ?? 0}</div>
+            </CardContent>
+          </Card>
+
+          <Card data-testid="card-content-items">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Content Items</CardTitle>
+              <Database className="w-4 h-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold" data-testid="text-content-items-count">{stats?.contentItemsCount ?? 0}</div>
             </CardContent>
           </Card>
         </div>

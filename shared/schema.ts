@@ -522,6 +522,51 @@ export const insertRestaurantSubscriptionSchema = createInsertSchema(restaurantS
 export type InsertRestaurantSubscription = z.infer<typeof insertRestaurantSubscriptionSchema>;
 export type RestaurantSubscription = typeof restaurantSubscriptions.$inferSelect;
 
+// ============================================================================
+// HEADLESS CMS - Content Types & Content Items
+// ============================================================================
+
+export const contentTypes = pgTable("content_types", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  key: text("key").notNull().unique(),
+  name: text("name").notNull(),
+  description: text("description"),
+  schema: jsonb("schema").notNull().default({}),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertContentTypeSchema = createInsertSchema(contentTypes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertContentType = z.infer<typeof insertContentTypeSchema>;
+export type ContentType = typeof contentTypes.$inferSelect;
+
+export const contentItems = pgTable("content_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  typeKey: text("type_key").notNull(),
+  slug: text("slug").notNull(),
+  data: jsonb("data").notNull().default({}),
+  status: text("status").notNull().default("draft"),
+  version: integer("version").notNull().default(1),
+  publishedAt: timestamp("published_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex("content_items_type_slug_idx").on(table.typeKey, table.slug),
+]);
+
+export const insertContentItemSchema = createInsertSchema(contentItems).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertContentItem = z.infer<typeof insertContentItemSchema>;
+export type ContentItem = typeof contentItems.$inferSelect;
+
+// Legacy content_pages table (kept for backward compatibility during migration)
 export const contentPages = pgTable("content_pages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   slug: text("slug").notNull().unique(),
@@ -533,6 +578,10 @@ export const contentPages = pgTable("content_pages", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// ============================================================================
+// CMS ADMINS
+// ============================================================================
 
 export const cmsAdmins = pgTable("cms_admins", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

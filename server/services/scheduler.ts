@@ -6,7 +6,7 @@ let isRunning = false;
 const lastResultsByRestaurant: Map<string, FtpFetchResult> = new Map();
 
 const SCHEDULE_HOUR = 20;
-const SCHEDULE_MINUTE = 15;
+const SCHEDULE_MINUTE = 50;
 
 function getNextRunTime(): Date {
   const now = new Date();

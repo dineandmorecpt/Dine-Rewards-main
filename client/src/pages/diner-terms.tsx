@@ -1,10 +1,55 @@
 import { DinerLayout } from "@/components/layout/diner-layout";
 import { Card, CardContent } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { FileText, Download } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
-import { getAuthHeaders } from "@/lib/queryClient";
+
+const TERMS_CONTENT = `# Terms and Conditions
+
+## 1. Introduction
+
+Welcome to Dine&More. These Terms and Conditions govern your use of our loyalty rewards platform. By creating an account and using our services, you agree to be bound by these terms.
+
+## 2. Account Registration
+
+2.1. You must provide accurate and complete information when creating your account.
+
+2.2. You are responsible for maintaining the confidentiality of your account credentials.
+
+2.3. You must be at least 18 years old to create an account.
+
+## 3. Loyalty Points
+
+3.1. Points are earned through qualifying transactions at participating restaurants.
+
+3.2. Points have no cash value and cannot be transferred between accounts.
+
+3.3. Points may expire according to the specific restaurant's loyalty program rules.
+
+## 4. Vouchers and Rewards
+
+4.1. Vouchers are subject to the terms and conditions set by the issuing restaurant.
+
+4.2. Vouchers may have expiration dates and usage restrictions.
+
+4.3. Dine&More is not responsible for the redemption policies of individual restaurants.
+
+## 5. Privacy
+
+5.1. Your personal information is collected and processed in accordance with our Privacy Policy and applicable data protection legislation including POPIA.
+
+5.2. We use anonymized analytics data to improve our services.
+
+## 6. Limitation of Liability
+
+6.1. Dine&More provides the platform on an "as is" basis.
+
+6.2. We are not liable for any loss of points or rewards due to restaurant closures or program changes.
+
+## 7. Changes to Terms
+
+7.1. We reserve the right to modify these terms at any time.
+
+7.2. Continued use of the platform after changes constitutes acceptance of the new terms.`;
 
 function handleDownload(content: string, title: string) {
   const plainText = content
@@ -24,18 +69,6 @@ function handleDownload(content: string, title: string) {
 }
 
 export default function DinerTerms() {
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["content", "terms-and-conditions"],
-    queryFn: async () => {
-      const res = await fetch("/api/diner/content/terms-and-conditions", {
-        credentials: "include",
-        headers: getAuthHeaders(),
-      });
-      if (!res.ok) throw new Error("Failed to load terms and conditions");
-      return res.json();
-    },
-  });
-
   return (
     <DinerLayout>
       <div className="space-y-4 sm:space-y-6">
@@ -47,54 +80,26 @@ export default function DinerTerms() {
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900" data-testid="text-terms-title">
               Terms and Conditions
             </h1>
-            {data?.updatedAt && (
-              <p className="text-xs text-muted-foreground" data-testid="text-terms-updated">
-                Last updated: {new Date(data.updatedAt).toLocaleDateString("en-ZA", { year: "numeric", month: "long", day: "numeric" })}
-              </p>
-            )}
           </div>
-          {data?.content && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="ml-auto"
-              data-testid="button-download-terms"
-              onClick={() => handleDownload(data.content, data.title)}
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Download
-            </Button>
-          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="ml-auto"
+            data-testid="button-download-terms"
+            onClick={() => handleDownload(TERMS_CONTENT, "Terms and Conditions")}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Download
+          </Button>
         </div>
 
         <Card>
           <CardContent className="pt-6">
-            {isLoading && (
-              <div className="space-y-4" data-testid="skeleton-terms">
-                <Skeleton className="h-6 w-3/4" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-5/6" />
-                <Skeleton className="h-6 w-1/2 mt-4" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-4/5" />
-              </div>
-            )}
-
-            {error && (
-              <div className="text-center py-8" data-testid="text-terms-error">
-                <p className="text-muted-foreground">Unable to load terms and conditions. Please try again later.</p>
-              </div>
-            )}
-
-            {data?.content && (
-              <div
-                className="prose prose-sm sm:prose max-w-none prose-headings:text-gray-900 prose-p:text-gray-600 prose-li:text-gray-600 prose-strong:text-gray-800"
-                data-testid="text-terms-content"
-                dangerouslySetInnerHTML={{ __html: renderMarkdown(data.content) }}
-              />
-            )}
+            <div
+              className="prose prose-sm sm:prose max-w-none prose-headings:text-gray-900 prose-p:text-gray-600 prose-li:text-gray-600 prose-strong:text-gray-800"
+              data-testid="text-terms-content"
+              dangerouslySetInnerHTML={{ __html: renderMarkdown(TERMS_CONTENT) }}
+            />
           </CardContent>
         </Card>
       </div>

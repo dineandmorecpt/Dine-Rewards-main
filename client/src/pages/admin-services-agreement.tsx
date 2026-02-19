@@ -1,10 +1,51 @@
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { Card, CardContent } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { FileText, Download } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
-import { getAuthHeaders } from "@/lib/queryClient";
+
+const AGREEMENT_CONTENT = `# Services Agreement
+
+## 1. Introduction
+
+This Services Agreement governs the relationship between your restaurant and Dine&More. By using our platform, you agree to these terms.
+
+## 2. Platform Services
+
+2.1. Dine&More provides a loyalty rewards platform that enables your restaurant to create and manage customer loyalty programs.
+
+2.2. Services include point tracking, voucher management, transaction reconciliation, and analytics.
+
+## 3. Restaurant Obligations
+
+3.1. You are responsible for maintaining accurate business information on the platform.
+
+3.2. You must honour all vouchers and rewards issued through the platform to your customers.
+
+3.3. You must ensure that your staff are trained on the proper use of the platform.
+
+## 4. Data and Privacy
+
+4.1. Customer data collected through the platform is processed in accordance with POPIA and our Privacy Policy.
+
+4.2. You may not use customer data collected through the platform for purposes outside of the loyalty program.
+
+## 5. Fees and Billing
+
+5.1. Platform usage fees are as agreed in your subscription plan.
+
+5.2. Fees are billed monthly and are due within 30 days of invoice.
+
+## 6. Termination
+
+6.1. Either party may terminate this agreement with 30 days written notice.
+
+6.2. Upon termination, outstanding loyalty obligations to customers must still be honoured.
+
+## 7. Limitation of Liability
+
+7.1. Dine&More provides the platform on an "as is" basis.
+
+7.2. We are not liable for losses arising from system downtime or technical issues beyond our control.`;
 
 function handleDownload(content: string, title: string) {
   const plainText = content
@@ -24,18 +65,6 @@ function handleDownload(content: string, title: string) {
 }
 
 export default function AdminServicesAgreement() {
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["content", "services-agreement"],
-    queryFn: async () => {
-      const res = await fetch("/api/admin/content/services-agreement", {
-        credentials: "include",
-        headers: getAuthHeaders(),
-      });
-      if (!res.ok) throw new Error("Failed to load services agreement");
-      return res.json();
-    },
-  });
-
   return (
     <AdminLayout>
       <div className="space-y-4 sm:space-y-6">
@@ -47,54 +76,26 @@ export default function AdminServicesAgreement() {
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900" data-testid="text-agreement-title">
               Services Agreement
             </h1>
-            {data?.updatedAt && (
-              <p className="text-xs text-muted-foreground" data-testid="text-agreement-updated">
-                Last updated: {new Date(data.updatedAt).toLocaleDateString("en-ZA", { year: "numeric", month: "long", day: "numeric" })}
-              </p>
-            )}
           </div>
-          {data?.content && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="ml-auto"
-              data-testid="button-download-agreement"
-              onClick={() => handleDownload(data.content, data.title)}
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Download
-            </Button>
-          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="ml-auto"
+            data-testid="button-download-agreement"
+            onClick={() => handleDownload(AGREEMENT_CONTENT, "Services Agreement")}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Download
+          </Button>
         </div>
 
         <Card>
           <CardContent className="pt-6">
-            {isLoading && (
-              <div className="space-y-4" data-testid="skeleton-agreement">
-                <Skeleton className="h-6 w-3/4" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-5/6" />
-                <Skeleton className="h-6 w-1/2 mt-4" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-4/5" />
-              </div>
-            )}
-
-            {error && (
-              <div className="text-center py-8" data-testid="text-agreement-error">
-                <p className="text-muted-foreground">Unable to load the services agreement. Please try again later.</p>
-              </div>
-            )}
-
-            {data?.content && (
-              <div
-                className="prose prose-sm sm:prose max-w-none prose-headings:text-gray-900 prose-p:text-gray-600 prose-li:text-gray-600 prose-strong:text-gray-800"
-                data-testid="text-agreement-content"
-                dangerouslySetInnerHTML={{ __html: renderMarkdown(data.content) }}
-              />
-            )}
+            <div
+              className="prose prose-sm sm:prose max-w-none prose-headings:text-gray-900 prose-p:text-gray-600 prose-li:text-gray-600 prose-strong:text-gray-800"
+              data-testid="text-agreement-content"
+              dangerouslySetInnerHTML={{ __html: renderMarkdown(AGREEMENT_CONTENT) }}
+            />
           </CardContent>
         </Card>
       </div>

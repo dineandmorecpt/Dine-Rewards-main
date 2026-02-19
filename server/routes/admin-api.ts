@@ -1671,22 +1671,4 @@ export function registerAdminApiRoutes(router: Router): void {
     }
   });
 
-  router.get("/api/admin/content/:slug", async (req, res) => {
-    try {
-      const { slug } = req.params;
-      const page = await storage.getContentPageBySlug(slug);
-      if (!page) {
-        return res.status(404).json({ error: "Page not found" });
-      }
-      res.json({
-        title: page.title,
-        content: page.content,
-        updatedAt: page.updatedAt,
-        version: page.version,
-      });
-    } catch (error) {
-      console.error("Get content page error:", error);
-      res.status(500).json({ error: "Failed to fetch content" });
-    }
-  });
 }

@@ -20,23 +20,52 @@ export function validateDiscoveryEligibility(onboardingStatus: string) {
   return { eligible: true, error: null };
 }
 
+function getNextInvoiceDate(now: Date): Date {
+  const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  return lastDayOfMonth;
+}
+
+function getPaymentDueDate(invoiceDate: Date, termDays: number): Date {
+  const due = new Date(invoiceDate);
+  due.setDate(due.getDate() + termDays);
+  return due;
+}
+
 export function getSubscriptionStatus(subscription: {
   isSubscribed: boolean;
   plan: string | null;
   pricePerBranch?: number | null;
+  billingType?: string | null;
+  paymentTermDays?: number | null;
   expiresAt: Date | null;
   subscribedAt?: Date | null;
 } | null) {
+  const defaultBilling = {
+    billingType: "monthly_invoice" as const,
+    paymentTermDays: 7,
+  };
+
   if (!subscription) {
-    return { isSubscribed: false, plan: "free", pricePerBranch: 1299 };
+    return { isSubscribed: false, plan: "free", pricePerBranch: 1299, ...defaultBilling };
   }
   const now = new Date();
   const isActive = subscription.isSubscribed && (!subscription.expiresAt || subscription.expiresAt > now);
+  const termDays = subscription.paymentTermDays ?? 7;
+
+  const nextInvoiceDate = getNextInvoiceDate(now);
+  const paymentDueDate = getPaymentDueDate(nextInvoiceDate, termDays);
+
   return {
     isSubscribed: isActive,
     plan: subscription.plan,
     pricePerBranch: subscription.pricePerBranch ?? 1299,
+    billingType: subscription.billingType ?? "monthly_invoice",
+    paymentTermDays: termDays,
     subscribedAt: subscription.subscribedAt,
     expiresAt: subscription.expiresAt,
+    ...(isActive ? {
+      nextInvoiceDate: nextInvoiceDate.toISOString(),
+      paymentDueDate: paymentDueDate.toISOString(),
+    } : {}),
   };
 }

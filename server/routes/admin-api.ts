@@ -1625,6 +1625,8 @@ export function registerAdminApiRoutes(router: Router): void {
           isSubscribed: true,
           plan: "premium",
           pricePerBranch: 1299,
+          billingType: "monthly_invoice",
+          paymentTermDays: 7,
           subscribedAt: now,
           expiresAt: null,
         });
@@ -1637,6 +1639,8 @@ export function registerAdminApiRoutes(router: Router): void {
         isSubscribed: true,
         plan: "premium",
         pricePerBranch: 1299,
+        billingType: "monthly_invoice",
+        paymentTermDays: 7,
         subscribedAt: now,
         expiresAt: null,
       });

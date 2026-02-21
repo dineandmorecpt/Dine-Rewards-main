@@ -414,9 +414,13 @@ function SubscriptionSection() {
                   </CardContent>
                 </Card>
 
-                <div className="p-4 bg-muted/50 rounded-lg text-sm text-muted-foreground">
-                  <p className="font-medium text-foreground mb-1">Billing</p>
+                <div className="p-4 bg-muted/50 rounded-lg text-sm text-muted-foreground space-y-2">
+                  <p className="font-medium text-foreground">Billing</p>
                   <p>R{pricePerBranch.toLocaleString()} per branch/month &times; {branchCount} {branchCount === 1 ? 'branch' : 'branches'} = <span className="font-semibold text-foreground">R{totalMonthly.toLocaleString()}/month</span></p>
+                  <p>Invoiced monthly at the end of each month, payable within 7 days.</p>
+                  {subscriptionQuery.data?.nextInvoiceDate && (
+                    <p>Next invoice: <span className="font-medium text-foreground">{new Date(subscriptionQuery.data.nextInvoiceDate).toLocaleDateString('en-ZA', { year: 'numeric', month: 'long', day: 'numeric' })}</span> &middot; Payment due: <span className="font-medium text-foreground">{new Date(subscriptionQuery.data.paymentDueDate).toLocaleDateString('en-ZA', { year: 'numeric', month: 'long', day: 'numeric' })}</span></p>
+                  )}
                 </div>
 
                 <Button
@@ -464,6 +468,7 @@ function SubscriptionSection() {
                         Deeper data insights on the insights dashboard
                       </li>
                     </ul>
+                    <p className="text-xs text-muted-foreground border-t pt-3">Billed monthly via invoice, payable within 7 days of month-end.</p>
                   </CardContent>
                 </Card>
 
@@ -500,10 +505,11 @@ function SubscriptionSection() {
               <li>Manage reservations</li>
               <li>Deeper data insights on the insights dashboard</li>
             </ul>
-            <div className="pt-3 border-t mt-3">
+            <div className="pt-3 border-t mt-3 space-y-1">
               <p className="font-medium text-foreground">
                 R{pricePerBranch.toLocaleString()} per branch/month &times; {branchCount} {branchCount === 1 ? 'branch' : 'branches'} = R{totalMonthly.toLocaleString()}/month
               </p>
+              <p className="text-xs">You will be invoiced monthly at the end of each month. Payment is due within 7 days of the invoice date.</p>
             </div>
           </div>
 

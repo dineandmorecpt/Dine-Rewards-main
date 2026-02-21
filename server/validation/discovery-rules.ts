@@ -37,16 +37,20 @@ export function getSubscriptionStatus(subscription: {
   pricePerBranch?: number | null;
   billingType?: string | null;
   paymentTermDays?: number | null;
+  subscriptionScope?: string | null;
+  subscribedBranchIds?: string[] | null;
   expiresAt: Date | null;
   subscribedAt?: Date | null;
 } | null) {
-  const defaultBilling = {
+  const defaults = {
     billingType: "monthly_invoice" as const,
     paymentTermDays: 7,
+    subscriptionScope: "all" as const,
+    subscribedBranchIds: null as string[] | null,
   };
 
   if (!subscription) {
-    return { isSubscribed: false, plan: "free", pricePerBranch: 1299, ...defaultBilling };
+    return { isSubscribed: false, plan: "free", pricePerBranch: 1299, ...defaults };
   }
   const now = new Date();
   const isActive = subscription.isSubscribed && (!subscription.expiresAt || subscription.expiresAt > now);
@@ -61,6 +65,8 @@ export function getSubscriptionStatus(subscription: {
     pricePerBranch: subscription.pricePerBranch ?? 1299,
     billingType: subscription.billingType ?? "monthly_invoice",
     paymentTermDays: termDays,
+    subscriptionScope: subscription.subscriptionScope ?? "all",
+    subscribedBranchIds: subscription.subscribedBranchIds ?? null,
     subscribedAt: subscription.subscribedAt,
     expiresAt: subscription.expiresAt,
     ...(isActive ? {

@@ -511,6 +511,8 @@ export const restaurantSubscriptions = pgTable("restaurant_subscriptions", {
   pricePerBranch: integer("price_per_branch").default(1299),
   billingType: text("billing_type").default("monthly_invoice"),
   paymentTermDays: integer("payment_term_days").default(7),
+  subscriptionScope: text("subscription_scope").default("all"),
+  subscribedBranchIds: text("subscribed_branch_ids").array(),
   subscribedAt: timestamp("subscribed_at"),
   expiresAt: timestamp("expires_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),

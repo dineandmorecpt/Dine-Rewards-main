@@ -1617,32 +1617,46 @@ export function registerAdminApiRoutes(router: Router): void {
       const { restaurantId, error } = await getAdminRestaurantId(req);
       if (error) return res.status(error.status).json({ error: error.message });
 
+      const { scope, branchIds } = req.body || {};
+      const subscriptionScope = scope === "specific" ? "specific" : "all";
+      const subscribedBranchIds = subscriptionScope === "specific" && Array.isArray(branchIds) ? branchIds : null;
+
+      if (subscriptionScope === "specific") {
+        if (!subscribedBranchIds || subscribedBranchIds.length === 0) {
+          return res.status(400).json({ error: "Please select at least one branch to subscribe" });
+        }
+        const allBranches = await storage.getBranchesByRestaurant(restaurantId!);
+        const validIds = new Set(allBranches.map(b => b.id));
+        const invalidIds = subscribedBranchIds.filter((id: string) => !validIds.has(id));
+        if (invalidIds.length > 0) {
+          return res.status(400).json({ error: "One or more selected branches are invalid" });
+        }
+      }
+
       const existing = await storage.getRestaurantSubscription(restaurantId!);
       const now = new Date();
 
+      const subscriptionData = {
+        isSubscribed: true,
+        plan: "premium",
+        pricePerBranch: 1299,
+        billingType: "monthly_invoice",
+        paymentTermDays: 7,
+        subscriptionScope,
+        subscribedBranchIds,
+        subscribedAt: now,
+        expiresAt: null,
+      };
+
       if (existing) {
-        const updated = await storage.updateRestaurantSubscription(restaurantId!, {
-          isSubscribed: true,
-          plan: "premium",
-          pricePerBranch: 1299,
-          billingType: "monthly_invoice",
-          paymentTermDays: 7,
-          subscribedAt: now,
-          expiresAt: null,
-        });
+        const updated = await storage.updateRestaurantSubscription(restaurantId!, subscriptionData);
         const status = getSubscriptionStatus(updated);
         return res.json(status);
       }
 
       const created = await storage.createRestaurantSubscription({
         restaurantId: restaurantId!,
-        isSubscribed: true,
-        plan: "premium",
-        pricePerBranch: 1299,
-        billingType: "monthly_invoice",
-        paymentTermDays: 7,
-        subscribedAt: now,
-        expiresAt: null,
+        ...subscriptionData,
       });
       const status = getSubscriptionStatus(created);
       res.json(status);

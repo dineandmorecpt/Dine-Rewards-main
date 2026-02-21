@@ -243,6 +243,8 @@ function SubscriptionSection() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [selectedScope, setSelectedScope] = useState<"all" | "specific">("all");
+  const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([]);
 
   const subscriptionQuery = useQuery({
     queryKey: ['/api/admin/subscription'],
@@ -262,16 +264,36 @@ function SubscriptionSection() {
     },
   });
 
-  const branchCount = Array.isArray(branchesQuery.data) ? branchesQuery.data.length : 1;
+  const allBranches: { id: string; name: string; isActive: boolean }[] = Array.isArray(branchesQuery.data) ? branchesQuery.data : [];
+  const totalBranchCount = allBranches.length || 1;
   const pricePerBranch = subscriptionQuery.data?.pricePerBranch ?? 1299;
-  const totalMonthly = pricePerBranch * branchCount;
+
+  const subscribedScope = subscriptionQuery.data?.subscriptionScope ?? "all";
+  const subscribedBranchIds: string[] = subscriptionQuery.data?.subscribedBranchIds ?? [];
+  const subscribedBranchCount = subscribedScope === "specific" ? subscribedBranchIds.length : totalBranchCount;
+
+  const selectedCount = selectedScope === "all" ? totalBranchCount : selectedBranchIds.length;
+  const previewTotal = pricePerBranch * selectedCount;
+
+  const currentTotal = pricePerBranch * subscribedBranchCount;
+
+  const toggleBranch = (branchId: string) => {
+    setSelectedBranchIds(prev =>
+      prev.includes(branchId) ? prev.filter(id => id !== branchId) : [...prev, branchId]
+    );
+  };
 
   const subscribeMutation = useMutation({
     mutationFn: async () => {
+      const body: any = { scope: selectedScope };
+      if (selectedScope === "specific") {
+        body.branchIds = selectedBranchIds;
+      }
       const res = await fetch('/api/admin/subscription/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         credentials: 'include',
+        body: JSON.stringify(body),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -371,7 +393,7 @@ function SubscriptionSection() {
                 </div>
                 <p className="text-sm text-muted-foreground">
                   {isSubscribed
-                    ? `R${pricePerBranch.toLocaleString()} per branch/month \u00B7 ${branchCount} ${branchCount === 1 ? 'branch' : 'branches'} \u00B7 R${totalMonthly.toLocaleString()}/month total`
+                    ? `R${pricePerBranch.toLocaleString()} per branch/month \u00B7 ${subscribedBranchCount} ${subscribedBranchCount === 1 ? 'branch' : 'branches'} \u00B7 R${currentTotal.toLocaleString()}/month total`
                     : "Subscribe to unlock campaigns, reservations and deeper insights."}
                 </p>
               </div>
@@ -414,9 +436,22 @@ function SubscriptionSection() {
                   </CardContent>
                 </Card>
 
+                {subscribedScope === "specific" && subscribedBranchIds.length > 0 && (
+                  <Card className="border-dashed">
+                    <CardContent className="pt-6">
+                      <h4 className="font-medium mb-3 text-sm">Subscribed Branches</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {allBranches.filter(b => subscribedBranchIds.includes(b.id)).map(branch => (
+                          <Badge key={branch.id} variant="outline" className="text-xs">{branch.name}</Badge>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
                 <div className="p-4 bg-muted/50 rounded-lg text-sm text-muted-foreground space-y-2">
                   <p className="font-medium text-foreground">Billing</p>
-                  <p>R{pricePerBranch.toLocaleString()} per branch/month &times; {branchCount} {branchCount === 1 ? 'branch' : 'branches'} = <span className="font-semibold text-foreground">R{totalMonthly.toLocaleString()}/month</span></p>
+                  <p>R{pricePerBranch.toLocaleString()} per branch/month &times; {subscribedBranchCount} {subscribedBranchCount === 1 ? 'branch' : 'branches'} = <span className="font-semibold text-foreground">R{currentTotal.toLocaleString()}/month</span></p>
                   <p>Invoiced monthly at the end of each month, payable within 7 days.</p>
                   {subscriptionQuery.data?.nextInvoiceDate && (
                     <p>Next invoice: <span className="font-medium text-foreground">{new Date(subscriptionQuery.data.nextInvoiceDate).toLocaleDateString('en-ZA', { year: 'numeric', month: 'long', day: 'numeric' })}</span> &middot; Payment due: <span className="font-medium text-foreground">{new Date(subscriptionQuery.data.paymentDueDate).toLocaleDateString('en-ZA', { year: 'numeric', month: 'long', day: 'numeric' })}</span></p>
@@ -448,12 +483,7 @@ function SubscriptionSection() {
                       <span className="text-3xl font-bold text-foreground">R{pricePerBranch.toLocaleString()}</span>
                       <span className="text-sm text-muted-foreground">per branch / month</span>
                     </div>
-                    {branchCount > 1 && (
-                      <p className="text-sm text-muted-foreground mb-4">
-                        {branchCount} branches &times; R{pricePerBranch.toLocaleString()} = R{totalMonthly.toLocaleString()}/month
-                      </p>
-                    )}
-                    {branchCount === 1 && <div className="mb-4" />}
+                    <div className="mb-4" />
                     <ul className="space-y-2 text-sm text-muted-foreground mb-4">
                       <li className="flex items-center gap-2">
                         <Sparkles className="h-4 w-4 text-primary shrink-0" />
@@ -472,9 +502,67 @@ function SubscriptionSection() {
                   </CardContent>
                 </Card>
 
+                {totalBranchCount > 1 && (
+                  <Card>
+                    <CardContent className="pt-6 space-y-4">
+                      <h4 className="font-medium text-sm">Select branches to subscribe</h4>
+                      <div className="flex gap-3">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="scope"
+                            checked={selectedScope === "all"}
+                            onChange={() => setSelectedScope("all")}
+                            className="accent-primary"
+                            data-testid="radio-scope-all"
+                          />
+                          <span className="text-sm">All branches ({totalBranchCount})</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="scope"
+                            checked={selectedScope === "specific"}
+                            onChange={() => setSelectedScope("specific")}
+                            className="accent-primary"
+                            data-testid="radio-scope-specific"
+                          />
+                          <span className="text-sm">Specific branches</span>
+                        </label>
+                      </div>
+
+                      {selectedScope === "specific" && (
+                        <div className="space-y-2 pl-1">
+                          {allBranches.map(branch => (
+                            <label key={branch.id} className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={selectedBranchIds.includes(branch.id)}
+                                onChange={() => toggleBranch(branch.id)}
+                                className="accent-primary rounded"
+                                data-testid={`checkbox-branch-${branch.id}`}
+                              />
+                              <span className="text-sm">{branch.name}</span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="text-sm text-muted-foreground pt-2 border-t">
+                        {selectedCount > 0 ? (
+                          <p>{selectedCount} {selectedCount === 1 ? 'branch' : 'branches'} &times; R{pricePerBranch.toLocaleString()} = <span className="font-semibold text-foreground">R{previewTotal.toLocaleString()}/month</span></p>
+                        ) : (
+                          <p className="text-amber-600">Please select at least one branch</p>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
                 <Button
                   className="w-full gap-2"
                   onClick={() => setShowConfirmDialog(true)}
+                  disabled={selectedScope === "specific" && selectedBranchIds.length === 0}
                   data-testid="button-subscribe"
                 >
                   <Crown className="h-4 w-4" />
@@ -505,9 +593,19 @@ function SubscriptionSection() {
               <li>Manage reservations</li>
               <li>Deeper data insights on the insights dashboard</li>
             </ul>
+            {selectedScope === "specific" && selectedBranchIds.length > 0 && (
+              <div className="pt-2">
+                <p className="text-xs font-medium text-foreground mb-1">Selected branches:</p>
+                <div className="flex flex-wrap gap-1">
+                  {allBranches.filter(b => selectedBranchIds.includes(b.id)).map(branch => (
+                    <Badge key={branch.id} variant="outline" className="text-xs">{branch.name}</Badge>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="pt-3 border-t mt-3 space-y-1">
               <p className="font-medium text-foreground">
-                R{pricePerBranch.toLocaleString()} per branch/month &times; {branchCount} {branchCount === 1 ? 'branch' : 'branches'} = R{totalMonthly.toLocaleString()}/month
+                R{pricePerBranch.toLocaleString()} per branch/month &times; {selectedCount} {selectedCount === 1 ? 'branch' : 'branches'} = R{previewTotal.toLocaleString()}/month
               </p>
               <p className="text-xs">You will be invoiced monthly at the end of each month. Payment is due within 7 days of the invoice date.</p>
             </div>

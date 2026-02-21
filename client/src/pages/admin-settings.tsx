@@ -253,6 +253,19 @@ function SubscriptionSection() {
     },
   });
 
+  const branchesQuery = useQuery({
+    queryKey: ['/api/admin/branches'],
+    queryFn: async () => {
+      const res = await fetch('/api/admin/branches', { credentials: "include", headers: getAuthHeaders() });
+      if (!res.ok) throw new Error('Failed to fetch branches');
+      return res.json();
+    },
+  });
+
+  const branchCount = Array.isArray(branchesQuery.data) ? branchesQuery.data.length : 1;
+  const pricePerBranch = 1299;
+  const totalMonthly = pricePerBranch * branchCount;
+
   const subscribeMutation = useMutation({
     mutationFn: async () => {
       const res = await fetch('/api/admin/subscription/subscribe', {
@@ -270,8 +283,8 @@ function SubscriptionSection() {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/subscription'] });
       setShowConfirmDialog(false);
       toast({
-        title: "Premium Activated",
-        description: "Your restaurant is now a premium partner on Dine&More.",
+        title: "Subscription Activated",
+        description: "Your restaurant is now subscribed to the Dine&More partner package.",
       });
     },
     onError: (error: Error) => {
@@ -344,7 +357,7 @@ function SubscriptionSection() {
               Subscription Plan
             </CardTitle>
             <CardDescription>
-              Manage your restaurant's subscription to unlock premium features on Dine&More.
+              Subscribe to unlock campaigns, reservations and deeper data insights for your restaurant.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -353,13 +366,13 @@ function SubscriptionSection() {
                 <div className="flex items-center gap-2">
                   <p className="font-medium text-lg">Current Plan</p>
                   <Badge variant={isSubscribed ? "default" : "secondary"} className="capitalize">
-                    {plan}
+                    {isSubscribed ? "Subscribed" : "Free"}
                   </Badge>
                 </div>
                 <p className="text-sm text-muted-foreground">
                   {isSubscribed
-                    ? "You're on the premium plan with access to all features."
-                    : "You're on the free plan. Upgrade to premium to unlock additional features."}
+                    ? `R${pricePerBranch.toLocaleString()} per branch/month \u00B7 ${branchCount} ${branchCount === 1 ? 'branch' : 'branches'} \u00B7 R${totalMonthly.toLocaleString()}/month total`
+                    : "Subscribe to unlock campaigns, reservations and deeper insights."}
                 </p>
               </div>
             </div>
@@ -369,11 +382,11 @@ function SubscriptionSection() {
                 <div className="flex items-start gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
                   <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5 shrink-0" />
                   <div>
-                    <p className="font-medium text-green-800">Premium Active</p>
+                    <p className="font-medium text-green-800">Subscription Active</p>
                     <p className="text-sm text-green-700">
                       {subscribedAt
                         ? `Subscribed since ${new Date(subscribedAt).toLocaleDateString('en-ZA', { year: 'numeric', month: 'long', day: 'numeric' })}.`
-                        : "Your premium subscription is active."}
+                        : "Your subscription is active."}
                     </p>
                   </div>
                 </div>
@@ -382,28 +395,29 @@ function SubscriptionSection() {
                   <CardContent className="pt-6">
                     <h4 className="font-medium mb-3 flex items-center gap-2">
                       <Sparkles className="h-4 w-4 text-primary" />
-                      Premium Features Included
+                      What's Included
                     </h4>
                     <ul className="space-y-2 text-sm text-muted-foreground">
                       <li className="flex items-center gap-2">
                         <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
-                        Advanced analytics and insights dashboard
+                        Set up and manage campaigns
                       </li>
                       <li className="flex items-center gap-2">
                         <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
-                        Automated FTP reconciliation imports
+                        Manage reservations
                       </li>
                       <li className="flex items-center gap-2">
                         <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
-                        Diner discovery listing
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
-                        Priority support
+                        Deeper data insights on the insights dashboard
                       </li>
                     </ul>
                   </CardContent>
                 </Card>
+
+                <div className="p-4 bg-muted/50 rounded-lg text-sm text-muted-foreground">
+                  <p className="font-medium text-foreground mb-1">Billing</p>
+                  <p>R{pricePerBranch.toLocaleString()} per branch/month &times; {branchCount} {branchCount === 1 ? 'branch' : 'branches'} = <span className="font-semibold text-foreground">R{totalMonthly.toLocaleString()}/month</span></p>
+                </div>
 
                 <Button
                   variant="outline"
@@ -426,29 +440,28 @@ function SubscriptionSection() {
               <>
                 <Card className="border-primary/30 bg-primary/5">
                   <CardContent className="pt-6">
-                    <h4 className="font-medium mb-3 flex items-center gap-2">
-                      <Crown className="h-4 w-4 text-primary" />
-                      Upgrade to Premium
-                    </h4>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Unlock the full potential of your loyalty programme with premium features designed to grow your business.
-                    </p>
+                    <div className="flex items-baseline gap-2 mb-1">
+                      <span className="text-3xl font-bold text-foreground">R{pricePerBranch.toLocaleString()}</span>
+                      <span className="text-sm text-muted-foreground">per branch / month</span>
+                    </div>
+                    {branchCount > 1 && (
+                      <p className="text-sm text-muted-foreground mb-4">
+                        {branchCount} branches &times; R{pricePerBranch.toLocaleString()} = R{totalMonthly.toLocaleString()}/month
+                      </p>
+                    )}
+                    {branchCount === 1 && <div className="mb-4" />}
                     <ul className="space-y-2 text-sm text-muted-foreground mb-4">
                       <li className="flex items-center gap-2">
                         <Sparkles className="h-4 w-4 text-primary shrink-0" />
-                        Advanced analytics and insights dashboard
+                        Set up and manage campaigns
                       </li>
                       <li className="flex items-center gap-2">
                         <Sparkles className="h-4 w-4 text-primary shrink-0" />
-                        Automated FTP reconciliation imports
+                        Manage reservations
                       </li>
                       <li className="flex items-center gap-2">
                         <Sparkles className="h-4 w-4 text-primary shrink-0" />
-                        Diner discovery listing
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Sparkles className="h-4 w-4 text-primary shrink-0" />
-                        Priority support
+                        Deeper data insights on the insights dashboard
                       </li>
                     </ul>
                   </CardContent>
@@ -460,7 +473,7 @@ function SubscriptionSection() {
                   data-testid="button-subscribe"
                 >
                   <Crown className="h-4 w-4" />
-                  Activate Premium
+                  Subscribe Now
                 </Button>
               </>
             )}
@@ -474,23 +487,24 @@ function SubscriptionSection() {
             <div className="mx-auto bg-primary/10 rounded-full p-3 mb-2">
               <Crown className="h-8 w-8 text-primary" />
             </div>
-            <DialogTitle className="text-xl">Activate Premium Subscription</DialogTitle>
+            <DialogTitle className="text-xl">Confirm Subscription</DialogTitle>
             <DialogDescription className="text-center">
-              You are about to upgrade your restaurant to a premium partner on Dine&More.
+              You are about to subscribe your restaurant to the Dine&More partner package.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3 text-sm text-muted-foreground p-4 bg-muted/30 rounded-lg">
-            <p>By activating premium, you will gain access to:</p>
+            <p>Your subscription will include:</p>
             <ul className="list-disc pl-4 space-y-1">
-              <li>Advanced analytics and business insights</li>
-              <li>Automated FTP-based reconciliation imports</li>
-              <li>Diner discovery listing visibility</li>
-              <li>Priority support from the Dine&More team</li>
+              <li>Set up and manage campaigns</li>
+              <li>Manage reservations</li>
+              <li>Deeper data insights on the insights dashboard</li>
             </ul>
-            <p className="pt-2 font-medium text-foreground">
-              Premium features will be available immediately after activation.
-            </p>
+            <div className="pt-3 border-t mt-3">
+              <p className="font-medium text-foreground">
+                R{pricePerBranch.toLocaleString()} per branch/month &times; {branchCount} {branchCount === 1 ? 'branch' : 'branches'} = R{totalMonthly.toLocaleString()}/month
+              </p>
+            </div>
           </div>
 
           <DialogFooter className="flex flex-col gap-2 sm:flex-col">
@@ -503,12 +517,12 @@ function SubscriptionSection() {
               {subscribeMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Activating...
+                  Subscribing...
                 </>
               ) : (
                 <>
                   <Crown className="h-4 w-4" />
-                  Confirm & Activate Premium
+                  Confirm & Subscribe
                 </>
               )}
             </Button>

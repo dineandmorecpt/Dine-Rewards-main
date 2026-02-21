@@ -1610,6 +1610,75 @@ export function registerAdminApiRoutes(router: Router): void {
     }
   });
 
+  router.post("/api/admin/subscription/subscribe", async (req, res) => {
+    try {
+      const { restaurantId, error } = await getAdminRestaurantId(req);
+      if (error) return res.status(error.status).json({ error: error.message });
+
+      const existing = await storage.getRestaurantSubscription(restaurantId!);
+      const now = new Date();
+
+      if (existing) {
+        const updated = await storage.updateRestaurantSubscription(restaurantId!, {
+          isSubscribed: true,
+          plan: "premium",
+          subscribedAt: now,
+          expiresAt: null,
+        });
+        const status = getSubscriptionStatus(updated);
+        return res.json(status);
+      }
+
+      const created = await storage.createRestaurantSubscription({
+        restaurantId: restaurantId!,
+        isSubscribed: true,
+        plan: "premium",
+        subscribedAt: now,
+        expiresAt: null,
+      });
+      const status = getSubscriptionStatus(created);
+      res.json(status);
+    } catch (error) {
+      console.error("Subscribe error:", error);
+      res.status(500).json({ error: "Failed to subscribe" });
+    }
+  });
+
+  router.post("/api/admin/subscription/unsubscribe", async (req, res) => {
+    try {
+      const { restaurantId, error } = await getAdminRestaurantId(req);
+      if (error) return res.status(error.status).json({ error: error.message });
+
+      const existing = await storage.getRestaurantSubscription(restaurantId!);
+      if (!existing) {
+        const created = await storage.createRestaurantSubscription({
+          restaurantId: restaurantId!,
+          isSubscribed: false,
+          plan: "free",
+          subscribedAt: null,
+          expiresAt: null,
+        });
+        const status = getSubscriptionStatus(created);
+        return res.json(status);
+      }
+
+      if (!existing.isSubscribed) {
+        const status = getSubscriptionStatus(existing);
+        return res.json(status);
+      }
+
+      const updated = await storage.updateRestaurantSubscription(restaurantId!, {
+        isSubscribed: false,
+        plan: "free",
+      });
+      const status = getSubscriptionStatus(updated);
+      res.json(status);
+    } catch (error) {
+      console.error("Unsubscribe error:", error);
+      res.status(500).json({ error: "Failed to unsubscribe" });
+    }
+  });
+
   router.get("/api/admin/ftp-status", async (req, res) => {
     try {
       const { restaurantId, error } = await getAdminRestaurantId(req);

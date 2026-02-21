@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { Users, Gift, Settings, Save, UserPlus, Trash2, Mail, Download, QrCode, Building2, Edit, Globe, ShieldCheck, AlertTriangle, Loader2, CheckCircle2 } from "lucide-react";
+import { Users, Gift, Settings, Save, UserPlus, Trash2, Mail, Download, QrCode, Building2, Edit, Globe, ShieldCheck, AlertTriangle, Loader2, CheckCircle2, Crown, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
@@ -239,6 +239,294 @@ function DinerDiscoverySection() {
   );
 }
 
+function SubscriptionSection() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+
+  const subscriptionQuery = useQuery({
+    queryKey: ['/api/admin/subscription'],
+    queryFn: async () => {
+      const res = await fetch('/api/admin/subscription', { credentials: "include", headers: getAuthHeaders() });
+      if (!res.ok) throw new Error('Failed to fetch subscription status');
+      return res.json();
+    },
+  });
+
+  const subscribeMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch('/api/admin/subscription/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to subscribe');
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/subscription'] });
+      setShowConfirmDialog(false);
+      toast({
+        title: "Premium Activated",
+        description: "Your restaurant is now a premium partner on Dine&More.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const unsubscribeMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch('/api/admin/subscription/unsubscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to unsubscribe');
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/subscription'] });
+      toast({
+        title: "Subscription Cancelled",
+        description: "Your restaurant has been moved back to the free plan.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const isSubscribed = subscriptionQuery.data?.isSubscribed ?? false;
+  const plan = subscriptionQuery.data?.plan ?? "free";
+  const subscribedAt = subscriptionQuery.data?.subscribedAt;
+
+  if (subscriptionQuery.isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (subscriptionQuery.isError) {
+    return (
+      <div className="max-w-2xl">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5 shrink-0" />
+              <div>
+                <p className="font-medium text-red-800">Failed to load subscription</p>
+                <p className="text-sm text-red-700">Please refresh the page and try again.</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="grid gap-6 max-w-2xl">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Crown className="h-5 w-5" />
+              Subscription Plan
+            </CardTitle>
+            <CardDescription>
+              Manage your restaurant's subscription to unlock premium features on Dine&More.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex items-center justify-between p-4 rounded-lg border">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <p className="font-medium text-lg">Current Plan</p>
+                  <Badge variant={isSubscribed ? "default" : "secondary"} className="capitalize">
+                    {plan}
+                  </Badge>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {isSubscribed
+                    ? "You're on the premium plan with access to all features."
+                    : "You're on the free plan. Upgrade to premium to unlock additional features."}
+                </p>
+              </div>
+            </div>
+
+            {isSubscribed ? (
+              <>
+                <div className="flex items-start gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="font-medium text-green-800">Premium Active</p>
+                    <p className="text-sm text-green-700">
+                      {subscribedAt
+                        ? `Subscribed since ${new Date(subscribedAt).toLocaleDateString('en-ZA', { year: 'numeric', month: 'long', day: 'numeric' })}.`
+                        : "Your premium subscription is active."}
+                    </p>
+                  </div>
+                </div>
+
+                <Card className="border-dashed">
+                  <CardContent className="pt-6">
+                    <h4 className="font-medium mb-3 flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-primary" />
+                      Premium Features Included
+                    </h4>
+                    <ul className="space-y-2 text-sm text-muted-foreground">
+                      <li className="flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+                        Advanced analytics and insights dashboard
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+                        Automated FTP reconciliation imports
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+                        Diner discovery listing
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+                        Priority support
+                      </li>
+                    </ul>
+                  </CardContent>
+                </Card>
+
+                <Button
+                  variant="outline"
+                  className="w-full text-destructive hover:text-destructive"
+                  onClick={() => unsubscribeMutation.mutate()}
+                  disabled={unsubscribeMutation.isPending}
+                  data-testid="button-unsubscribe"
+                >
+                  {unsubscribeMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Cancelling...
+                    </>
+                  ) : (
+                    "Cancel Subscription"
+                  )}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Card className="border-primary/30 bg-primary/5">
+                  <CardContent className="pt-6">
+                    <h4 className="font-medium mb-3 flex items-center gap-2">
+                      <Crown className="h-4 w-4 text-primary" />
+                      Upgrade to Premium
+                    </h4>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Unlock the full potential of your loyalty programme with premium features designed to grow your business.
+                    </p>
+                    <ul className="space-y-2 text-sm text-muted-foreground mb-4">
+                      <li className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-primary shrink-0" />
+                        Advanced analytics and insights dashboard
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-primary shrink-0" />
+                        Automated FTP reconciliation imports
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-primary shrink-0" />
+                        Diner discovery listing
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-primary shrink-0" />
+                        Priority support
+                      </li>
+                    </ul>
+                  </CardContent>
+                </Card>
+
+                <Button
+                  className="w-full gap-2"
+                  onClick={() => setShowConfirmDialog(true)}
+                  data-testid="button-subscribe"
+                >
+                  <Crown className="h-4 w-4" />
+                  Activate Premium
+                </Button>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <DialogContent className="sm:max-w-lg" data-testid="modal-subscribe-confirm">
+          <DialogHeader className="text-center items-center">
+            <div className="mx-auto bg-primary/10 rounded-full p-3 mb-2">
+              <Crown className="h-8 w-8 text-primary" />
+            </div>
+            <DialogTitle className="text-xl">Activate Premium Subscription</DialogTitle>
+            <DialogDescription className="text-center">
+              You are about to upgrade your restaurant to a premium partner on Dine&More.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 text-sm text-muted-foreground p-4 bg-muted/30 rounded-lg">
+            <p>By activating premium, you will gain access to:</p>
+            <ul className="list-disc pl-4 space-y-1">
+              <li>Advanced analytics and business insights</li>
+              <li>Automated FTP-based reconciliation imports</li>
+              <li>Diner discovery listing visibility</li>
+              <li>Priority support from the Dine&More team</li>
+            </ul>
+            <p className="pt-2 font-medium text-foreground">
+              Premium features will be available immediately after activation.
+            </p>
+          </div>
+
+          <DialogFooter className="flex flex-col gap-2 sm:flex-col">
+            <Button
+              onClick={() => subscribeMutation.mutate()}
+              disabled={subscribeMutation.isPending}
+              className="w-full gap-2"
+              data-testid="button-confirm-subscribe"
+            >
+              {subscribeMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Activating...
+                </>
+              ) : (
+                <>
+                  <Crown className="h-4 w-4" />
+                  Confirm & Activate Premium
+                </>
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => setShowConfirmDialog(false)}
+              className="w-full text-muted-foreground"
+              data-testid="button-cancel-subscribe"
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 function AdminSettingsContent() {
   const [voucherValue, setVoucherValue] = useState("R100 Loyalty Voucher");
   const [voucherValidityDays, setVoucherValidityDays] = useState<number | string>(30);
@@ -453,10 +741,11 @@ function AdminSettingsContent() {
       </div>
 
       <Tabs defaultValue="voucher" className="w-full space-y-6">
-          <TabsList className="grid w-full grid-cols-4 max-w-[640px]">
+          <TabsList className="grid w-full grid-cols-5 max-w-[800px]">
             <TabsTrigger value="voucher">Voucher Config</TabsTrigger>
             <TabsTrigger value="users">User Management</TabsTrigger>
             <TabsTrigger value="discovery">Discovery</TabsTrigger>
+            <TabsTrigger value="subscription" data-testid="tab-subscription">Subscription</TabsTrigger>
             <TabsTrigger value="qr">QR Codes</TabsTrigger>
           </TabsList>
 
@@ -938,6 +1227,11 @@ function AdminSettingsContent() {
           {/* DINER DISCOVERY TAB */}
           <TabsContent value="discovery" className="space-y-6">
             <DinerDiscoverySection />
+          </TabsContent>
+
+          {/* SUBSCRIPTION TAB */}
+          <TabsContent value="subscription" className="space-y-6">
+            <SubscriptionSection />
           </TabsContent>
 
           {/* QR CODES TAB */}

@@ -58,6 +58,7 @@ import {
   type InsertPhoneChangeRequest,
   type PhoneChangeRequest,
   type RestaurantSubscription,
+  type InsertRestaurantSubscription,
   restaurantSubscriptions,
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/node-postgres";
@@ -339,7 +340,8 @@ export interface IStorage {
 
   // Restaurant Subscription Management
   getRestaurantSubscription(restaurantId: string): Promise<RestaurantSubscription | undefined>;
-
+  createRestaurantSubscription(data: InsertRestaurantSubscription): Promise<RestaurantSubscription>;
+  updateRestaurantSubscription(restaurantId: string, data: Partial<InsertRestaurantSubscription>): Promise<RestaurantSubscription>;
 
   // Platform stats
   countAllRestaurants(): Promise<number>;
@@ -1551,6 +1553,21 @@ export class DbStorage implements IStorage {
     return result[0];
   }
 
+  async createRestaurantSubscription(data: InsertRestaurantSubscription): Promise<RestaurantSubscription> {
+    const result = await db.insert(restaurantSubscriptions).values(data).returning();
+    return result[0];
+  }
+
+  async updateRestaurantSubscription(restaurantId: string, data: Partial<InsertRestaurantSubscription>): Promise<RestaurantSubscription> {
+    const result = await db.update(restaurantSubscriptions)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(restaurantSubscriptions.restaurantId, restaurantId))
+      .returning();
+    if (!result[0]) {
+      throw new Error("Subscription record not found for this restaurant");
+    }
+    return result[0];
+  }
 
   async countAllRestaurants(): Promise<number> {
     const result = await db.select({ count: sql<number>`count(*)::int` }).from(restaurants);

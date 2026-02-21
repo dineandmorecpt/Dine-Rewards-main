@@ -294,22 +294,57 @@ export type RegistrationVoucherStatus = typeof registrationVoucherStatus.$inferS
 export const campaigns = pgTable("campaigns", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id),
-  branchId: varchar("branch_id").references(() => branches.id), // Branch-specific campaign (null = org-wide)
+  branchId: varchar("branch_id").references(() => branches.id),
   name: text("name").notNull(),
-  voucherTitle: text("voucher_title").notNull(),
-  targetAudience: text("target_audience").notNull(), // 'all' | 'vip' | 'new' | 'lapsed'
+  channel: text("channel").notNull().default("sms"), // 'sms' | 'email'
+  subject: text("subject"), // Email subject (null for SMS)
+  targetAudience: text("target_audience").notNull().default("all"), // 'all' | 'top_spenders' | 'new' | 'lapsed' | 'birthday'
   message: text("message").notNull(),
-  status: text("status").notNull().default("scheduled"), // 'scheduled' | 'active' | 'completed'
-  scheduledFor: timestamp("scheduled_for"),
+  status: text("status").notNull().default("draft"), // 'draft' | 'sending' | 'completed' | 'failed'
+  sentCount: integer("sent_count").default(0),
+  successCount: integer("success_count").default(0),
+  failedCount: integer("failed_count").default(0),
+  sentAt: timestamp("sent_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const insertCampaignSchema = createInsertSchema(campaigns).omit({
   id: true,
+  sentCount: true,
+  successCount: true,
+  failedCount: true,
+  sentAt: true,
   createdAt: true,
 });
 export type InsertCampaign = z.infer<typeof insertCampaignSchema>;
 export type Campaign = typeof campaigns.$inferSelect;
+
+export const campaignRecipients = pgTable("campaign_recipients", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  campaignId: varchar("campaign_id").notNull().references(() => campaigns.id, { onDelete: 'cascade' }),
+  dinerId: varchar("diner_id").notNull().references(() => diners.id),
+  channel: text("channel").notNull(), // 'sms' | 'email'
+  destination: text("destination").notNull(), // phone or email
+  status: text("status").notNull().default("pending"), // 'pending' | 'sent' | 'failed'
+  error: text("error"),
+  sentAt: timestamp("sent_at"),
+});
+export type CampaignRecipient = typeof campaignRecipients.$inferSelect;
+
+export const campaignTemplates = pgTable("campaign_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  channel: text("channel").notNull().default("sms"),
+  targetAudience: text("target_audience").notNull(),
+  messageTemplate: text("message_template").notNull(),
+  subjectTemplate: text("subject_template"),
+  category: text("category").notNull().default("engagement"), // 'engagement' | 'retention' | 'winback' | 'celebration'
+  isActive: boolean("is_active").notNull().default(true),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type CampaignTemplate = typeof campaignTemplates.$inferSelect;
 
 // Reconciliation batch - represents a single CSV upload
 export const reconciliationBatches = pgTable("reconciliation_batches", {

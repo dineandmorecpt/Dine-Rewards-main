@@ -43,6 +43,10 @@ import {
   vouchers,
   voucherTypes,
   campaigns,
+  campaignRecipients,
+  campaignTemplates,
+  type CampaignRecipient,
+  type CampaignTemplate,
   reconciliationBatches,
   reconciliationRecords,
   dinerInvitations,
@@ -177,7 +181,16 @@ export interface IStorage {
   
   // Campaign Management
   createCampaign(campaign: InsertCampaign): Promise<Campaign>;
+  getCampaign(id: string): Promise<Campaign | undefined>;
   getCampaignsByRestaurant(restaurantId: string): Promise<Campaign[]>;
+  getCampaignCount(restaurantId: string): Promise<number>;
+  updateCampaign(id: string, data: Partial<Campaign>): Promise<Campaign>;
+  deleteCampaign(id: string): Promise<void>;
+  createCampaignRecipient(recipient: { campaignId: string; dinerId: string; channel: string; destination: string }): Promise<CampaignRecipient>;
+  getCampaignRecipients(campaignId: string): Promise<CampaignRecipient[]>;
+  updateCampaignRecipient(id: string, data: Partial<CampaignRecipient>): Promise<void>;
+  getCampaignTemplates(): Promise<CampaignTemplate[]>;
+  getDinersByRestaurantAudience(restaurantId: string, audience: string, channel: string): Promise<{ id: string; name: string; email: string; phone: string | null }[]>;
   
   // Restaurant Settings
   updateRestaurantSettings(
@@ -896,10 +909,108 @@ export class DbStorage implements IStorage {
     return result[0];
   }
 
+  async getCampaign(id: string): Promise<Campaign | undefined> {
+    const result = await db.select().from(campaigns).where(eq(campaigns.id, id));
+    return result[0];
+  }
+
   async getCampaignsByRestaurant(restaurantId: string): Promise<Campaign[]> {
     return await db.select().from(campaigns)
       .where(eq(campaigns.restaurantId, restaurantId))
       .orderBy(desc(campaigns.createdAt));
+  }
+
+  async getCampaignCount(restaurantId: string): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)::int` }).from(campaigns)
+      .where(eq(campaigns.restaurantId, restaurantId));
+    return result[0]?.count ?? 0;
+  }
+
+  async updateCampaign(id: string, data: Partial<Campaign>): Promise<Campaign> {
+    const result = await db.update(campaigns).set(data).where(eq(campaigns.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteCampaign(id: string): Promise<void> {
+    await db.delete(campaigns).where(eq(campaigns.id, id));
+  }
+
+  async createCampaignRecipient(recipient: { campaignId: string; dinerId: string; channel: string; destination: string }): Promise<CampaignRecipient> {
+    const result = await db.insert(campaignRecipients).values(recipient).returning();
+    return result[0];
+  }
+
+  async getCampaignRecipients(campaignId: string): Promise<CampaignRecipient[]> {
+    return await db.select().from(campaignRecipients)
+      .where(eq(campaignRecipients.campaignId, campaignId));
+  }
+
+  async updateCampaignRecipient(id: string, data: Partial<CampaignRecipient>): Promise<void> {
+    await db.update(campaignRecipients).set(data).where(eq(campaignRecipients.id, id));
+  }
+
+  async getCampaignTemplates(): Promise<CampaignTemplate[]> {
+    return await db.select().from(campaignTemplates)
+      .where(eq(campaignTemplates.isActive, true))
+      .orderBy(campaignTemplates.sortOrder);
+  }
+
+  async getDinersByRestaurantAudience(restaurantId: string, audience: string, channel: string): Promise<{ id: string; name: string; email: string; phone: string | null }[]> {
+    const balances = await db.select({
+      dinerId: pointsBalances.dinerId,
+      totalPoints: pointsBalances.currentPoints,
+    }).from(pointsBalances)
+      .where(eq(pointsBalances.restaurantId, restaurantId));
+
+    const dinerIds = balances.map(b => b.dinerId);
+    if (dinerIds.length === 0) return [];
+
+    const allDiners = await db.select({
+      id: diners.id,
+      name: diners.name,
+      email: diners.email,
+      phone: diners.phone,
+      dateOfBirth: diners.dateOfBirth,
+      createdAt: diners.createdAt,
+    }).from(diners)
+      .where(inArray(diners.id, dinerIds));
+
+    let filtered = allDiners;
+
+    if (audience === "new") {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      filtered = allDiners.filter(d => d.createdAt >= thirtyDaysAgo);
+    } else if (audience === "top_spenders") {
+      const pointsMap = new Map(balances.map(b => [b.dinerId, Number(b.totalPoints)]));
+      filtered = [...allDiners].sort((a, b) => (pointsMap.get(b.id) ?? 0) - (pointsMap.get(a.id) ?? 0));
+      filtered = filtered.slice(0, Math.max(1, Math.ceil(filtered.length * 0.2)));
+    } else if (audience === "lapsed") {
+      const recentTxns = await db.select({ dinerId: transactions.dinerId })
+        .from(transactions)
+        .where(and(
+          eq(transactions.restaurantId, restaurantId),
+          sql`${transactions.createdAt} > now() - interval '60 days'`
+        ));
+      const recentSet = new Set(recentTxns.map(t => t.dinerId));
+      filtered = allDiners.filter(d => !recentSet.has(d.id));
+    } else if (audience === "birthday") {
+      const now = new Date();
+      const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
+      filtered = allDiners.filter(d => {
+        if (!d.dateOfBirth) return false;
+        const parts = d.dateOfBirth.split('/');
+        return parts.length >= 2 && parts[1] === currentMonth;
+      });
+    }
+
+    if (channel === "sms") {
+      filtered = filtered.filter(d => d.phone);
+    } else if (channel === "email") {
+      filtered = filtered.filter(d => d.email);
+    }
+
+    return filtered.map(d => ({ id: d.id, name: d.name, email: d.email, phone: d.phone }));
   }
 
   async updateRestaurantSettings(

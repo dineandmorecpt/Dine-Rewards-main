@@ -76,7 +76,7 @@ function AdminLayoutContent({ children }: AdminLayoutProps) {
     { name: "Insights", href: "/admin/insights", icon: Lightbulb },
     { name: "Activity Logs", href: "/admin/activity-logs", icon: Activity },
     { name: "Reservations", href: null, icon: CalendarDays, premium: true },
-    { name: "Campaigns", href: null, icon: Megaphone, premium: true },
+    { name: "Campaigns", href: "/admin/campaigns", icon: Megaphone, premium: true },
     { name: "Business Profile", href: "/admin/profile", icon: Building2 },
     { name: "Settings", href: "/admin/settings", icon: Settings },
     { name: "Services Agreement", href: "/admin/services-agreement", icon: FileText },

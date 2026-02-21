@@ -103,6 +103,17 @@ import { getAuthHeaders } from "@/lib/queryClient";
 - Modify authentication logic without thorough testing of both admin and diner portals
 
 
+### Campaigns (Premium Feature)
+Subscribed restaurants can create targeted SMS or email campaigns to their diner base, limited to 3 campaigns for Tier 1 subscriptions.
+
+- **Campaign Templates**: DB-driven recommendations stored in `campaign_templates` table, categorized as engagement, retention, winback, or celebration.
+- **Audience Targeting**: Campaigns can target all diners, top spenders (top 20%), new members (last 30 days), lapsed diners (no visit in 60 days), or birthday month diners.
+- **Channel Support**: SMS (via SMS Portal API) and email (via Bird API) channels.
+- **Recipient Tracking**: Each send is tracked per-diner in `campaign_recipients` with delivery status.
+- **Tier 1 Limit**: Maximum 3 campaigns per restaurant. Enforced on create endpoint.
+- **Message Personalization**: Templates support `{{name}}` and `{{restaurant}}` placeholders.
+- **API Routes**: All campaign routes (`/api/admin/campaigns/*`) are subscription-gated.
+
 ### Core Features
 - **User Management**: Restaurant admins can view and manage diners, and owners can manage staff with role-based access.
 - **Profile Management**: Admins manage business profiles, while diners can manage their personal profiles and view transaction history.

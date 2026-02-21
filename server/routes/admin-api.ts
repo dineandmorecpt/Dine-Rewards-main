@@ -11,6 +11,7 @@ import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import rateLimit from "express-rate-limit";
 import { getSchedulerStatus, fetchAndProcessFtpFiles, recordFetchResult } from "../services/scheduler";
+import { CampaignService } from "../services/campaign.service";
 
 const services = createLoyaltyServices(storage);
 
@@ -1772,5 +1773,168 @@ export function registerAdminApiRoutes(router: Router): void {
       res.status(500).json({ error: "Failed to update FTP path" });
     }
   });
+
+  // ============================================================================
+  // CAMPAIGNS
+  // ============================================================================
+  const campaignService = new CampaignService(storage);
+
+  const campaignSchema = z.object({
+    name: z.string().min(1, "Campaign name is required"),
+    channel: z.enum(["sms", "email"]),
+    subject: z.string().optional().nullable(),
+    targetAudience: z.enum(["all", "top_spenders", "new", "lapsed", "birthday"]),
+    message: z.string().min(1, "Message is required"),
+    branchId: z.string().optional().nullable(),
+  });
+
+  router.get("/api/admin/campaigns", async (req, res) => {
+    try {
+      const { restaurantId, error } = await getAdminRestaurantId(req);
+      if (error) return res.status(error.status).json({ error: error.message });
+
+      const isSubscribed = await storage.isRestaurantSubscribed(restaurantId!);
+      if (!isSubscribed) return res.status(403).json({ error: "Subscription required" });
+
+      const campaigns = await storage.getCampaignsByRestaurant(restaurantId!);
+      const quota = await campaignService.canCreateCampaign(restaurantId!);
+      res.json({ campaigns, quota });
+    } catch (error) {
+      console.error("Get campaigns error:", error);
+      res.status(500).json({ error: "Failed to fetch campaigns" });
+    }
+  });
+
+  router.post("/api/admin/campaigns", async (req, res) => {
+    try {
+      const { restaurantId, error } = await getAdminRestaurantId(req);
+      if (error) return res.status(error.status).json({ error: error.message });
+
+      const isSubscribed = await storage.isRestaurantSubscribed(restaurantId!);
+      if (!isSubscribed) return res.status(403).json({ error: "Subscription required" });
+
+      const quota = await campaignService.canCreateCampaign(restaurantId!);
+      if (!quota.allowed) {
+        return res.status(403).json({
+          error: `Campaign limit reached. Tier 1 allows a maximum of ${quota.limit} campaigns.`,
+        });
+      }
+
+      const parsed = campaignSchema.parse(req.body);
+      const campaign = await storage.createCampaign({
+        ...parsed,
+        restaurantId: restaurantId!,
+        status: "draft",
+      });
+      res.status(201).json(campaign);
+    } catch (error: any) {
+      if (error?.name === "ZodError") {
+        return res.status(400).json({ error: error.errors[0]?.message || "Invalid data" });
+      }
+      console.error("Create campaign error:", error);
+      res.status(500).json({ error: "Failed to create campaign" });
+    }
+  });
+
+  router.get("/api/admin/campaigns/recommendations", async (req, res) => {
+    try {
+      const { restaurantId, error } = await getAdminRestaurantId(req);
+      if (error) return res.status(error.status).json({ error: error.message });
+
+      const isSubscribed = await storage.isRestaurantSubscribed(restaurantId!);
+      if (!isSubscribed) return res.status(403).json({ error: "Subscription required" });
+
+      const recommendations = await campaignService.getRecommendations(restaurantId!);
+      res.json(recommendations);
+    } catch (error) {
+      console.error("Get recommendations error:", error);
+      res.status(500).json({ error: "Failed to fetch recommendations" });
+    }
+  });
+
+  router.get("/api/admin/campaigns/audience-count", async (req, res) => {
+    try {
+      const { restaurantId, error } = await getAdminRestaurantId(req);
+      if (error) return res.status(error.status).json({ error: error.message });
+
+      const isSubscribed = await storage.isRestaurantSubscribed(restaurantId!);
+      if (!isSubscribed) return res.status(403).json({ error: "Subscription required" });
+
+      const audience = (req.query.audience as string) || "all";
+      const channel = (req.query.channel as string) || "sms";
+      const diners = await storage.getDinersByRestaurantAudience(restaurantId!, audience, channel);
+      res.json({ count: diners.length });
+    } catch (error) {
+      console.error("Get audience count error:", error);
+      res.status(500).json({ error: "Failed to fetch audience count" });
+    }
+  });
+
+  router.get("/api/admin/campaigns/:id", async (req, res) => {
+    try {
+      const { restaurantId, error } = await getAdminRestaurantId(req);
+      if (error) return res.status(error.status).json({ error: error.message });
+
+      const isSubscribed = await storage.isRestaurantSubscribed(restaurantId!);
+      if (!isSubscribed) return res.status(403).json({ error: "Subscription required" });
+
+      const campaign = await storage.getCampaign(req.params.id);
+      if (!campaign || campaign.restaurantId !== restaurantId) {
+        return res.status(404).json({ error: "Campaign not found" });
+      }
+
+      const recipients = await storage.getCampaignRecipients(campaign.id);
+      res.json({ campaign, recipients });
+    } catch (error) {
+      console.error("Get campaign error:", error);
+      res.status(500).json({ error: "Failed to fetch campaign" });
+    }
+  });
+
+  router.delete("/api/admin/campaigns/:id", async (req, res) => {
+    try {
+      const { restaurantId, error } = await getAdminRestaurantId(req);
+      if (error) return res.status(error.status).json({ error: error.message });
+
+      const isSubscribed = await storage.isRestaurantSubscribed(restaurantId!);
+      if (!isSubscribed) return res.status(403).json({ error: "Subscription required" });
+
+      const campaign = await storage.getCampaign(req.params.id);
+      if (!campaign || campaign.restaurantId !== restaurantId) {
+        return res.status(404).json({ error: "Campaign not found" });
+      }
+      if (campaign.status === "sending") {
+        return res.status(400).json({ error: "Cannot delete a campaign that is currently sending" });
+      }
+
+      await storage.deleteCampaign(campaign.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Delete campaign error:", error);
+      res.status(500).json({ error: "Failed to delete campaign" });
+    }
+  });
+
+  router.post("/api/admin/campaigns/:id/send", async (req, res) => {
+    try {
+      const { restaurantId, error } = await getAdminRestaurantId(req);
+      if (error) return res.status(error.status).json({ error: error.message });
+
+      const isSubscribed = await storage.isRestaurantSubscribed(restaurantId!);
+      if (!isSubscribed) return res.status(403).json({ error: "Subscription required" });
+
+      const campaign = await storage.getCampaign(req.params.id);
+      if (!campaign || campaign.restaurantId !== restaurantId) {
+        return res.status(404).json({ error: "Campaign not found" });
+      }
+
+      const result = await campaignService.sendCampaign(campaign.id);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Send campaign error:", error);
+      res.status(500).json({ error: error.message || "Failed to send campaign" });
+    }
+  });
+
 
 }

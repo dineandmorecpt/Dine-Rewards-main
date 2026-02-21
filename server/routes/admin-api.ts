@@ -1617,9 +1617,10 @@ export function registerAdminApiRoutes(router: Router): void {
       const { restaurantId, error } = await getAdminRestaurantId(req);
       if (error) return res.status(error.status).json({ error: error.message });
 
-      const { scope, branchIds } = req.body || {};
+      const { scope, branchIds, billingCycle: reqCycle } = req.body || {};
       const subscriptionScope = scope === "specific" ? "specific" : "all";
       const subscribedBranchIds = subscriptionScope === "specific" && Array.isArray(branchIds) ? branchIds : null;
+      const billingCycle = reqCycle === "annual" ? "annual" : "monthly";
 
       if (subscriptionScope === "specific") {
         if (!subscribedBranchIds || subscribedBranchIds.length === 0) {
@@ -1640,11 +1641,13 @@ export function registerAdminApiRoutes(router: Router): void {
         isSubscribed: true,
         plan: "premium",
         pricePerBranch: 1299,
+        billingCycle,
         billingType: "monthly_invoice",
         paymentTermDays: 7,
         subscriptionScope,
         subscribedBranchIds,
         subscribedAt: now,
+        cancelledAt: null,
         expiresAt: null,
       };
 
@@ -1672,26 +1675,34 @@ export function registerAdminApiRoutes(router: Router): void {
       if (error) return res.status(error.status).json({ error: error.message });
 
       const existing = await storage.getRestaurantSubscription(restaurantId!);
-      if (!existing) {
-        const created = await storage.createRestaurantSubscription({
-          restaurantId: restaurantId!,
-          isSubscribed: false,
-          plan: "free",
-          subscribedAt: null,
-          expiresAt: null,
-        });
-        const status = getSubscriptionStatus(created);
-        return res.json(status);
-      }
-
-      if (!existing.isSubscribed) {
+      if (!existing || !existing.isSubscribed) {
         const status = getSubscriptionStatus(existing);
         return res.json(status);
       }
 
+      if (existing.cancelledAt) {
+        const status = getSubscriptionStatus(existing);
+        return res.json(status);
+      }
+
+      const now = new Date();
+      const billingCycle = existing.billingCycle ?? "monthly";
+      let periodEnd: Date;
+
+      if (billingCycle === "annual") {
+        const subStart = existing.subscribedAt ?? now;
+        periodEnd = new Date(subStart);
+        periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+        while (periodEnd <= now) {
+          periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+        }
+      } else {
+        periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      }
+
       const updated = await storage.updateRestaurantSubscription(restaurantId!, {
-        isSubscribed: false,
-        plan: "free",
+        cancelledAt: now,
+        expiresAt: periodEnd,
       });
       const status = getSubscriptionStatus(updated);
       res.json(status);

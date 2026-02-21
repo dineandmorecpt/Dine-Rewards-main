@@ -243,8 +243,10 @@ function SubscriptionSection() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [selectedScope, setSelectedScope] = useState<"all" | "specific">("all");
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([]);
+  const [selectedBillingCycle, setSelectedBillingCycle] = useState<"monthly" | "annual">("monthly");
 
   const subscriptionQuery = useQuery({
     queryKey: ['/api/admin/subscription'],
@@ -285,7 +287,7 @@ function SubscriptionSection() {
 
   const subscribeMutation = useMutation({
     mutationFn: async () => {
-      const body: any = { scope: selectedScope };
+      const body: any = { scope: selectedScope, billingCycle: selectedBillingCycle };
       if (selectedScope === "specific") {
         body.branchIds = selectedBranchIds;
       }
@@ -329,9 +331,10 @@ function SubscriptionSection() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/subscription'] });
+      setShowCancelDialog(false);
       toast({
         title: "Subscription Cancelled",
-        description: "Your restaurant has been moved back to the free plan.",
+        description: "Your subscription will remain active until the end of the current billing period.",
       });
     },
     onError: (error: Error) => {
@@ -340,8 +343,15 @@ function SubscriptionSection() {
   });
 
   const isSubscribed = subscriptionQuery.data?.isSubscribed ?? false;
+  const isCancelled = subscriptionQuery.data?.isCancelled ?? false;
   const plan = subscriptionQuery.data?.plan ?? "free";
   const subscribedAt = subscriptionQuery.data?.subscribedAt;
+  const currentBillingCycle = subscriptionQuery.data?.billingCycle ?? "monthly";
+  const expiresAt = subscriptionQuery.data?.expiresAt;
+
+  const annualPricePerBranch = pricePerBranch * 12;
+  const previewTotalAnnual = annualPricePerBranch * selectedCount;
+  const displayTotal = selectedBillingCycle === "annual" ? previewTotalAnnual : previewTotal;
 
   if (subscriptionQuery.isLoading) {
     return (
@@ -401,17 +411,34 @@ function SubscriptionSection() {
 
             {isSubscribed ? (
               <>
-                <div className="flex items-start gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
-                  <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5 shrink-0" />
-                  <div>
-                    <p className="font-medium text-green-800">Subscription Active</p>
-                    <p className="text-sm text-green-700">
-                      {subscribedAt
-                        ? `Subscribed since ${new Date(subscribedAt).toLocaleDateString('en-ZA', { year: 'numeric', month: 'long', day: 'numeric' })}.`
-                        : "Your subscription is active."}
-                    </p>
+                {isCancelled ? (
+                  <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                    <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="font-medium text-amber-800">Subscription Cancelled</p>
+                      <p className="text-sm text-amber-700">
+                        Your subscription is still active until{" "}
+                        <span className="font-semibold">
+                          {expiresAt
+                            ? new Date(expiresAt).toLocaleDateString('en-ZA', { year: 'numeric', month: 'long', day: 'numeric' })
+                            : "the end of your billing period"}
+                        </span>. No refunds are available for the remaining period.
+                      </p>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="flex items-start gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
+                    <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="font-medium text-green-800">Subscription Active</p>
+                      <p className="text-sm text-green-700">
+                        {subscribedAt
+                          ? `Subscribed since ${new Date(subscribedAt).toLocaleDateString('en-ZA', { year: 'numeric', month: 'long', day: 'numeric' })}. Billed ${currentBillingCycle === "annual" ? "annually" : "monthly"}.`
+                          : "Your subscription is active."}
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 <Card className="border-dashed">
                   <CardContent className="pt-6">
@@ -451,38 +478,59 @@ function SubscriptionSection() {
 
                 <div className="p-4 bg-muted/50 rounded-lg text-sm text-muted-foreground space-y-2">
                   <p className="font-medium text-foreground">Billing</p>
-                  <p>R{pricePerBranch.toLocaleString()} per branch/month &times; {subscribedBranchCount} {subscribedBranchCount === 1 ? 'branch' : 'branches'} = <span className="font-semibold text-foreground">R{currentTotal.toLocaleString()}/month</span></p>
-                  <p>Invoiced monthly at the end of each month, payable within 7 days.</p>
+                  {currentBillingCycle === "annual" ? (
+                    <p>R{pricePerBranch.toLocaleString()} per branch/month &times; {subscribedBranchCount} {subscribedBranchCount === 1 ? 'branch' : 'branches'} &times; 12 months = <span className="font-semibold text-foreground">R{(pricePerBranch * subscribedBranchCount * 12).toLocaleString()}/year</span></p>
+                  ) : (
+                    <p>R{pricePerBranch.toLocaleString()} per branch/month &times; {subscribedBranchCount} {subscribedBranchCount === 1 ? 'branch' : 'branches'} = <span className="font-semibold text-foreground">R{currentTotal.toLocaleString()}/month</span></p>
+                  )}
+                  <p>Invoiced {currentBillingCycle === "annual" ? "annually" : "monthly"} via invoice, payable within 7 days.</p>
                   {subscriptionQuery.data?.nextInvoiceDate && (
                     <p>Next invoice: <span className="font-medium text-foreground">{new Date(subscriptionQuery.data.nextInvoiceDate).toLocaleDateString('en-ZA', { year: 'numeric', month: 'long', day: 'numeric' })}</span> &middot; Payment due: <span className="font-medium text-foreground">{new Date(subscriptionQuery.data.paymentDueDate).toLocaleDateString('en-ZA', { year: 'numeric', month: 'long', day: 'numeric' })}</span></p>
                   )}
                 </div>
 
-                <Button
-                  variant="outline"
-                  className="w-full text-destructive hover:text-destructive"
-                  onClick={() => unsubscribeMutation.mutate()}
-                  disabled={unsubscribeMutation.isPending}
-                  data-testid="button-unsubscribe"
-                >
-                  {unsubscribeMutation.isPending ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Cancelling...
-                    </>
-                  ) : (
-                    "Cancel Subscription"
-                  )}
-                </Button>
+                {!isCancelled && (
+                  <Button
+                    variant="outline"
+                    className="w-full text-destructive hover:text-destructive"
+                    onClick={() => setShowCancelDialog(true)}
+                    data-testid="button-unsubscribe"
+                  >
+                    Cancel Subscription
+                  </Button>
+                )}
               </>
             ) : (
               <>
                 <Card className="border-primary/30 bg-primary/5">
                   <CardContent className="pt-6">
+                    <div className="flex items-center gap-2 mb-4">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedBillingCycle("monthly")}
+                        className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${selectedBillingCycle === "monthly" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+                        data-testid="button-cycle-monthly"
+                      >
+                        Monthly
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedBillingCycle("annual")}
+                        className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${selectedBillingCycle === "annual" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+                        data-testid="button-cycle-annual"
+                      >
+                        Annual
+                      </button>
+                    </div>
                     <div className="flex items-baseline gap-2 mb-1">
                       <span className="text-3xl font-bold text-foreground">R{pricePerBranch.toLocaleString()}</span>
                       <span className="text-sm text-muted-foreground">per branch / month</span>
                     </div>
+                    {selectedBillingCycle === "annual" && (
+                      <p className="text-sm text-muted-foreground mb-1">
+                        R{annualPricePerBranch.toLocaleString()} per branch / year (billed annually)
+                      </p>
+                    )}
                     <div className="mb-4" />
                     <ul className="space-y-2 text-sm text-muted-foreground mb-4">
                       <li className="flex items-center gap-2">
@@ -498,7 +546,10 @@ function SubscriptionSection() {
                         Deeper data insights on the insights dashboard
                       </li>
                     </ul>
-                    <p className="text-xs text-muted-foreground border-t pt-3">Billed monthly via invoice, payable within 7 days of month-end.</p>
+                    <p className="text-xs text-muted-foreground border-t pt-3">
+                      Billed {selectedBillingCycle === "annual" ? "annually" : "monthly"} via invoice, payable within 7 days.
+                      {" "}No refunds upon cancellation — your subscription will remain active until the end of the {selectedBillingCycle === "annual" ? "year" : "month"}.
+                    </p>
                   </CardContent>
                 </Card>
 
@@ -550,7 +601,11 @@ function SubscriptionSection() {
 
                       <div className="text-sm text-muted-foreground pt-2 border-t">
                         {selectedCount > 0 ? (
-                          <p>{selectedCount} {selectedCount === 1 ? 'branch' : 'branches'} &times; R{pricePerBranch.toLocaleString()} = <span className="font-semibold text-foreground">R{previewTotal.toLocaleString()}/month</span></p>
+                          selectedBillingCycle === "annual" ? (
+                            <p>{selectedCount} {selectedCount === 1 ? 'branch' : 'branches'} &times; R{annualPricePerBranch.toLocaleString()} = <span className="font-semibold text-foreground">R{(annualPricePerBranch * selectedCount).toLocaleString()}/year</span></p>
+                          ) : (
+                            <p>{selectedCount} {selectedCount === 1 ? 'branch' : 'branches'} &times; R{pricePerBranch.toLocaleString()} = <span className="font-semibold text-foreground">R{previewTotal.toLocaleString()}/month</span></p>
+                          )
                         ) : (
                           <p className="text-amber-600">Please select at least one branch</p>
                         )}
@@ -605,9 +660,16 @@ function SubscriptionSection() {
             )}
             <div className="pt-3 border-t mt-3 space-y-1">
               <p className="font-medium text-foreground">
-                R{pricePerBranch.toLocaleString()} per branch/month &times; {selectedCount} {selectedCount === 1 ? 'branch' : 'branches'} = R{previewTotal.toLocaleString()}/month
+                {selectedBillingCycle === "annual" ? (
+                  <>R{pricePerBranch.toLocaleString()} per branch/month &times; {selectedCount} {selectedCount === 1 ? 'branch' : 'branches'} &times; 12 months = R{displayTotal.toLocaleString()}/year</>
+                ) : (
+                  <>R{pricePerBranch.toLocaleString()} per branch/month &times; {selectedCount} {selectedCount === 1 ? 'branch' : 'branches'} = R{displayTotal.toLocaleString()}/month</>
+                )}
               </p>
-              <p className="text-xs">You will be invoiced monthly at the end of each month. Payment is due within 7 days of the invoice date.</p>
+              <p className="text-xs">You will be invoiced {selectedBillingCycle === "annual" ? "annually" : "monthly"}. Payment is due within 7 days of the invoice date.</p>
+            </div>
+            <div className="pt-2 border-t mt-2">
+              <p className="text-xs text-muted-foreground">By subscribing, you agree to the following terms: No refunds will be issued upon cancellation. If you cancel, your subscription will remain active until the end of the current {selectedBillingCycle === "annual" ? "annual" : "monthly"} billing period.</p>
             </div>
           </div>
 
@@ -637,6 +699,58 @@ function SubscriptionSection() {
               data-testid="button-cancel-subscribe"
             >
               Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <DialogContent className="sm:max-w-lg" data-testid="modal-cancel-confirm">
+          <DialogHeader className="text-center items-center">
+            <div className="mx-auto bg-destructive/10 rounded-full p-3 mb-2">
+              <AlertTriangle className="h-8 w-8 text-destructive" />
+            </div>
+            <DialogTitle className="text-xl">Cancel Subscription</DialogTitle>
+            <DialogDescription className="text-center">
+              Are you sure you want to cancel your subscription?
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 text-sm text-muted-foreground p-4 bg-muted/30 rounded-lg">
+            <p className="font-medium text-foreground">Terms & Conditions</p>
+            <ul className="list-disc pl-4 space-y-1.5">
+              <li>Your subscription will remain active until the end of the current {currentBillingCycle === "annual" ? "annual" : "monthly"} billing period{expiresAt ? "" : ` (${currentBillingCycle === "annual" ? "end of subscription year" : "end of current month"})`}.</li>
+              <li>No refunds will be issued for the remaining time of your {currentBillingCycle === "annual" ? "annual" : "monthly"} subscription.</li>
+              <li>You will continue to have access to all premium features until the subscription expires.</li>
+              <li>After expiry, your restaurant will revert to the free plan and premium features will no longer be available.</li>
+              <li>You may re-subscribe at any time.</li>
+            </ul>
+          </div>
+
+          <DialogFooter className="flex flex-col gap-2 sm:flex-col">
+            <Button
+              variant="destructive"
+              onClick={() => unsubscribeMutation.mutate()}
+              disabled={unsubscribeMutation.isPending}
+              className="w-full"
+              data-testid="button-confirm-cancel"
+            >
+              {unsubscribeMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Cancelling...
+                </>
+              ) : (
+                "Confirm Cancellation"
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => setShowCancelDialog(false)}
+              className="w-full text-muted-foreground"
+              data-testid="button-keep-subscription"
+            >
+              Keep Subscription
             </Button>
           </DialogFooter>
         </DialogContent>

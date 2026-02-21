@@ -35,18 +35,22 @@ export function getSubscriptionStatus(subscription: {
   isSubscribed: boolean;
   plan: string | null;
   pricePerBranch?: number | null;
+  billingCycle?: string | null;
   billingType?: string | null;
   paymentTermDays?: number | null;
   subscriptionScope?: string | null;
   subscribedBranchIds?: string[] | null;
+  cancelledAt?: Date | null;
   expiresAt: Date | null;
   subscribedAt?: Date | null;
 } | null) {
   const defaults = {
+    billingCycle: "monthly" as const,
     billingType: "monthly_invoice" as const,
     paymentTermDays: 7,
     subscriptionScope: "all" as const,
     subscribedBranchIds: null as string[] | null,
+    cancelledAt: null as string | null,
   };
 
   if (!subscription) {
@@ -55,23 +59,45 @@ export function getSubscriptionStatus(subscription: {
   const now = new Date();
   const isActive = subscription.isSubscribed && (!subscription.expiresAt || subscription.expiresAt > now);
   const termDays = subscription.paymentTermDays ?? 7;
+  const billingCycle = subscription.billingCycle ?? "monthly";
 
-  const nextInvoiceDate = getNextInvoiceDate(now);
-  const paymentDueDate = getPaymentDueDate(nextInvoiceDate, termDays);
+  const isCancelled = !!subscription.cancelledAt;
+
+  let invoiceDates: { nextInvoiceDate: string; paymentDueDate: string } | {} = {};
+  if (isActive && !isCancelled) {
+    if (billingCycle === "annual" && subscription.subscribedAt) {
+      const subStart = new Date(subscription.subscribedAt);
+      const nextAnnual = new Date(subStart);
+      nextAnnual.setFullYear(nextAnnual.getFullYear() + 1);
+      while (nextAnnual <= now) {
+        nextAnnual.setFullYear(nextAnnual.getFullYear() + 1);
+      }
+      invoiceDates = {
+        nextInvoiceDate: nextAnnual.toISOString(),
+        paymentDueDate: getPaymentDueDate(nextAnnual, termDays).toISOString(),
+      };
+    } else {
+      const nextMonthly = getNextInvoiceDate(now);
+      invoiceDates = {
+        nextInvoiceDate: nextMonthly.toISOString(),
+        paymentDueDate: getPaymentDueDate(nextMonthly, termDays).toISOString(),
+      };
+    }
+  }
 
   return {
     isSubscribed: isActive,
     plan: subscription.plan,
     pricePerBranch: subscription.pricePerBranch ?? 1299,
-    billingType: subscription.billingType ?? "monthly_invoice",
+    billingCycle,
+    billingType: billingCycle === "annual" ? "annual_invoice" : "monthly_invoice",
     paymentTermDays: termDays,
     subscriptionScope: subscription.subscriptionScope ?? "all",
     subscribedBranchIds: subscription.subscribedBranchIds ?? null,
     subscribedAt: subscription.subscribedAt,
-    expiresAt: subscription.expiresAt,
-    ...(isActive ? {
-      nextInvoiceDate: nextInvoiceDate.toISOString(),
-      paymentDueDate: paymentDueDate.toISOString(),
-    } : {}),
+    cancelledAt: subscription.cancelledAt ? subscription.cancelledAt.toISOString() : null,
+    isCancelled,
+    expiresAt: subscription.expiresAt ? subscription.expiresAt.toISOString() : null,
+    ...invoiceDates,
   };
 }

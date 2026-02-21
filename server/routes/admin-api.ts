@@ -149,7 +149,9 @@ export function registerAdminApiRoutes(router: Router): void {
       if (!restaurant) {
         return res.status(404).json({ error: "Restaurant not found" });
       }
-      res.json(restaurant);
+      const subscription = await storage.getRestaurantSubscription(restaurantId!);
+      const subscriptionStatus = getSubscriptionStatus(subscription ?? null);
+      res.json({ ...restaurant, subscription: subscriptionStatus });
     } catch (error) {
       console.error("Get admin restaurant error:", error);
       res.status(500).json({ error: "Failed to fetch restaurant" });
@@ -1622,6 +1624,7 @@ export function registerAdminApiRoutes(router: Router): void {
         const updated = await storage.updateRestaurantSubscription(restaurantId!, {
           isSubscribed: true,
           plan: "premium",
+          pricePerBranch: 1299,
           subscribedAt: now,
           expiresAt: null,
         });
@@ -1633,6 +1636,7 @@ export function registerAdminApiRoutes(router: Router): void {
         restaurantId: restaurantId!,
         isSubscribed: true,
         plan: "premium",
+        pricePerBranch: 1299,
         subscribedAt: now,
         expiresAt: null,
       });

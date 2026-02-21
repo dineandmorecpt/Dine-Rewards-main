@@ -342,6 +342,7 @@ export interface IStorage {
   getRestaurantSubscription(restaurantId: string): Promise<RestaurantSubscription | undefined>;
   createRestaurantSubscription(data: InsertRestaurantSubscription): Promise<RestaurantSubscription>;
   updateRestaurantSubscription(restaurantId: string, data: Partial<InsertRestaurantSubscription>): Promise<RestaurantSubscription>;
+  isRestaurantSubscribed(restaurantId: string): Promise<boolean>;
 
   // Platform stats
   countAllRestaurants(): Promise<number>;
@@ -1567,6 +1568,13 @@ export class DbStorage implements IStorage {
       throw new Error("Subscription record not found for this restaurant");
     }
     return result[0];
+  }
+
+  async isRestaurantSubscribed(restaurantId: string): Promise<boolean> {
+    const sub = await this.getRestaurantSubscription(restaurantId);
+    if (!sub) return false;
+    const now = new Date();
+    return sub.isSubscribed && (!sub.expiresAt || sub.expiresAt > now);
   }
 
   async countAllRestaurants(): Promise<number> {

@@ -23,17 +23,19 @@ export function validateDiscoveryEligibility(onboardingStatus: string) {
 export function getSubscriptionStatus(subscription: {
   isSubscribed: boolean;
   plan: string | null;
+  pricePerBranch?: number | null;
   expiresAt: Date | null;
   subscribedAt?: Date | null;
 } | null) {
   if (!subscription) {
-    return { isSubscribed: false, plan: "free" };
+    return { isSubscribed: false, plan: "free", pricePerBranch: 1299 };
   }
   const now = new Date();
   const isActive = subscription.isSubscribed && (!subscription.expiresAt || subscription.expiresAt > now);
   return {
     isSubscribed: isActive,
     plan: subscription.plan,
+    pricePerBranch: subscription.pricePerBranch ?? 1299,
     subscribedAt: subscription.subscribedAt,
     expiresAt: subscription.expiresAt,
   };

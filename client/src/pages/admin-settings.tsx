@@ -263,7 +263,7 @@ function SubscriptionSection() {
   });
 
   const branchCount = Array.isArray(branchesQuery.data) ? branchesQuery.data.length : 1;
-  const pricePerBranch = 1299;
+  const pricePerBranch = subscriptionQuery.data?.pricePerBranch ?? 1299;
   const totalMonthly = pricePerBranch * branchCount;
 
   const subscribeMutation = useMutation({

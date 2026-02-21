@@ -508,6 +508,7 @@ export const restaurantSubscriptions = pgTable("restaurant_subscriptions", {
   restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id),
   isSubscribed: boolean("is_subscribed").notNull().default(false),
   plan: text("plan").default("free"),
+  pricePerBranch: integer("price_per_branch").default(1299),
   subscribedAt: timestamp("subscribed_at"),
   expiresAt: timestamp("expires_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),

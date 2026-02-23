@@ -278,7 +278,7 @@ export default function AdminUsers() {
                           {pu.user.email}
                         </TableCell>
                         <TableCell>
-                          <Badge variant={pu.role === "manager" ? "default" : "secondary"}>
+                          <Badge variant={pu.role === "owner" ? "destructive" : pu.role === "manager" ? "default" : "secondary"}>
                             {pu.role.charAt(0).toUpperCase() + pu.role.slice(1)}
                           </Badge>
                         </TableCell>
@@ -286,15 +286,17 @@ export default function AdminUsers() {
                           {formatDate(pu.createdAt)}
                         </TableCell>
                         <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeStaff.mutate(pu.id)}
-                            disabled={removeStaff.isPending}
-                            data-testid={`button-remove-staff-${pu.id}`}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
+                          {pu.role !== "owner" && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeStaff.mutate(pu.id)}
+                              disabled={removeStaff.isPending}
+                              data-testid={`button-remove-staff-${pu.id}`}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}

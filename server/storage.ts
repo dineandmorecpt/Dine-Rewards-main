@@ -1183,6 +1183,8 @@ export class DbStorage implements IStorage {
     
     const allBranches = await this.getBranchesByRestaurant(restaurantId);
     const branchMap = new Map(allBranches.map(b => [b.id, b.name]));
+    const allBranchIds = allBranches.map(b => b.id);
+    const allBranchNames = allBranches.map(b => b.name);
     
     const enrichedResults = await Promise.all(results.map(async r => {
       const branchIds = await this.getPortalUserBranches(r.portal_users.id);
@@ -1194,6 +1196,28 @@ export class DbStorage implements IStorage {
         branchNames
       };
     }));
+
+    const restaurant = await this.getRestaurant(restaurantId);
+    if (restaurant?.adminUserId) {
+      const ownerInList = enrichedResults.some(r => r.userId === restaurant.adminUserId);
+      if (!ownerInList) {
+        const ownerUser = await this.getUser(restaurant.adminUserId);
+        if (ownerUser) {
+          enrichedResults.unshift({
+            id: `owner-${restaurant.adminUserId}`,
+            restaurantId,
+            userId: restaurant.adminUserId,
+            role: "owner",
+            addedBy: null,
+            hasAllBranchAccess: true,
+            createdAt: restaurant.createdAt,
+            user: ownerUser,
+            branchIds: allBranchIds,
+            branchNames: allBranchNames,
+          });
+        }
+      }
+    }
     
     return enrichedResults;
   }

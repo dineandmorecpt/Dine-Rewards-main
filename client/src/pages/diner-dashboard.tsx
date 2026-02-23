@@ -52,10 +52,14 @@ interface VoucherType {
   name: string;
   description?: string;
   rewardDetails?: string;
+  category: string;
   earningMode: string; // 'points' | 'visits'
   creditsCost: number;
   validityDays: number;
-  isActive: boolean;
+  value?: number | null;
+  freeItemType?: string | null;
+  freeItemDescription?: string | null;
+  isActive?: boolean;
 }
 
 type VoucherStatus = "active" | "redeemed" | "expired";
@@ -165,6 +169,19 @@ export default function DinerDashboard() {
       return res.json();
     },
     enabled: !!dinerId,
+  });
+
+  const { data: restaurantVoucherTypes = [] } = useQuery<VoucherType[]>({
+    queryKey: ["/api/diner/restaurants", selectedRestaurantId, "voucher-types"],
+    queryFn: async () => {
+      const res = await fetch(`/api/diner/restaurants/${selectedRestaurantId}/voucher-types`, {
+        credentials: "include",
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!dinerId && !!selectedRestaurantId,
   });
 
   interface AvailableRestaurant {
@@ -555,6 +572,56 @@ export default function DinerDashboard() {
                     <span><strong>Visits vouchers:</strong> Visit {selectedRestaurant.visitThreshold} times to earn a credit</span>
                   </div>
                 </div>
+
+                {/* Available Voucher Types */}
+                {restaurantVoucherTypes.length > 0 && (
+                  <div className="space-y-3" data-testid="section-voucher-types">
+                    <h3 className="text-sm font-semibold flex items-center gap-2" data-testid="text-voucher-types-title">
+                      <Gift className="h-4 w-4 text-rose-600" />
+                      Available Rewards
+                    </h3>
+                    <div className="grid gap-2 sm:gap-3">
+                      {restaurantVoucherTypes.map((vt) => (
+                        <div
+                          key={vt.id}
+                          className="flex items-start gap-3 p-3 rounded-lg border bg-white hover:shadow-sm transition-shadow"
+                          data-testid={`card-voucher-type-${vt.id}`}
+                        >
+                          <div className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 ${
+                            vt.earningMode === "points" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"
+                          }`}>
+                            {vt.category === "free_item" ? (
+                              <Utensils className="h-4 w-4" />
+                            ) : vt.category === "percentage" ? (
+                              <Sparkles className="h-4 w-4" />
+                            ) : (
+                              <Gift className="h-4 w-4" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="text-sm font-medium leading-tight" data-testid={`text-voucher-type-name-${vt.id}`}>{vt.name}</p>
+                              <Badge variant="outline" className="shrink-0 text-[10px]" data-testid={`badge-voucher-type-cost-${vt.id}`}>
+                                {vt.creditsCost} {vt.earningMode === "points" ? "pts" : "visit"} credit{vt.creditsCost !== 1 ? "s" : ""}
+                              </Badge>
+                            </div>
+                            {vt.description && (
+                              <p className="text-xs text-muted-foreground mt-0.5">{vt.description}</p>
+                            )}
+                            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                              <Badge variant="secondary" className="text-[10px]">
+                                {vt.category === "rand_value" ? `R${vt.value} off` : vt.category === "percentage" ? `${vt.value}% off` : vt.category === "free_item" ? `Free ${vt.freeItemType || "item"}` : "Reward"}
+                              </Badge>
+                              <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                                <Clock className="h-3 w-3" /> Valid {vt.validityDays} days
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </>
             ) : (
               <Card className="p-6 sm:p-12 text-center">

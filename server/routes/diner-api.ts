@@ -370,6 +370,32 @@ export function registerDinerApiRoutes(router: Router): void {
     }
   });
 
+  router.get("/api/diner/restaurants/:restaurantId/voucher-types", async (req, res) => {
+    try {
+      const dinerId = requireDinerAuth(req, res);
+      if (!dinerId) return;
+
+      const { restaurantId } = req.params;
+      const voucherTypes = await storage.getActiveVoucherTypesByRestaurant(restaurantId);
+      res.json(voucherTypes.map(vt => ({
+        id: vt.id,
+        name: vt.name,
+        description: vt.description,
+        rewardDetails: vt.rewardDetails,
+        category: vt.category,
+        earningMode: vt.earningMode,
+        creditsCost: vt.creditsCost,
+        validityDays: vt.validityDays,
+        value: vt.value,
+        freeItemType: vt.freeItemType,
+        freeItemDescription: vt.freeItemDescription,
+      })));
+    } catch (error) {
+      console.error("Get voucher types error:", error);
+      res.status(500).json({ error: "Failed to fetch voucher types" });
+    }
+  });
+
   router.get("/api/diner/available-restaurants", async (req, res) => {
     try {
       const dinerId = requireDinerAuth(req, res);

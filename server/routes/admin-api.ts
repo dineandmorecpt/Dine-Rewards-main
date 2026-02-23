@@ -556,19 +556,8 @@ export function registerAdminApiRoutes(router: Router): void {
 
   router.get("/api/admin/staff", async (req, res) => {
     try {
-      const userId = getAuthUserId(req);
       const { restaurantId, error } = await getAdminRestaurantId(req);
       if (error) return res.status(error.status).json({ error: error.message });
-      
-      const restaurant = await storage.getRestaurant(restaurantId!);
-      if (!restaurant) {
-        return res.status(404).json({ error: "Restaurant not found" });
-      }
-      
-      const isOwner = restaurant.adminUserId === userId;
-      if (!isOwner) {
-        return res.status(403).json({ error: "Only the restaurant owner can manage staff" });
-      }
       
       const portalUsersList = await storage.getPortalUsersByRestaurant(restaurantId!);
       res.json(portalUsersList);

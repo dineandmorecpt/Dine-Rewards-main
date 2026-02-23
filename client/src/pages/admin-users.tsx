@@ -37,8 +37,9 @@ interface PortalUser {
 }
 
 export default function AdminUsers() {
-  const { restaurant } = useAuth();
+  const { restaurant, portalRole } = useAuth();
   const restaurantId = restaurant?.id;
+  const isOwner = portalRole === "owner";
   const queryClient = useQueryClient();
   const [addStaffOpen, setAddStaffOpen] = useState(false);
   const [newStaffName, setNewStaffName] = useState("");
@@ -146,7 +147,7 @@ export default function AdminUsers() {
                   {portalUsers.length} team member{portalUsers.length !== 1 ? "s" : ""} with portal access
                 </CardDescription>
               </div>
-              <Dialog open={addStaffOpen} onOpenChange={setAddStaffOpen}>
+              {isOwner && <Dialog open={addStaffOpen} onOpenChange={setAddStaffOpen}>
                 <DialogTrigger asChild>
                   <Button data-testid="button-add-staff">
                     <UserPlus className="h-4 w-4 mr-2" />
@@ -235,7 +236,7 @@ export default function AdminUsers() {
                     </Button>
                   </DialogFooter>
                 </DialogContent>
-              </Dialog>
+              </Dialog>}
             </div>
           </CardHeader>
           <CardContent>
@@ -286,7 +287,7 @@ export default function AdminUsers() {
                           {formatDate(pu.createdAt)}
                         </TableCell>
                         <TableCell>
-                          {pu.role !== "owner" && (
+                          {isOwner && pu.role !== "owner" && (
                             <Button
                               variant="ghost"
                               size="sm"

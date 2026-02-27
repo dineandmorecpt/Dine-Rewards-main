@@ -4,10 +4,13 @@ import { createLoyaltyServices } from "../services/loyalty";
 import { sendRegistrationInvite } from "../services/sms";
 import { checkSMSRateLimit, recordSMSSent } from "../services/smsRateLimiter";
 import { getAuthUserId, getAuthUserType } from "./auth";
+import { recordTransactionSchema } from "../validation/auth-schemas";
+import { validateDiscoveryRequest, validateDiscoveryEligibility, getSubscriptionStatus } from "../validation/discovery-rules";
 import { z } from "zod";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import rateLimit from "express-rate-limit";
+import { getSchedulerStatus, fetchAndProcessFtpFiles, recordFetchResult } from "../services/scheduler";
 
 const services = createLoyaltyServices(storage);
 
@@ -103,18 +106,6 @@ const createVoucherTypeSchema = z.object({
   validityDays: z.number().int().min(1).default(30),
   expiresAt: z.string().optional(),
   isActive: z.boolean().default(true),
-});
-
-const recordTransactionSchema = z.object({
-  phone: z.string()
-    .transform(val => val.trim().replace(/[\s\-()]/g, ''))
-    .refine(val => val.length >= 7, { message: "Phone number must be at least 7 digits" })
-    .refine(val => /^[0-9+]+$/.test(val), { message: "Phone number contains invalid characters" }),
-  billId: z.string().optional(),
-  branchId: z.string().optional(),
-  amountSpent: z.coerce.number()
-    .refine(val => !isNaN(val), { message: "Amount must be a valid number" })
-    .refine(val => val > 0, { message: "Amount must be greater than zero" })
 });
 
 const inviteDinerSchema = z.object({
@@ -565,19 +556,8 @@ export function registerAdminApiRoutes(router: Router): void {
 
   router.get("/api/admin/staff", async (req, res) => {
     try {
-      const userId = getAuthUserId(req);
       const { restaurantId, error } = await getAdminRestaurantId(req);
       if (error) return res.status(error.status).json({ error: error.message });
-      
-      const restaurant = await storage.getRestaurant(restaurantId!);
-      if (!restaurant) {
-        return res.status(404).json({ error: "Restaurant not found" });
-      }
-      
-      const isOwner = restaurant.adminUserId === userId;
-      if (!isOwner) {
-        return res.status(403).json({ error: "Only the restaurant owner can manage staff" });
-      }
       
       const portalUsersList = await storage.getPortalUsersByRestaurant(restaurantId!);
       res.json(portalUsersList);
@@ -1566,12 +1546,9 @@ export function registerAdminApiRoutes(router: Router): void {
 
       const { enabled, termsAccepted } = req.body;
 
-      if (typeof enabled !== 'boolean') {
-        return res.status(422).json({ error: "enabled must be a boolean" });
-      }
-
-      if (enabled && !termsAccepted) {
-        return res.status(422).json({ error: "You must accept the terms and conditions to enable diner discovery" });
+      const requestValidation = validateDiscoveryRequest({ enabled, termsAccepted });
+      if (!requestValidation.valid) {
+        return res.status(422).json({ error: requestValidation.errors[0] });
       }
 
       const restaurant = await storage.getRestaurant(restaurantId!);
@@ -1579,8 +1556,9 @@ export function registerAdminApiRoutes(router: Router): void {
         return res.status(404).json({ error: "Restaurant not found" });
       }
 
-      if (restaurant.onboardingStatus !== 'active') {
-        return res.status(422).json({ error: "Restaurant onboarding must be completed before enabling diner discovery" });
+      const eligibility = validateDiscoveryEligibility(restaurant.onboardingStatus);
+      if (!eligibility.eligible) {
+        return res.status(422).json({ error: eligibility.error });
       }
 
       const updatedRestaurant = await storage.updateRestaurantDiscovery(restaurantId!, {
@@ -1613,20 +1591,73 @@ export function registerAdminApiRoutes(router: Router): void {
       if (error) return res.status(error.status).json({ error: error.message });
 
       const subscription = await storage.getRestaurantSubscription(restaurantId!);
-      if (!subscription) {
-        return res.json({ isSubscribed: false, plan: "free" });
-      }
-      const now = new Date();
-      const isActive = subscription.isSubscribed && (!subscription.expiresAt || subscription.expiresAt > now);
-      res.json({
-        isSubscribed: isActive,
-        plan: subscription.plan,
-        subscribedAt: subscription.subscribedAt,
-        expiresAt: subscription.expiresAt,
-      });
+      const status = getSubscriptionStatus(subscription ?? null);
+      res.json(status);
     } catch (error) {
       console.error("Get subscription error:", error);
       res.status(500).json({ error: "Failed to fetch subscription status" });
     }
   });
+
+  router.get("/api/admin/ftp-status", async (req, res) => {
+    try {
+      const { restaurantId, error } = await getAdminRestaurantId(req);
+      if (error) return res.status(error.status).json({ error: error.message });
+
+      const status = getSchedulerStatus(restaurantId!);
+      res.json(status);
+    } catch (error) {
+      console.error("Get FTP status error:", error);
+      res.status(500).json({ error: "Failed to fetch FTP status" });
+    }
+  });
+
+  router.post("/api/admin/ftp-fetch", async (req, res) => {
+    try {
+      const { restaurantId, error } = await getAdminRestaurantId(req);
+      if (error) return res.status(error.status).json({ error: error.message });
+
+      const restaurant = await storage.getRestaurant(restaurantId!);
+      const ftpPath = restaurant?.ftpPath;
+
+      const result = await fetchAndProcessFtpFiles(restaurantId!, ftpPath || undefined);
+      recordFetchResult(restaurantId!, result);
+      res.json(result);
+    } catch (error) {
+      console.error("Manual FTP fetch error:", error);
+      res.status(500).json({ error: "Failed to run FTP fetch" });
+    }
+  });
+
+  router.get("/api/admin/ftp-path", async (req, res) => {
+    try {
+      const { restaurantId, error } = await getAdminRestaurantId(req);
+      if (error) return res.status(error.status).json({ error: error.message });
+
+      const restaurant = await storage.getRestaurant(restaurantId!);
+      res.json({ ftpPath: restaurant?.ftpPath || null });
+    } catch (error) {
+      console.error("Get FTP path error:", error);
+      res.status(500).json({ error: "Failed to fetch FTP path" });
+    }
+  });
+
+  router.put("/api/admin/ftp-path", async (req, res) => {
+    try {
+      const { restaurantId, error } = await getAdminRestaurantId(req);
+      if (error) return res.status(error.status).json({ error: error.message });
+
+      const { ftpPath } = req.body;
+      if (ftpPath !== null && typeof ftpPath !== "string") {
+        return res.status(400).json({ error: "ftpPath must be a string or null" });
+      }
+
+      const updated = await storage.updateRestaurant(restaurantId!, { ftpPath: ftpPath || null });
+      res.json({ ftpPath: updated.ftpPath });
+    } catch (error) {
+      console.error("Update FTP path error:", error);
+      res.status(500).json({ error: "Failed to update FTP path" });
+    }
+  });
+
 }

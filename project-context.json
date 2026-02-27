@@ -1,0 +1,387 @@
+{
+  "project": {
+    "name": "Dine&More",
+    "description": "A premium loyalty rewards platform connecting diners with restaurants. Restaurant administrators manage loyalty programs, vouchers, and analytics. Diners track points, redeem vouchers, and view transaction history across restaurants.",
+    "stack": {
+      "frontend": {
+        "framework": "React 18",
+        "language": "TypeScript",
+        "routing": "Wouter",
+        "state_management": "TanStack React Query",
+        "styling": "Tailwind CSS + shadcn/ui (Radix UI primitives)",
+        "icons": "Lucide React",
+        "charts": "Recharts",
+        "forms": "React Hook Form + Zod",
+        "captcha": "Cloudflare Turnstile"
+      },
+      "backend": {
+        "framework": "Express.js",
+        "language": "TypeScript",
+        "runtime": "Node.js (tsx)",
+        "orm": "Drizzle ORM",
+        "database": "PostgreSQL (Neon-backed)",
+        "validation": "Zod",
+        "auth": "Session-based (express-session) + header-based dual auth",
+        "password_hashing": "bcryptjs",
+        "sms": "SMS Portal API",
+        "email": "Bird API"
+      },
+      "testing": {
+        "framework": "Vitest",
+        "test_count": 122,
+        "test_files": 5,
+        "run_command": "npx vitest run"
+      }
+    }
+  },
+  "architecture": {
+    "portals": {
+      "diner_portal": {
+        "description": "Customer-facing portal for loyalty program members",
+        "api_prefix": "/api/diner",
+        "auth": "Session-based, no dinerId in URLs",
+        "route_file": "server/routes/diner-api.ts"
+      },
+      "admin_portal": {
+        "description": "Restaurant management portal for administrators and staff",
+        "api_prefix": "/api/admin",
+        "auth": "Session-based, restaurantId derived from authenticated admin",
+        "route_file": "server/routes/admin-api.ts"
+      }
+    },
+    "user_model": {
+      "dual_identity": "A person can be both a diner AND restaurant staff member with the same email/phone",
+      "tables": {
+        "diners": "New table for loyalty program members",
+        "restaurant_staff": "New table for restaurant administrators/staff",
+        "users": "Legacy table kept for backward compatibility (composite unique on email+user_type and phone+user_type)"
+      },
+      "portal_auth": "Login includes a 'portal' parameter ('diner' or 'restaurant') to route authentication to the correct table"
+    },
+    "service_layer": [
+      {
+        "name": "LoyaltyService",
+        "file": "server/services/loyalty/loyalty.service.ts",
+        "responsibilities": ["Points calculation", "Credit earning", "Transaction recording", "Voucher generation"]
+      },
+      {
+        "name": "VoucherService",
+        "file": "server/services/loyalty/voucher.service.ts",
+        "responsibilities": ["Voucher status/validation", "Code generation (12-char, 15-min expiry)", "Redemption with branch restrictions", "Presentation flow"]
+      },
+      {
+        "name": "ConfigService",
+        "file": "server/services/loyalty/config.service.ts",
+        "responsibilities": ["Restaurant settings validation", "Loyalty configuration management"]
+      },
+      {
+        "name": "StatsService",
+        "file": "server/services/loyalty/stats.service.ts",
+        "responsibilities": ["Dashboard analytics", "Revenue reporting"]
+      },
+      {
+        "name": "ReconciliationService",
+        "file": "server/services/loyalty/reconciliation.service.ts",
+        "responsibilities": ["CSV bulk transaction upload", "Batch processing", "Record matching"]
+      }
+    ],
+    "validation_modules": [
+      {
+        "file": "server/validation/auth-schemas.ts",
+        "exports": ["passwordSchema", "loginSchema", "selfRegisterDinerSchema", "recordTransactionSchema", "createVoucherTypeSchema", "requestOtpSchema", "verifyOtpSchema", "forgotPasswordSchema", "resetPasswordSchema", "tokenLoginSchema", "invitationOtpSchema", "verifyInvitationOtpSchema"]
+      },
+      {
+        "file": "server/validation/discovery-rules.ts",
+        "exports": ["validateDiscoveryRequest", "validateDiscoveryEligibility", "getSubscriptionStatus"]
+      }
+    ]
+  },
+  "database": {
+    "tables": [
+      {
+        "name": "diners",
+        "description": "Loyalty program members (new architecture)",
+        "key_fields": ["id", "analyticsId", "email", "password", "name", "lastName", "phone", "gender", "dateOfBirth", "province", "accessToken", "phoneVerified", "activeVoucherCode", "activeVoucherId", "activeVoucherCodeSetAt", "termsAcceptedAt", "privacyAcceptedAt"]
+      },
+      {
+        "name": "restaurant_staff",
+        "description": "Restaurant administrators and staff (new architecture)",
+        "key_fields": ["id", "email", "password", "name", "phone", "accessToken"]
+      },
+      {
+        "name": "users",
+        "description": "Legacy user table with composite unique constraints on (email, user_type) and (phone, user_type)",
+        "key_fields": ["id", "analyticsId", "email", "password", "name", "lastName", "phone", "userType", "gender", "dateOfBirth", "province", "phoneVerified", "activeVoucherCode", "activeVoucherId"]
+      },
+      {
+        "name": "restaurants",
+        "description": "Restaurant profiles with loyalty configuration",
+        "key_fields": ["id", "name", "adminUserId", "voucherValue", "voucherValidityDays", "pointsPerCurrency", "pointsThreshold", "voucherEarningMode", "visitThreshold", "loyaltyScope", "voucherScope", "onboardingStatus", "dinerDiscoveryEnabled", "dinerDiscoveryAcceptedAt", "logoUrl", "tradingName", "description", "cuisineType"]
+      },
+      {
+        "name": "branches",
+        "description": "Restaurant branch locations for multi-branch support",
+        "key_fields": ["id", "restaurantId", "name", "streetAddress", "city", "province", "contactPhone", "isActive"]
+      },
+      {
+        "name": "points_balances",
+        "description": "Per-diner, per-restaurant (or per-branch) loyalty points tracking",
+        "key_fields": ["id", "dinerId", "restaurantId", "branchId", "currentPoints", "totalPointsEarned", "currentVisits", "totalVisits", "totalVouchersGenerated", "availableVoucherCredits", "totalVoucherCreditsEarned", "pointsCredits", "visitCredits"]
+      },
+      {
+        "name": "transactions",
+        "description": "Individual dining transactions with points earned",
+        "key_fields": ["id", "dinerId", "restaurantId", "branchId", "amountSpent", "pointsEarned", "billId"]
+      },
+      {
+        "name": "voucher_types",
+        "description": "Configurable voucher templates per restaurant",
+        "key_fields": ["id", "restaurantId", "branchId", "name", "description", "earningMode", "value", "freeItemType", "freeItemDescription", "redemptionScope", "redeemableBranchIds", "creditsCost", "validityDays", "isActive"]
+      },
+      {
+        "name": "vouchers",
+        "description": "Issued voucher instances for diners",
+        "key_fields": ["id", "dinerId", "restaurantId", "branchId", "voucherTypeId", "title", "code", "expiryDate", "isRedeemed", "redeemedAt", "redeemedBillId", "redeemedBranchId"]
+      },
+      {
+        "name": "registration_voucher_status",
+        "description": "Tracks registration vouchers issued to new diners",
+        "key_fields": ["id", "dinerId", "restaurantId", "voucherId", "issuedAt", "redeemedAt"]
+      },
+      {
+        "name": "campaigns",
+        "description": "Marketing campaigns targeting diner segments",
+        "key_fields": ["id", "restaurantId", "branchId", "name", "voucherTitle", "targetAudience", "message", "status", "scheduledFor"]
+      },
+      {
+        "name": "reconciliation_batches",
+        "description": "CSV upload batches for bulk transaction reconciliation",
+        "key_fields": ["id", "restaurantId", "branchId", "fileName", "totalRecords", "matchedRecords", "unmatchedRecords", "status", "csvHeaders"]
+      },
+      {
+        "name": "reconciliation_records",
+        "description": "Individual records within a reconciliation batch",
+        "key_fields": ["id", "batchId", "billId", "phone", "amount", "date", "matchedDinerId", "status", "rawData"]
+      },
+      {
+        "name": "diner_invitations",
+        "description": "Invitation tokens for restaurant-initiated diner registration",
+        "key_fields": ["id", "restaurantId", "phone", "token", "status", "invitedBy"]
+      },
+      {
+        "name": "portal_users",
+        "description": "Staff portal access with role-based permissions",
+        "key_fields": ["id", "userId", "restaurantId", "role", "isActive"]
+      },
+      {
+        "name": "portal_user_branches",
+        "description": "Branch-level access control for portal staff",
+        "key_fields": ["id", "portalUserId", "branchId"]
+      },
+      {
+        "name": "activity_logs",
+        "description": "Audit trail for admin actions",
+        "key_fields": ["id", "restaurantId", "userId", "action", "targetType", "targetId", "details"]
+      },
+      {
+        "name": "password_reset_tokens",
+        "description": "Temporary tokens for password reset flow",
+        "key_fields": ["id", "userId", "token", "expiresAt"]
+      },
+      {
+        "name": "account_deletion_requests",
+        "description": "Two-step account deletion with email verification",
+        "key_fields": ["id", "userId", "reason", "token", "status"]
+      },
+      {
+        "name": "archived_users",
+        "description": "Archived user data for compliance after deletion",
+        "key_fields": ["id", "originalUserId", "email", "archivedData"]
+      },
+      {
+        "name": "phone_change_requests",
+        "description": "OTP-verified phone number change requests",
+        "key_fields": ["id", "userId", "newPhone", "otp", "status"]
+      },
+      {
+        "name": "restaurant_subscriptions",
+        "description": "Premium subscription status for restaurants",
+        "key_fields": ["id", "restaurantId", "isSubscribed", "plan", "subscribedAt", "expiresAt"]
+      }
+    ]
+  },
+  "api_endpoints": {
+    "auth": [
+      { "method": "POST", "path": "/api/auth/login", "description": "Email/password login with captcha and portal selection" },
+      { "method": "POST", "path": "/api/auth/logout", "description": "End session" },
+      { "method": "GET", "path": "/api/auth/me", "description": "Get current authenticated user" },
+      { "method": "POST", "path": "/api/auth/register-diner", "description": "Self-registration for new diners" },
+      { "method": "POST", "path": "/api/auth/login-token", "description": "Login via persistent access token" },
+      { "method": "POST", "path": "/api/auth/check-token", "description": "Validate access token" },
+      { "method": "POST", "path": "/api/auth/request-otp", "description": "Request OTP for phone verification" },
+      { "method": "POST", "path": "/api/auth/verify-otp", "description": "Verify OTP code" },
+      { "method": "POST", "path": "/api/auth/request-phone-verification", "description": "Request post-login phone verification OTP" },
+      { "method": "POST", "path": "/api/auth/verify-phone-otp", "description": "Verify phone OTP for post-login verification" },
+      { "method": "POST", "path": "/api/auth/request-registration-otp", "description": "Request OTP during invitation registration" },
+      { "method": "POST", "path": "/api/auth/verify-registration-otp", "description": "Verify OTP during invitation registration" },
+      { "method": "POST", "path": "/api/auth/invitation-otp", "description": "Request OTP for invitation flow" },
+      { "method": "POST", "path": "/api/auth/verify-invitation-otp", "description": "Verify OTP in invitation flow" },
+      { "method": "POST", "path": "/api/auth/forgot-password", "description": "Request password reset via email" },
+      { "method": "POST", "path": "/api/auth/forgot-password-sms", "description": "Request password reset via SMS" },
+      { "method": "GET", "path": "/api/auth/validate-reset-token", "description": "Validate password reset token" },
+      { "method": "POST", "path": "/api/auth/reset-password", "description": "Reset password with token" },
+      { "method": "POST", "path": "/api/account/request-deletion", "description": "Request account deletion (sends confirmation email)" },
+      { "method": "GET", "path": "/api/account/validate-deletion-token", "description": "Validate deletion confirmation token" },
+      { "method": "POST", "path": "/api/account/confirm-deletion", "description": "Confirm and execute account deletion" },
+      { "method": "GET", "path": "/r/:token", "description": "Redirect short invitation link to registration page" }
+    ],
+    "diner": [
+      { "method": "GET", "path": "/api/diner/points", "description": "Get diner's points balances across all restaurants" },
+      { "method": "GET", "path": "/api/diner/vouchers", "description": "Get diner's vouchers (active, redeemed, expired)" },
+      { "method": "GET", "path": "/api/diner/transactions", "description": "Get diner's transaction history" },
+      { "method": "GET", "path": "/api/diner/restaurants/:restaurantId/transactions", "description": "Get transactions for a specific restaurant" },
+      { "method": "PATCH", "path": "/api/diner/profile", "description": "Update diner profile" },
+      { "method": "POST", "path": "/api/diner/transactions", "description": "Record a new transaction" },
+      { "method": "POST", "path": "/api/diner/vouchers/:voucherId/select", "description": "Select voucher for presentation (generates 12-char code, 15-min expiry)" },
+      { "method": "POST", "path": "/api/diner/restaurants/:restaurantId/redeem-credit", "description": "Redeem a voucher credit for a specific restaurant" },
+      { "method": "POST", "path": "/api/diner/phone-change/request", "description": "Request phone number change (sends OTP)" },
+      { "method": "POST", "path": "/api/diner/phone-change/verify", "description": "Verify OTP to complete phone change" },
+      { "method": "GET", "path": "/api/diner/available-restaurants", "description": "List restaurants with diner discovery enabled" },
+      { "method": "POST", "path": "/api/diner/join-restaurant", "description": "Join a restaurant's loyalty program" }
+    ],
+    "admin": [
+      { "method": "GET", "path": "/api/admin/restaurant", "description": "Get restaurant details for authenticated admin" },
+      { "method": "PATCH", "path": "/api/admin/restaurant/settings", "description": "Update loyalty program settings" },
+      { "method": "PATCH", "path": "/api/admin/restaurant/profile", "description": "Update restaurant profile info" },
+      { "method": "PATCH", "path": "/api/admin/restaurant/onboarding", "description": "Save onboarding progress" },
+      { "method": "POST", "path": "/api/admin/restaurant/onboarding/submit", "description": "Submit onboarding for review" },
+      { "method": "POST", "path": "/api/admin/restaurant/onboarding/activate", "description": "Activate restaurant after onboarding" },
+      { "method": "GET", "path": "/api/admin/branches", "description": "List restaurant branches" },
+      { "method": "POST", "path": "/api/admin/branches", "description": "Create a new branch" },
+      { "method": "PATCH", "path": "/api/admin/branches/:branchId", "description": "Update branch details" },
+      { "method": "DELETE", "path": "/api/admin/branches/:branchId", "description": "Delete a branch" },
+      { "method": "GET", "path": "/api/admin/stats", "description": "Get dashboard statistics" },
+      { "method": "GET", "path": "/api/admin/revenue", "description": "Get revenue analytics" },
+      { "method": "GET", "path": "/api/admin/diners", "description": "List enrolled diners" },
+      { "method": "GET", "path": "/api/admin/staff", "description": "List restaurant staff" },
+      { "method": "POST", "path": "/api/admin/staff", "description": "Add new staff member" },
+      { "method": "DELETE", "path": "/api/admin/staff/:portalUserId", "description": "Remove staff member" },
+      { "method": "PUT", "path": "/api/admin/staff/:portalUserId/branch-access", "description": "Update staff branch access" },
+      { "method": "GET", "path": "/api/admin/voucher-types", "description": "List all voucher types" },
+      { "method": "GET", "path": "/api/admin/voucher-types/active", "description": "List active voucher types" },
+      { "method": "POST", "path": "/api/admin/voucher-types", "description": "Create a new voucher type" },
+      { "method": "PATCH", "path": "/api/admin/voucher-types/:voucherTypeId", "description": "Update a voucher type" },
+      { "method": "DELETE", "path": "/api/admin/voucher-types/:voucherTypeId", "description": "Delete a voucher type" },
+      { "method": "GET", "path": "/api/admin/voucher-redemptions", "description": "List voucher redemptions" },
+      { "method": "POST", "path": "/api/admin/vouchers/redeem", "description": "Redeem a voucher by presentation code" },
+      { "method": "GET", "path": "/api/admin/transactions", "description": "List transactions with filtering" },
+      { "method": "POST", "path": "/api/admin/transactions/record", "description": "Record a transaction for a diner by phone number" },
+      { "method": "POST", "path": "/api/admin/reconciliation/upload", "description": "Upload CSV for bulk transaction reconciliation" },
+      { "method": "GET", "path": "/api/admin/reconciliation/batches", "description": "List reconciliation batches" },
+      { "method": "GET", "path": "/api/admin/reconciliation/batches/:batchId", "description": "Get batch details with records" },
+      { "method": "GET", "path": "/api/admin/reconciliation/insights", "description": "Get reconciliation insights and analytics" },
+      { "method": "POST", "path": "/api/admin/diners/invite", "description": "Invite a diner via SMS" },
+      { "method": "GET", "path": "/api/admin/invitations", "description": "List sent invitations" },
+      { "method": "GET", "path": "/api/admin/diner-registrations", "description": "List diner registrations via discovery" },
+      { "method": "GET", "path": "/api/admin/discovery", "description": "Get diner discovery settings" },
+      { "method": "POST", "path": "/api/admin/discovery", "description": "Enable/disable diner discovery (requires T&C acceptance)" },
+      { "method": "GET", "path": "/api/admin/subscription", "description": "Get premium subscription status" },
+      { "method": "GET", "path": "/api/admin/activity-logs", "description": "Get admin activity audit trail" }
+    ]
+  },
+  "frontend_pages": {
+    "public": [
+      { "path": "/", "file": "client/src/pages/home.tsx", "description": "Landing/login page" },
+      { "path": "/register", "file": "client/src/pages/register.tsx", "description": "Diner self-registration and invitation-based registration" },
+      { "path": "/forgot-password", "file": "client/src/pages/forgot-password.tsx", "description": "Password reset request" },
+      { "path": "/reset-password", "file": "client/src/pages/reset-password.tsx", "description": "Password reset form" },
+      { "path": "/confirm-deletion", "file": "client/src/pages/confirm-account-deletion.tsx", "description": "Account deletion confirmation" }
+    ],
+    "diner_portal": [
+      { "path": "/diner", "file": "client/src/pages/diner-dashboard.tsx", "description": "Points overview, vouchers, restaurant cards" },
+      { "path": "/diner/history", "file": "client/src/pages/diner-history.tsx", "description": "Transaction history across restaurants" },
+      { "path": "/diner/profile", "file": "client/src/pages/diner-profile.tsx", "description": "Profile management and phone change" },
+      { "path": "/diner/faq", "file": "client/src/pages/diner-faq.tsx", "description": "Frequently asked questions" }
+    ],
+    "admin_portal": [
+      { "path": "/admin", "file": "client/src/pages/admin-dashboard.tsx", "description": "Dashboard with stats, recent activity" },
+      { "path": "/admin/users", "file": "client/src/pages/admin-users.tsx", "description": "Diner management and staff management" },
+      { "path": "/admin/vouchers", "file": "client/src/pages/admin-vouchers.tsx", "description": "Voucher type management and redemptions" },
+      { "path": "/admin/reconciliation", "file": "client/src/pages/admin-reconciliation.tsx", "description": "CSV upload and batch reconciliation" },
+      { "path": "/admin/insights", "file": "client/src/pages/admin-insights.tsx", "description": "Analytics dashboard with menu insights and premium features" },
+      { "path": "/admin/settings", "file": "client/src/pages/admin-settings.tsx", "description": "Loyalty config, discovery toggle, profile settings" },
+      { "path": "/admin/profile", "file": "client/src/pages/admin-profile.tsx", "description": "Restaurant profile management" },
+      { "path": "/admin/onboarding", "file": "client/src/pages/admin-onboarding.tsx", "description": "Multi-step restaurant onboarding wizard" },
+      { "path": "/admin/activity", "file": "client/src/pages/admin-activity-logs.tsx", "description": "Audit trail of admin actions" }
+    ]
+  },
+  "key_features": {
+    "loyalty_program": {
+      "earning_modes": ["points (earn credits after reaching points threshold)", "visits (earn credits after set number of visits)"],
+      "loyalty_scope": ["organization (points shared across all branches)", "branch (points tracked per branch)"],
+      "voucher_scope": ["organization", "branch"],
+      "configurable_settings": ["pointsPerCurrency (1-100)", "pointsThreshold (100-10000)", "visitThreshold (1-100)", "voucherValidityDays (1-365)"]
+    },
+    "voucher_system": {
+      "voucher_types": "Configurable templates with earning mode, credits cost, validity, redemption scope",
+      "redemption_flow": "Diner taps voucher -> 12-char code generated (15-min expiry) -> Staff enters code at POS -> Voucher redeemed",
+      "branch_restrictions": "Voucher types can be restricted to specific branches"
+    },
+    "diner_discovery": {
+      "description": "Restaurants opt-in to be listed as rewards partners visible to all diners",
+      "requirements": "Active onboarding status + T&C acceptance acknowledging billing for new diner registrations",
+      "fields": ["dinerDiscoveryEnabled (boolean)", "dinerDiscoveryAcceptedAt (timestamp)"]
+    },
+    "reconciliation": {
+      "description": "Bulk CSV upload for matching transactions to enrolled diners",
+      "features": ["Full column capture from CSV", "Phone-based diner matching", "Batch status tracking", "Insights dashboard"]
+    },
+    "phone_verification": {
+      "description": "Post-login OTP verification modal for new diner accounts",
+      "behavior": "Modal is dismissable ('I'll do this later' button), reappears on next login until verified"
+    },
+    "premium_subscription": {
+      "description": "Restaurant subscription for premium features",
+      "gated_features": ["Create View", "Export", "Campaign buttons on Insights page"],
+      "status_logic": "Active if isSubscribed=true AND (no expiresAt OR expiresAt > now)"
+    },
+    "security": {
+      "password_rules": "Min 8 chars, uppercase, lowercase, number, special character",
+      "sms_rate_limiting": "Per-IP, per-phone, per-restaurant, global daily limits",
+      "captcha": "Cloudflare Turnstile on login and registration",
+      "privacy": "POPIA-compliant pseudonymized analytics via unique analyticsId",
+      "account_deletion": "Two-step: request -> email confirmation -> data archival"
+    }
+  },
+  "file_structure": {
+    "shared": {
+      "schema.ts": "Drizzle ORM schema with all 22 database tables, insert schemas, and types"
+    },
+    "server": {
+      "index.ts": "Express app entry point",
+      "storage.ts": "IStorage interface + Drizzle-based implementation (1541 lines)",
+      "routes/": "Feature-based route modules (auth, admin-api, diner-api, etc.)",
+      "services/loyalty/": "Domain services (LoyaltyService, VoucherService, ConfigService, StatsService, ReconciliationService)",
+      "services/sms.ts": "SMS sending via SMS Portal API",
+      "services/email.ts": "Email sending via Bird API",
+      "services/captcha.ts": "Cloudflare Turnstile verification",
+      "services/smsRateLimiter.ts": "Multi-layer SMS rate limiting",
+      "validation/": "Shared Zod schemas and business rule validators"
+    },
+    "client/src": {
+      "pages/": "18 page components across public, diner, and admin portals",
+      "components/layout/": "Admin and diner layout wrappers with navigation",
+      "components/dashboard/": "Reusable dashboard widgets (stats cards, activity feed)",
+      "components/ui/": "60+ shadcn/ui components",
+      "lib/queryClient.ts": "TanStack Query config with auth header helpers"
+    },
+    "tests": {
+      "mock-storage.ts": "Mock storage factory with vi.fn() mocks",
+      "loyalty.service.test.ts": "27 tests for LoyaltyService",
+      "voucher.service.test.ts": "23 tests for VoucherService",
+      "config.service.test.ts": "20 tests for ConfigService",
+      "auth-validation.test.ts": "28 tests for auth schemas and helpers",
+      "admin-api.test.ts": "24 tests for admin validation and business rules"
+    }
+  }
+}

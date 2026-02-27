@@ -37,8 +37,9 @@ interface PortalUser {
 }
 
 export default function AdminUsers() {
-  const { restaurant } = useAuth();
+  const { restaurant, portalRole } = useAuth();
   const restaurantId = restaurant?.id;
+  const isOwner = portalRole === "owner";
   const queryClient = useQueryClient();
   const [addStaffOpen, setAddStaffOpen] = useState(false);
   const [newStaffName, setNewStaffName] = useState("");
@@ -146,7 +147,7 @@ export default function AdminUsers() {
                   {portalUsers.length} team member{portalUsers.length !== 1 ? "s" : ""} with portal access
                 </CardDescription>
               </div>
-              <Dialog open={addStaffOpen} onOpenChange={setAddStaffOpen}>
+              {isOwner && <Dialog open={addStaffOpen} onOpenChange={setAddStaffOpen}>
                 <DialogTrigger asChild>
                   <Button data-testid="button-add-staff">
                     <UserPlus className="h-4 w-4 mr-2" />
@@ -235,7 +236,7 @@ export default function AdminUsers() {
                     </Button>
                   </DialogFooter>
                 </DialogContent>
-              </Dialog>
+              </Dialog>}
             </div>
           </CardHeader>
           <CardContent>
@@ -278,7 +279,7 @@ export default function AdminUsers() {
                           {pu.user.email}
                         </TableCell>
                         <TableCell>
-                          <Badge variant={pu.role === "manager" ? "default" : "secondary"}>
+                          <Badge variant={pu.role === "owner" ? "destructive" : pu.role === "manager" ? "default" : "secondary"}>
                             {pu.role.charAt(0).toUpperCase() + pu.role.slice(1)}
                           </Badge>
                         </TableCell>
@@ -286,15 +287,17 @@ export default function AdminUsers() {
                           {formatDate(pu.createdAt)}
                         </TableCell>
                         <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeStaff.mutate(pu.id)}
-                            disabled={removeStaff.isPending}
-                            data-testid={`button-remove-staff-${pu.id}`}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
+                          {isOwner && pu.role !== "owner" && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeStaff.mutate(pu.id)}
+                              disabled={removeStaff.isPending}
+                              data-testid={`button-remove-staff-${pu.id}`}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}

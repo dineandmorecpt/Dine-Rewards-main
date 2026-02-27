@@ -102,6 +102,7 @@ import { getAuthHeaders } from "@/lib/queryClient";
 - Make API calls without `headers: getAuthHeaders()`
 - Modify authentication logic without thorough testing of both admin and diner portals
 
+
 ### Core Features
 - **User Management**: Restaurant admins can view and manage diners, and owners can manage staff with role-based access.
 - **Profile Management**: Admins manage business profiles, while diners can manage their personal profiles and view transaction history.

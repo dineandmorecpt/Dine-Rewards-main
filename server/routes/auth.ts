@@ -8,6 +8,21 @@ import { z } from "zod";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import rateLimit from "express-rate-limit";
+import {
+  passwordSchema,
+  loginSchema,
+  forgotPasswordSchema,
+  forgotPasswordSmsSchema,
+  resetPasswordSchema,
+  requestDeletionSchema,
+  selfRegisterDinerSchema,
+  tokenLoginSchema,
+  checkTokenLoginSchema,
+  requestOtpSchema,
+  verifyOtpSchema,
+  invitationOtpSchema,
+  verifyInvitationOtpSchema,
+} from "../validation/auth-schemas";
 
 const authRateLimiter = rateLimit({
   windowMs: 1000,
@@ -46,93 +61,6 @@ export function getAuthUserType(req: any): string | null {
   return req.session?.userType || null;
 }
 
-const passwordSchema = z.string()
-  .min(8, "Password must be at least 8 characters")
-  .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
-  .regex(/[a-z]/, "Password must contain at least one lowercase letter")
-  .regex(/[0-9]/, "Password must contain at least one number")
-  .regex(/[^A-Za-z0-9]/, "Password must contain at least one special character");
-
-const loginSchema = z.object({
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(1, "Password is required"),
-  captchaToken: z.string().min(1, "Security verification required"),
-  portal: z.enum(["diner", "restaurant"]).optional(), // Which portal is being accessed
-});
-
-const forgotPasswordSchema = z.object({
-  email: z.string().email("Invalid email address"),
-});
-
-const forgotPasswordSmsSchema = z.object({
-  phone: z.string()
-    .transform(val => val.trim().replace(/[\s\-()]/g, ''))
-    .refine(val => val.length >= 7, { message: "Phone number must be at least 7 digits" }),
-});
-
-const resetPasswordSchema = z.object({
-  token: z.string().min(1, "Token is required"),
-  password: passwordSchema,
-});
-
-const requestDeletionSchema = z.object({
-  reason: z.string().optional(),
-});
-
-const selfRegisterDinerSchema = z.object({
-  name: z.string().min(1, "First name is required"),
-  lastName: z.string().min(1, "Surname is required"),
-  email: z.string().email("Invalid email address"),
-  phone: z.string()
-    .transform(val => val.trim().replace(/[\s\-()]/g, ''))
-    .refine(val => val.length >= 7, { message: "Phone number must be at least 7 digits" })
-    .refine(val => /^[0-9+]+$/.test(val), { message: "Phone number contains invalid characters" }),
-  password: passwordSchema,
-  gender: z.enum(["male", "female"]),
-  dateOfBirth: z.string().min(1, "Date of birth is required"),
-  province: z.string().min(1, "Province is required"),
-  restaurantId: z.string().optional(),
-  verificationToken: z.string().optional(),
-});
-
-const tokenLoginSchema = z.object({
-  accessToken: z.string().min(1, "Access token is required"),
-});
-
-const checkTokenLoginSchema = z.object({
-  phone: z.string()
-    .transform(val => val.trim().replace(/[\s\-()]/g, ''))
-    .refine(val => val.length >= 7, { message: "Phone number must be at least 7 digits" }),
-});
-
-const requestOtpSchema = z.object({
-  phone: z.string()
-    .transform(val => val.trim().replace(/[\s\-()]/g, ''))
-    .refine(val => val.length >= 7, { message: "Phone number must be at least 7 digits" })
-    .refine(val => /^[0-9+]+$/.test(val), { message: "Phone number contains invalid characters" }),
-});
-
-const verifyOtpSchema = z.object({
-  phone: z.string()
-    .transform(val => val.trim().replace(/[\s\-()]/g, ''))
-    .refine(val => val.length >= 7, { message: "Phone number must be at least 7 digits" }),
-  otp: z.string().length(6, "OTP must be 6 digits"),
-});
-
-const invitationOtpSchema = z.object({
-  phone: z.string()
-    .transform(val => val.trim().replace(/[\s\-()]/g, ''))
-    .refine(val => val.length >= 7, { message: "Phone number must be at least 7 digits" }),
-  token: z.string().min(1, "Invitation token is required"),
-});
-
-const verifyInvitationOtpSchema = z.object({
-  phone: z.string()
-    .transform(val => val.trim().replace(/[\s\-()]/g, ''))
-    .refine(val => val.length >= 7, { message: "Phone number must be at least 7 digits" }),
-  otp: z.string().length(6, "Verification code must be 6 digits"),
-  token: z.string().min(1, "Invitation token is required"),
-});
 
 export function registerAuthRoutes(router: Router): void {
   router.get("/r/:token", (req, res) => {

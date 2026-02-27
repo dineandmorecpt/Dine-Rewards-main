@@ -83,8 +83,9 @@ export const queryClient = new QueryClient({
       refetchInterval: false,
       refetchOnWindowFocus: true,
       refetchOnReconnect: true,
-      refetchOnMount: "always", // Always refetch on component mount/navigation
-      staleTime: 0, // Data is immediately stale, forcing refetch on every navigation
+      refetchOnMount: "always",
+      staleTime: 0,
+      gcTime: 0,
       retry: false,
     },
     mutations: {

@@ -7,6 +7,7 @@ import {
   LogOut,
   Menu,
   HelpCircle,
+  FileText,
   ShieldCheck,
   Loader2,
   CheckCircle2,
@@ -100,6 +101,7 @@ export function DinerLayout({ children }: DinerLayoutProps) {
     { name: "History", href: "/diner/history", icon: History },
     { name: "Profile", href: "/diner/profile", icon: User },
     { name: "FAQ", href: "/diner/faq", icon: HelpCircle },
+    { name: "Terms", href: "/diner/terms", icon: FileText },
   ];
 
   const SidebarContent = () => (

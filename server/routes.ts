@@ -46,5 +46,6 @@ export async function registerRoutes(
   // Register admin API routes (consumer-specific, session-based for admins)
   registerAdminApiRoutes(app);
 
+
   return httpServer;
 }

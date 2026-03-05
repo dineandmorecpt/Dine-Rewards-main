@@ -140,7 +140,6 @@ client/src/
     admin-onboarding.tsx      # Restaurant onboarding wizard
     admin-users.tsx           # Staff management
     admin-profile.tsx         # Business profile editing
-    admin-services-agreement.tsx # Static services agreement
     diner-dashboard.tsx       # Points, vouchers, restaurant cards
     diner-history.tsx         # Transaction history
     diner-profile.tsx         # Personal profile, phone change

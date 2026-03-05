@@ -15,7 +15,6 @@ import AdminOnboarding from "@/pages/admin-onboarding";
 import AdminUsers from "@/pages/admin-users";
 import AdminProfile from "@/pages/admin-profile";
 import AdminInsights from "@/pages/admin-insights";
-import AdminServicesAgreement from "@/pages/admin-services-agreement";
 import DinerDashboard from "@/pages/diner-dashboard";
 import DinerHistory from "@/pages/diner-history";
 import DinerProfile from "@/pages/diner-profile";
@@ -69,9 +68,6 @@ function Router() {
       </Route>
       <Route path="/admin/profile">
         <AdminGuard><AdminProfile /></AdminGuard>
-      </Route>
-      <Route path="/admin/services-agreement">
-        <AdminGuard><AdminServicesAgreement /></AdminGuard>
       </Route>
       
       <Route path="/diner">

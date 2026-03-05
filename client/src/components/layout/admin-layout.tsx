@@ -14,8 +14,7 @@ import {
   ChevronDown,
   Users,
   Lightbulb,
-  Crown,
-  FileText
+  Crown
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -79,7 +78,6 @@ function AdminLayoutContent({ children }: AdminLayoutProps) {
     { name: "Campaigns", href: null, icon: Megaphone, premium: true },
     { name: "Business Profile", href: "/admin/profile", icon: Building2 },
     { name: "Settings", href: "/admin/settings", icon: Settings },
-    { name: "Services Agreement", href: "/admin/services-agreement", icon: FileText },
   ];
 
   const SidebarContent = () => (

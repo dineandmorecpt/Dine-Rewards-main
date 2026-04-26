@@ -169,12 +169,9 @@ export function DinerLayout({ children }: DinerLayoutProps) {
     <div className="min-h-screen bg-background font-sans diner-theme">
       {/* Header with hamburger menu - shown on all screen sizes */}
       <div className="px-4 py-4 sm:px-6 sm:py-5 flex items-center justify-between bg-background border-b border-gray-100 sticky top-0 z-40">
-        <Link href="/diner/dashboard" className="hover:opacity-80 transition-opacity">
-          <img src={dinerLogo} alt="Dine&More" className="h-14 sm:h-16 w-auto" />
-        </Link>
         <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
           <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-10 w-10 text-gray-700 hover:bg-gray-100">
+            <Button variant="ghost" size="icon" className="h-10 w-10 text-gray-700 hover:bg-gray-100" data-testid="button-open-menu">
               <Menu className="h-5 w-5 sm:h-6 sm:w-6" />
             </Button>
           </SheetTrigger>
@@ -186,6 +183,9 @@ export function DinerLayout({ children }: DinerLayoutProps) {
             <SidebarContent />
           </SheetContent>
         </Sheet>
+        <Link href="/diner/dashboard" className="hover:opacity-80 transition-opacity">
+          <img src={dinerLogo} alt="Dine&More" className="h-14 sm:h-16 w-auto" />
+        </Link>
       </div>
       
       {/* Main Content */}
